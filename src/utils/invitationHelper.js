@@ -1,4 +1,4 @@
-import Invitation from '../models/invitations.js';
+import Invitation from '../models/Invitations.js';
 import User from '../models/User.js';
 import Member from '../models/members.js'; // Import thêm Model Member mới của ní
 

@@ -6,7 +6,7 @@ import Tournament from '../models/tournament.js';
 import PlayerModel from '../models/players.js'; 
 import Member from '../models/members.js';
 import User from '../models/User.js';
-import Invitation from '../models/invitations.js';
+import Invitation from '../models/Invitations.js';
 import handleCreateInvitation from '../utils/invitationHelper.js';
 
 // TAO DOi
