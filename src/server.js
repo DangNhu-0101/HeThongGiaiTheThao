@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser'; 
@@ -18,12 +19,14 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-
+const __dirname = path.resolve();
 // --- Cấu hình Middleware ---
-app.use(cors({
+if (process.env.NODE_ENV !== "production") {
+    app.use(cors({
     origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], 
     credentials: true // Cho phép gửi JWT qua HttpOnly Cookie
 }));
+}
 
 app.use(express.json());
 app.use(cookieParser()); // Bây giờ biến này đã được định nghĩa
@@ -38,6 +41,13 @@ app.use('/api/tournaments', tournamentRoute);
 app.use('/api/referees', refereeRoute);
 app.use('/api/courts', courtRoute);
 app.use('/api/sponsors', sponsorRoute);
+
+if (process.env.NODE_ENV === 'production') {
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
+app.get('/{*path}', (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+});
+}
 // --- Khởi động hệ thống ---
 connectDB().then(() => {
     app.listen(PORT, () => {
