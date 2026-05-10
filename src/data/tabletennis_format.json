@@ -1,0 +1,146 @@
+{
+  "templateName": "Table_Tennis_Ultimate_Master_Config",
+  "sportType": "table_tennis",
+  "version": "1.0",
+  "language": "vi",
+  "tournamentStructure": {
+    "categories": [
+      {
+        "id": "MS",
+        "name": "Đơn Nam",
+        "minPlayers": 1
+      },
+      {
+        "id": "WS",
+        "name": "Đơn Nữ",
+        "minPlayers": 1
+      },
+      {
+        "id": "MD",
+        "name": "Đôi Nam",
+        "minPlayers": 2
+      },
+      {
+        "id": "WD",
+        "name": "Đôi Nữ",
+        "minPlayers": 2
+      },
+      {
+        "id": "XD",
+        "name": "Đôi Nam Nữ",
+        "minPlayers": 2
+      }
+    ],
+    "skillLevels": [
+      "Professional (ITTF)",
+      "National",
+      "Amateur",
+      "Junior"
+    ],
+    "stages": [
+      {
+        "stageName": "Vòng Bảng",
+        "type": "GROUP_STAGE",
+        "format": "ROUND_ROBIN",
+        "scoring": "BEST_OF_5_SETS",
+        "advanceCriteria": "RANKING_CRITERIA_MATCH_WON"
+      },
+      {
+        "stageName": "Vòng Loại Trực Tiếp",
+        "type": "KNOCKOUT",
+        "format": "SINGLE_ELIMINATION",
+        "hasBronzeMatch": true,
+        "scoring": "BEST_OF_7_SETS"
+      }
+    ]
+  },
+  "gameRules": {
+    "serving": {
+      "style": "OPEN_PALM_TOSS",
+      "rules": [
+        "Tung bóng thẳng đứng tối thiểu 16cm từ lòng bàn tay mở phẳng",
+        "Không được che khuất bóng bằng cơ thể hoặc tay còn lại khi giao",
+        "Bóng phải ở phía sau đường biên cuối bàn và phía trên mặt bàn",
+        "Giao bóng chạm sân mình 1 lần trước khi qua lưới chạm sân đối phương"
+      ],
+      "letServePolicy": "REPLAY",
+      "serviceSequence": {
+        "doubles": "Giao bóng chéo sân từ ô bên phải; Người nhận của lượt trước trở thành người giao lượt này",
+        "singles": "Giao bóng 2 quả đổi lượt; khi hòa 10-10 giao 1 quả đổi lượt"
+      }
+    },
+    "doubleBounceRule": {
+      "enabled": false,
+      "description": "Bóng chỉ được nảy 1 lần trên mỗi bên sân; nảy lần thứ 2 là mất điểm."
+    },
+    "nonVolleyZone": {
+      "name": "Table Surface",
+      "depth": "2.74m",
+      "rules": "Tay không cầm vợt không được chạm vào mặt bàn khi bóng đang sống. Không được làm dịch chuyển bàn."
+    }
+  },
+  "scoringConfigurations": {
+    "standardSideOut": {
+      "description": "Hệ thống điểm trực tiếp (Rally Point System)",
+      "winByTwo": true,
+      "formats": [
+        {
+          "name": "Standard_11",
+          "pointsToWin": 11,
+          "switchSidesAt": 11
+        },
+        {
+          "name": "Deciding_Set_Final",
+          "pointsToWin": 11,
+          "switchSidesAt": 5
+        }
+      ]
+    },
+    "rallyScoring": {
+      "enabled": true,
+      "description": "Tính điểm trực tiếp cho mỗi pha bóng bất kể bên nào giao",
+      "pointsToWin": 11
+    }
+  },
+  "timeManagement": {
+    "warmUpMinutes": 2,
+    "standardTimeOutsPerSet": 1,
+    "timeOutDurationSeconds": 60,
+    "medicalTimeOutMinutes": 10,
+    "betweenSetRestMinutes": 1,
+    "maxWaitTimeBeforeForfeit": 15
+  },
+  "resourceManagement": {
+    "courts": {
+      "minRequired": 1,
+      "dimensions": "2.74m x 1.525m (Mặt bàn)",
+      "surfaceType": [
+        "Wood",
+        "Synthetic Fiberboard"
+      ]
+    },
+    "personnelPerMatch": {
+      "mainReferee": 1,
+      "lineJudges": 0,
+      "scoreKeepers": 1
+    },
+    "equipment": {
+      "ballType": "40mm+ Plastic/Celluloid (Orange/White)",
+      "netHeightCenter": "15.25cm"
+    }
+  },
+  "faultsAndPenalties": {
+    "technicalFaults": [
+      "Bóng nảy 2 lần (Double bounce)",
+      "Tay không cầm vợt chạm bàn",
+      "Chạm lưới hoặc cọc lưới",
+      "Lỗi giao bóng (không tung bóng/che bóng)"
+    ],
+    "conductPenalties": {
+      "yellowCard": "Cảnh cáo hành vi",
+      "redCard": "Đối phương cộng 1 điểm (lần 1) hoặc 2 điểm (lần 2)",
+      "blackCard": "Truất quyền thi đấu (Default)",
+      "verbalWarning": "Nhắc nhở nhẹ nhàng từ trọng tài"
+    }
+  }
+}
