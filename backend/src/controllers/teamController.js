@@ -514,3 +514,121 @@ export const updatePaymentStatus = async (req, res) => {
     }
 };
 
+export const searchUsers = async (req, res) => {
+    try {
+        const { keyword } = req.query;
+        if (!keyword || keyword.trim() === '') {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
+        const users = await User.find({
+            role: 'player', // Chỉ tìm cầu thủ
+            $or: [
+                { displayName: { $regex: keyword, $options: 'i' } },
+                { email: { $regex: keyword, $options: 'i' } },
+                { phoneNumber: { $regex: keyword, $options: 'i' } }
+            ]
+        }).select('displayName email phoneNumber avatar skillLevel');
+
+        return res.status(200).json({ success: true, data: users });
+    } catch (error) {
+        console.error("searchUsers error:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const registerFlow = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const { tournamentId, sport, categoryId, regMode, teamName, invitedUserIds } = req.body;
+        const userId = req.user.id;
+
+        // 1. Kiểm tra giải đấu
+        const tournament = await Tournament.findById(tournamentId).session(session);
+        if (!tournament) throw new Error('Giải đấu không tồn tại');
+        if (tournament.status !== 'upcoming') throw new Error('Giải đấu đã bắt đầu hoặc kết thúc, không thể đăng ký');
+
+        // 2. Kiểm tra cấu hình môn thể thao
+        const sportConfig = tournament.sportsConfig?.find(s => s.sport === sport);
+        if (!sportConfig) throw new Error(`Môn thể thao ${sport} không có trong giải đấu`);
+
+        let newTeam;
+        let fee = sportConfig.feeEntry || 0;
+
+        // 3. Xử lý theo chế độ đăng ký
+        if (regMode === 'solo') {
+            // Đăng ký cá nhân (tạo đội 1 người)
+            const soloTeamName = `${req.user.displayName || 'VĐV'} - ${sport} ${categoryId || ''}`;
+            [newTeam] = await Team.create([{
+                teamName: soloTeamName,
+                tournamentId,
+                sportType: sport,
+                createdBy: userId,
+                status: 'active',
+                isPaid: false
+            }], { session });
+        }
+        else if (regMode === 'create') {
+            // Tạo đội mới và mời thành viên
+            if (!teamName) throw new Error('Tên đội không được để trống');
+            [newTeam] = await Team.create([{
+                teamName,
+                tournamentId,
+                sportType: sport,
+                createdBy: userId,
+                status: 'active',
+                isPaid: false
+            }], { session });
+        }
+        else if (regMode === 'random') {
+            // Ghép ngẫu nhiên: tạo đội tạm, chờ ghép sau
+            [newTeam] = await Team.create([{
+                teamName: `Random_${Date.now()}_${userId.slice(-4)}`,
+                tournamentId,
+                sportType: sport,
+                createdBy: userId,
+                status: 'pending',
+                isPaid: false
+            }], { session });
+            fee = Math.floor(fee / 2); // giảm 50% lệ phí cho chế độ random
+        } else {
+            throw new Error('Chế độ đăng ký không hợp lệ');
+        }
+
+        const teamId = newTeam._id;
+
+        // 4. Thêm người tạo là đội trưởng (Captain)
+        await Member.create([{
+            teamId,
+            userId,
+            role: 'Captain',
+            status: 'Active',
+            joinedAt: new Date()
+        }], { session });
+
+        // 5. Mời đồng đội (nếu có)
+        if (invitedUserIds && invitedUserIds.length > 0) {
+            for (const invitedId of invitedUserIds) {
+                await handleCreateInvitation(userId, invitedId, teamId, 'captain_invite', session);
+            }
+        }
+
+        await session.commitTransaction();
+
+        return res.status(201).json({
+            success: true,
+            message: 'Đăng ký thành công',
+            teamId: teamId,
+            teamName: newTeam.teamName,
+            fee: fee
+        });
+    } catch (error) {
+        await session.abortTransaction();
+        console.error("registerFlow error:", error);
+        return res.status(400).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
