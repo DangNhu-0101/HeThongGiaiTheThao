@@ -20,15 +20,16 @@ const memberSchema = new mongoose.Schema({
 
     role: {
         type: String,
-        enum: ['Captain', 'Member', 'Coach'],
+        enum: ['Captain', 'Member',],
         default: 'Member'
     },
 
+
     status: {
-        type: String,
-        enum: ['Invited', 'Pending', 'Active', 'Rejected'],
-        default: 'Invited'
-    },
+    type: String,
+    enum: ['Invited', 'Pending', 'Active', 'Rejected'], // BẮT BUỘC thêm 'Active' vào đây
+    default: 'Invited'
+},
 
     joinedAt: { type: Date, default: Date.now }
 }, { timestamps: true });

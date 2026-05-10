@@ -6,10 +6,7 @@ const refereeSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
-    phone: {
-        type: String,
-        required: true
-    },
+ 
     // Liên kết với User
     userId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -23,10 +20,7 @@ const refereeSchema = new mongoose.Schema({
         required: true,
         min: 0
     },
-    birthYear: {
-        type: Number,
-        required: true
-    },
+   
     specializedSports: [{
         type: String,
         comment: "Môn thể thao sở trường: Football, Volleyball..."

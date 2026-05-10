@@ -11,8 +11,17 @@ const userSchema = new mongoose.Schema({
 
     
 
-    hashedPassword: {
+    password: {
         type: String,
+        required: true
+    },
+    gender: {
+        type: String,
+        enum: ['male', 'female'],
+        required: true
+    },  
+    birthYear: {
+        type: Number,
         required: true
     },
 

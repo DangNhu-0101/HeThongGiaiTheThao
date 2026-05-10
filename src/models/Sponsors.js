@@ -32,7 +32,6 @@ const sponsorSchema = new mongoose.Schema({
         type: Number,
         required: true,
         min: 0,
-        comment: "Số tiền tài trợ cam kết"
     },
 
     // TRẠNG THÁI THANH TOÁN
@@ -49,11 +48,6 @@ const sponsorSchema = new mongoose.Schema({
         email: String
     },
 
-    note: {
-        type: String,
-        maxLength: 500,
-        comment: "Các thỏa thuận đặc biệt (VD: Đặt banner ở vị trí A)"
-    }
 }, {
     timestamps: true
 });

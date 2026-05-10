@@ -14,6 +14,13 @@ const matchSchema = new mongoose.Schema({
         ref: 'Tournament', // Liên kết với Hội thao lớn
         required: true
     },
+
+    round:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Round',
+        required: true
+    },
+
     ruleId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
@@ -32,20 +39,6 @@ const matchSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-
-    // ==========================================
-    // CÁC TRƯỜNG MỚI CHO TÍNH NĂNG DUYỆT LỊCH THI ĐẤU
-    // ==========================================
-    isPublished: {
-        type: Boolean,
-        default: false // Mặc định là Bản nháp
-    },
-    
-    stage: {
-        type: String,
-        enum: ['group', 'knockout', 'quarterfinal', 'semifinal', 'final'],
-        default: 'group'
-    },
     
     matchName: {
         type: String // Dùng để đặt tên vòng loại trực tiếp (VD: "Trận Bán Kết 1")
@@ -61,22 +54,7 @@ const matchSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'team' 
     },
-
-    result: {
-        team1Score: {
-            type: Number,
-            default: 0
-        },
-        team2Score: {
-            type: Number,
-            default: 0
-        }
-    },
-    
-    winnerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'team' 
-    },
+  
 
     court: {
         type: String
@@ -95,8 +73,12 @@ const matchSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Referee', 
         default: null
-    }
-  
+    },
+    
+    lineReferees: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
 },
 {
     timestamps: true

@@ -41,7 +41,7 @@ export const handleCreateInvitation = async (senderId, receiverId, teamId) => {
             receiverId,
             teamId,
             status: 'pending'
-        });
+        });return await newInvitation.save();
 
         // 6. TẠO BẢN GHI THÀNH VIÊN (Member) ở trạng thái 'Invited'
         // Việc này giúp ní hiện danh sách "Cầu thủ đang mời" trong quản lý đội

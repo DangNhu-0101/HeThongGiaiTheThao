@@ -19,20 +19,13 @@ const playerSchema = new mongoose.Schema({
         required: true, 
     },
 
-    gender: {
-        type: String,
-        enum: ['male','female']
-    },
+   
 
     skill: {
         type: Number,
         required:true,
     },
-    birthYear: {
-        type: Number,
-        required: true
-
-    },
+   
     position: {
         type: String,
         comment: "Vị trí sở trường (VD: Tiền đạo, Hậu vệ, Libero...)"

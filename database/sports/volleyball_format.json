@@ -1,0 +1,128 @@
+{
+  "templateName": "Volleyball_Ultimate_Master_Config",
+  "sportType": "volleyball",
+  "version": "1.0",
+  "language": "vi",
+  "tournamentStructure": {
+    "categories": [
+      {
+        "id": "INDOOR_6x6",
+        "name": "Bóng chuyền trong nhà",
+        "minPlayers": 6
+      },
+      {
+        "id": "BEACH_2x2",
+        "name": "Bóng chuyền bãi biển",
+        "minPlayers": 2
+      }
+    ],
+    "skillLevels": [
+      "National",
+      "Professional",
+      "Amateur"
+    ],
+    "stages": [
+      {
+        "stageName": "Vòng Bảng",
+        "type": "GROUP_STAGE",
+        "format": "ROUND_ROBIN",
+        "scoring": "BEST_OF_5_SETS",
+        "advanceCriteria": "RANKING_CRITERIA_WIN_LOSS"
+      }
+    ]
+  },
+  "gameRules": {
+    "serving": {
+      "style": "OVERHEAD_OR_UNDERHAND",
+      "rules": [
+        "Phải đứng sau vạch cuối sân khi giao bóng",
+        "Phải thực hiện giao bóng trong vòng 8 giây sau còi hiệu",
+        "Xoay vòng theo chiều kim đồng hồ khi giành lại quyền giao bóng"
+      ],
+      "letServePolicy": "PLAY_ON",
+      "serviceSequence": {
+        "doubles": "Giao bóng theo thứ tự xoay vòng P1",
+        "singles": "N/A"
+      }
+    },
+    "doubleBounceRule": {
+      "enabled": false,
+      "description": "Không áp dụng cho bóng chuyền; bóng có thể đánh trực tiếp sau khi qua lưới."
+    },
+    "nonVolleyZone": {
+      "name": "Attack Line (Vạch 3m)",
+      "depth": "3m",
+      "rules": "Cầu thủ hàng sau không được đập bóng khi bóng cao hơn mép lưới ở phía trước vạch 3m."
+    }
+  },
+  "scoringConfigurations": {
+    "standardSideOut": {
+      "description": "Tính điểm theo hiệp (Set)",
+      "winByTwo": true,
+      "formats": [
+        {
+          "name": "Indoor_Standard",
+          "pointsToWin": 25,
+          "switchSidesAt": 0
+        },
+        {
+          "name": "Beach_Standard",
+          "pointsToWin": 21,
+          "switchSidesAt": 7
+        },
+        {
+          "name": "DecidingSet",
+          "pointsToWin": 15,
+          "switchSidesAt": 8
+        }
+      ]
+    },
+    "rallyScoring": {
+      "enabled": true,
+      "description": "Tính điểm trực tiếp cho mỗi pha bóng (Rally Point System)",
+      "pointsToWin": 25
+    }
+  },
+  "timeManagement": {
+    "warmUpMinutes": 10,
+    "standardTimeOutsPerSet": 2,
+    "timeOutDurationSeconds": 30,
+    "medicalTimeOutMinutes": 5,
+    "betweenSetRestMinutes": 3,
+    "maxWaitTimeBeforeForfeit": 15
+  },
+  "resourceManagement": {
+    "courts": {
+      "minRequired": 1,
+      "dimensions": "18m x 9m (Indoor) / 16m x 8m (Beach)",
+      "surfaceType": [
+        "Wood",
+        "Taraflex",
+        "Sand"
+      ]
+    },
+    "personnelPerMatch": {
+      "mainReferee": 1,
+      "lineJudges": 4,
+      "scoreKeepers": 1
+    },
+    "equipment": {
+      "ballType": "Indoor/Beach Volleyball",
+      "netHeightCenter": "2.43m (Men) / 2.24m (Women)"
+    }
+  },
+  "faultsAndPenalties": {
+    "technicalFaults": [
+      "Dính bóng (Catch)",
+      "Chạm bóng 2 lần liên tiếp (Double Contact)",
+      "Đội chạm bóng quá 3 lần (Four Hits)",
+      "Chạm lưới hoặc lỗi vị trí"
+    ],
+    "conductPenalties": {
+      "yellowCard": "Cảnh cáo (Không trừ điểm)",
+      "redCard": "Đối phương +1 điểm và quyền giao bóng",
+      "redYellowTogether": "Đuổi khỏi hiệp đấu",
+      "redYellowSeparate": "Truất quyền thi đấu"
+    }
+  }
+}

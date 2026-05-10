@@ -10,24 +10,21 @@ const REFRESH_TOKEN_TTL = 12 * 24 * 60 * 60 * 1000; // 12 ngày
 // 1. ĐĂNG KÝ TÀI KHOẢN
 export const register = async (req, res) => {
     try {
-        const { username, password, email, displayName, role, confirmPassword,phoneNumber } = req.body;
+        const { username, password, gender, birthYear, email, displayName, role, confirmPassword, phoneNumber } = req.body;
 
         // 1. Validate input
-        if (!username || !password || !email || !displayName ||!confirmPassword || !role || !phoneNumber) {
-            return res.status(400).json({
-                message: "Vui lòng nhập đầy đủ thông tin (Tên đăng nhập, Mật khẩu, Email, Tên hiển thị)"
-            });
+        if (!username || !password || !gender || !birthYear || !email || !displayName || !confirmPassword || !role || !phoneNumber) {
+            return res.status(400).json({ message: "Thiếu thông tin đăng ký (Kiểm tra Năm sinh/Giới tính/SĐT)" });
         }
+
         if (confirmPassword !== password) {
-            return res.status(400).json({
-                message: "Mật khẩu xác nhận không trùng khớp"
-            });
+            return res.status(400).json({ message: "Mật khẩu xác nhận không trùng khớp" });
         }
 
         // 2. Kiểm tra tồn tại
-        const check = await User.findOne({ username });
+        const check = await User.findOne({ $or: [{ username }, { email }] });
         if (check) {
-            return res.status(409).json({ message: "Tên đăng nhập đã tồn tại" });
+            return res.status(409).json({ message: "Tên đăng nhập hoặc Email đã tồn tại" });
         }
 
         // 3. Mã hóa mật khẩu
@@ -36,24 +33,30 @@ export const register = async (req, res) => {
         // 4. Tạo người dùng mới
         const newUser = await User.create({
             username,
-            hashedPassword,
+            password: hashedPassword,
             email,
             displayName,
-            phoneNumber: phoneNumber,
-            role: role || 'Player' // Đặt mặc định nếu không có role
+            gender,
+            birthYear: Number(birthYear),
+            phoneNumber,
+            role: role || 'Player'
         });
 
-        // 5. Tạo Access Token
+        // 5. Kiểm tra Secret Key (Chống crash 500)
+        if (!process.env.ACCESS_TOKEN) {
+            console.error("LỖI: Chưa cấu hình ACCESS_TOKEN trong file .env");
+            return res.status(500).json({ message: "Lỗi cấu hình server (JWT Secret)" });
+        }
+
+        // 6. Tạo Access Token (Dùng chuỗi '30m' cho an toàn)
         const accessToken = jwt.sign(
             { userId: newUser._id },
             process.env.ACCESS_TOKEN,
-            { expiresIn: ACCESS_TOKEN_TTL } 
+            { expiresIn: '30m' } 
         );
 
-        // 6. Tạo Refresh Token
+        // 7. Tạo Refresh Token
         const refreshToken = crypto.randomBytes(64).toString('hex');
-
-        // 7. Lưu Session vào DB
         await Session.create({
             userId: newUser._id,
             refreshToken,
@@ -64,24 +67,26 @@ export const register = async (req, res) => {
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax', // 'lax' tốt hơn cho môi trường localhost (khác port 5173 và 5001)
-            maxAge: ACCESS_TOKEN_TTL,
+            sameSite: 'lax',
+            maxAge: REFRESH_TOKEN_TTL,
         });
 
-        // 9. Trả về Access Token cho Client
         return res.status(201).json({
-            message: "Đăng ký và đăng nhập thành công!",
+            message: "Đăng ký thành công!",
             accessToken,
             user: {
                 username: newUser.username,
                 displayName: newUser.displayName,
-                role: newUser.role
+                role: newUser.role,
+                userId: newUser._id
             }
         });
 
     } catch (error) {
-        console.error("Lỗi trong hàm Register:", error);
-        return res.status(500).json({ message: "Lỗi hệ thống khi đăng ký" });
+        // Dòng này cực quan trọng để Như soi lỗi ở Terminal
+        console.error("==== LỖI REGISTER CHI TIẾT ====");
+        console.error(error); 
+        return res.status(500).json({ message: "Lỗi hệ thống: " + error.message });
     }
 }
 
@@ -106,7 +111,7 @@ export const login = async (req, res) => {
         }
 
         // Kiểm tra mật khẩu đã mã hóa
-        const passwordCorrect = await bcrypt.compare(password, user.hashedPassword);
+        const passwordCorrect = await bcrypt.compare(password, user.password);
 
         if (!passwordCorrect) {
             return res.status(401).json({
