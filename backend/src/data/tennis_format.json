@@ -1,0 +1,157 @@
+{
+  "templateName": "Tennis_Ultimate_Master_Rules_ViEn",
+  "sportType": "tennis",
+  "version": "1.0",
+  "language": "vi",
+  "tournamentStructure": {
+    "categories": [
+      {
+        "id": "MS",
+        "name": "Đơn Nam",
+        "minPlayers": 1
+      },
+      {
+        "id": "WS",
+        "name": "Đơn Nữ",
+        "minPlayers": 1
+      },
+      {
+        "id": "MD",
+        "name": "Đôi Nam",
+        "minPlayers": 2
+      },
+      {
+        "id": "WD",
+        "name": "Đôi Nữ",
+        "minPlayers": 2
+      },
+      {
+        "id": "XD",
+        "name": "Đôi Nam Nữ",
+        "minPlayers": 2
+      }
+    ],
+    "skillLevels": [
+      "ATP/WTA Pro",
+      "ITF",
+      "NTRP 3.0-5.0",
+      "Amateur"
+    ],
+    "stages": [
+      {
+        "stageName": "Vòng Bảng",
+        "type": "GROUP_STAGE",
+        "format": "ROUND_ROBIN",
+        "scoring": "BEST_OF_3_SETS",
+        "advanceCriteria": "RANKING_CRITERIA_MATCH_WON"
+      },
+      {
+        "stageName": "Vòng Loại Trực Tiếp",
+        "type": "KNOCKOUT",
+        "format": "SINGLE_ELIMINATION",
+        "hasBronzeMatch": true,
+        "scoring": "BEST_OF_3_SETS"
+      }
+    ]
+  },
+  "gameRules": {
+    "serving": {
+      "style": "OVERHEAD_SERVICE",
+      "rules": [
+        "Phải tung bóng và đánh bóng trước khi nó chạm đất",
+        "Đứng sau vạch cuối sân và giữa điểm mốc trung tâm",
+        "Giao bóng chéo sân vào ô giao bóng đối diện",
+        "Được phép giao bóng lại (Let) nếu bóng chạm lưới và rơi vào ô quy định"
+      ],
+      "letServePolicy": "REPLAY",
+      "serviceSequence": {
+        "doubles": "Xoay vòng giữa 4 người theo thứ tự đã đăng ký đầu mỗi set",
+        "singles": "Thay đổi người giao bóng sau mỗi game thi đấu"
+      }
+    },
+    "doubleBounceRule": {
+      "enabled": false,
+      "description": "Bóng chỉ được phép nảy 1 lần; nảy lần thứ 2 là mất điểm (Trừ tennis xe lăn)."
+    },
+    "nonVolleyZone": {
+      "name": "Service Line to Net (Khu vực ô giao bóng)",
+      "depth": "6.4m",
+      "rules": "Khác với Pickleball, người chơi Tennis được phép volley ở bất cứ đâu, kể cả sát lưới."
+    }
+  },
+  "scoringConfigurations": {
+    "standardSideOut": {
+      "description": "Hệ thống tính điểm truyền thống (Love-15-30-40-Game)",
+      "winByTwo": true,
+      "formats": [
+        {
+          "name": "Standard_Set",
+          "pointsToWin": 6,
+          "switchSidesAt": 1
+        },
+        {
+          "name": "Short_Set",
+          "pointsToWin": 4,
+          "switchSidesAt": 1
+        },
+        {
+          "name": "Tie_Break_Standard",
+          "pointsToWin": 7,
+          "switchSidesAt": 6
+        },
+        {
+          "name": "Super_Tie_Break",
+          "pointsToWin": 10,
+          "switchSidesAt": 6
+        }
+      ]
+    },
+    "rallyScoring": {
+      "enabled": true,
+      "description": "Ghi điểm trực tiếp (Áp dụng trong loạt Tie-break)",
+      "pointsToWin": 7
+    }
+  },
+  "timeManagement": {
+    "warmUpMinutes": 5,
+    "standardTimeOutsPerSet": 0,
+    "timeOutDurationSeconds": 90,
+    "medicalTimeOutMinutes": 3,
+    "betweenSetRestMinutes": 2,
+    "maxWaitTimeBeforeForfeit": 15
+  },
+  "resourceManagement": {
+    "courts": {
+      "minRequired": 1,
+      "dimensions": "23.77m x 10.97m (Đôi) / 8.23m (Đơn)",
+      "surfaceType": [
+        "Hard Court",
+        "Clay Court",
+        "Grass Court"
+      ]
+    },
+    "personnelPerMatch": {
+      "mainReferee": 1,
+      "lineJudges": 7,
+      "scoreKeepers": 1
+    },
+    "equipment": {
+      "ballType": "Pressurized Tennis Balls",
+      "netHeightCenter": "0.914m"
+    }
+  },
+  "faultsAndPenalties": {
+    "technicalFaults": [
+      "Lỗi chân (Foot fault)",
+      "Lỗi kép (Double fault)",
+      "Chạm lưới khi bóng sống",
+      "Bóng chạm người/vợt trước khi nảy"
+    ],
+    "conductPenalties": {
+      "yellowCard": "Cảnh cáo (Warning)",
+      "redCard": "Trừ 1 điểm (Point Penalty)",
+      "gamePenalty": "Trừ 1 game thi đấu",
+      "default": "Truất quyền thi đấu ngay lập tức"
+    }
+  }
+}
