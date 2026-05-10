@@ -80,7 +80,7 @@ const Home = () => {
         <div className="countdown-text">
           Khai mạc sau: {timeLeft.days} ngày : {timeLeft.hours} giờ : {timeLeft.minutes} phút : {timeLeft.seconds} giây
         </div>
-        <Link to="/signup">
+        <Link to="/register" style={{ textDecoration: 'none' }}>
           <button className="auth-button shadow-hover" style={{ maxWidth: '320px', margin: '40px auto' }}>ĐĂNG KÝ THAM GIA NGAY</button>
         </Link>
       </section>

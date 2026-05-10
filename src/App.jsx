@@ -4,8 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 // Lưu ý: Không cần import api axios ở đây nữa vì AuthContext đã lo việc gọi API
 
 // --- CÁC TRANG SHARED & PUBLIC ---
-import Signup from './pages/Signup';
-import Signin from './pages/Signin';
+import Register from './pages/Register';
+import Login from './pages/Login';
 import Home from './pages/Home';
 import Standings from './pages/Standings';
 import Referee from './pages/Referee';
@@ -13,8 +13,10 @@ import Profile from './pages/Profile';
 import Bracket from './pages/Bracket';
 import Fixtures from './pages/Fixtures';
 import Notifications from './pages/Notifications';
+import MyTeams from './pages/MyTeam';
 import ScheduleDrafts from './pages/ScheduleDrafts';
 import RegisterTeam from './pages/RegisterTeam';
+import TeamDetail from './pages/TeamDetail';
 import Navbar from './components/Navbar';
 
 // --- CÁC TRANG DÀNH RIÊNG CHO ORGANIZATION (ADMIN) ---
@@ -23,9 +25,9 @@ import Admin from './pages/Organization/Organization';
 
 // Import đầy đủ các Views nằm trong thư mục Organization/views
 import DashboardView from './pages/Organization/views/DashboardView';
+import TournamentRulesView from './pages/Organization/views/TournamentRulesView'; // Chứa cái DynamicStageConfig hoặc RuleFormModal
 import TournamentDetailView from './pages/Organization/views/TournamentDetailView';
 import MatchView from './pages/Organization/views/MatchView';
-import RulesLibraryView from './pages/Organization/views/RulesLibraryView';
 import TeamView from './pages/Organization/views/TeamView';
 import CourtView from './pages/Organization/views/CourtView';
 import FinanceView from './pages/Organization/views/FinanceView';
@@ -48,8 +50,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       );
   }
 
-  // 1. Không hợp lệ (Không có cookie/Token hết hạn hoặc user = null) -> Đá về Signin
-  if (!user) return <Navigate to="/signin" replace />;
+  // 1. Không hợp lệ (Không có cookie/Token hết hạn hoặc user = null) -> Đá về Login
+  if (!user) return <Navigate to="/login" replace />;
 
   // 2. Organization được quyền đi muôn nơi (Bypass mọi luật lệ)
   if (user.role === 'Organization') return children;
@@ -82,8 +84,8 @@ function App() {
               CÁC TRANG PUBLIC (Không cần đăng nhập) 
           ========================================== */}
           <Route path="/" element={<Home />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/signin" element={<Signin />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/standings" element={<Standings />} />
           <Route path="/bracket" element={<Bracket />} />
           <Route path="/fixtures" element={<Fixtures />} />
@@ -92,16 +94,17 @@ function App() {
               CÁC TRANG USER (Chỉ cần đăng nhập, không phân biệt Role)
           ========================================== */}
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-
+        
           {/* ==========================================
               CÁC TRANG DÀNH CHO PLAYER (VÀ ORG)
           ========================================== */}
           <Route path="/notifications" element={<ProtectedRoute allowedRoles={['Player', 'Referee']}><Notifications /></ProtectedRoute>} />
           <Route path="/register-team" element={<ProtectedRoute allowedRoles={['Player']}><RegisterTeam /></ProtectedRoute>} />
-
+          <Route path="/my-teams" element={<ProtectedRoute allowedRoles={['Player']}><MyTeams /></ProtectedRoute>} />
+          <Route path="/teams/:id" element={<ProtectedRoute allowedRoles={['Player']}><TeamDetail /></ProtectedRoute>} />
           {/* ==========================================
               CÁC TRANG DÀNH CHO REFEREE (VÀ ORG)
-          ========================================== */}
+          =================================== ======= */}
           <Route path="/referee" element={<ProtectedRoute allowedRoles={['Referee']}><Referee /></ProtectedRoute>} />
 
           {/* ==========================================
@@ -115,24 +118,24 @@ function App() {
               </ProtectedRoute>
             }
           >
-              {/* 
-                  Khi URL là "/admin", nó sẽ load DashboardView vào lỗ hổng <Outlet /> 
+              {/* Khi URL là "/admin", nó sẽ load DashboardView vào lỗ hổng <Outlet /> 
               */}
               <Route index element={<DashboardView />} />
-
+                
               {/* Global admin routes */}
               <Route path="users" element={<UserListView />} />
-              <Route path="rules" element={<RulesLibraryView />} />
 
-              {/* 
-                  Khi URL là "/admin/tournament/:id", nó load TournamentDetailView 
+              {/* ĐÃ FIX: Bổ sung Route gốc khi chọn 1 giải đấu cụ thể
               */}
-              <Route path="tournament/:id" element={<TournamentDetailView />} />
+              <Route path="tournament/:id" element={<DashboardView />} /> 
+              
+              <Route path="tournament/:id/rules" element={<TournamentRulesView />} />             
               <Route path="tournament/:id/settings" element={<TournamentDetailView />} />
               <Route path="tournament/:id/teams" element={<TeamView />} />
               <Route path="tournament/:id/matches" element={<MatchView />} />
               <Route path="tournament/:id/courts" element={<CourtView />} />
               <Route path="tournament/:id/finance" element={<FinanceView />} />
+              
               {/* Route gốc của bạn chuyển thành Route con */}
               <Route path="schedule-drafts" element={<ScheduleDrafts />} />
           </Route>

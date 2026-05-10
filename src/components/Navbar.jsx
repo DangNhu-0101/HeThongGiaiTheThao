@@ -46,8 +46,8 @@ const Navbar = () => {
       <div style={{ display: 'flex', alignItems: 'center' }}>
         {!user ? (
           <div style={{ display: 'flex', gap: '15px' }}>
-            <Link to="/signin" style={{ textDecoration: 'none', color: '#333', fontWeight: 'bold' }}>Đăng nhập</Link>
-            <Link to="/signup" style={{ textDecoration: 'none', background: '#84cc16', color: '#fff', padding: '8px 20px', borderRadius: '20px', fontWeight: 'bold' }}>Đăng ký</Link>
+            <Link to="/login" style={{ textDecoration: 'none', color: '#333', fontWeight: 'bold' }}>Đăng nhập</Link>
+            <Link to="/register" style={{ textDecoration: 'none', background: '#84cc16', color: '#fff', padding: '8px 20px', borderRadius: '20px', fontWeight: 'bold' }}>Đăng ký</Link>
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>

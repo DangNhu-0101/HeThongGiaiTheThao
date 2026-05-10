@@ -1,24 +1,49 @@
 import axios from 'axios';
-const BASE_URL = import.meta.env.MODE === 'development' ?  'http://localhost:5001/api' : '/api';
+
+// 1. Tự động nhận diện URL Backend
+const BASE_URL = import.meta.env.MODE === 'development' 
+    ? 'http://localhost:5001/api' 
+    : '/api'; 
+
 const api = axios.create({
     baseURL: BASE_URL,
-    withCredentials: true, // Vẫn giữ nguyên để gửi Cookie chứa Refresh Token
+    withCredentials: true, // Quan trọng để gửi Cookie
 });
 
-// INTERCEPTOR: Tự động đính kèm Access Token vào mọi Request gửi đi
+// INTERCEPTOR: Chốt chặn gửi đi
 api.interceptors.request.use(
     (config) => {
-        // 1. Lấy token mà bạn đã lưu lúc Login (Hãy đảm bảo tên key 'token' hoặc 'accessToken' khớp với code của bạn)
-        const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+        // Lấy token từ localStorage
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
         
-        // 2. Nếu có token, nhét ngay vào Header
         if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
+            // Kiểm tra tránh trường hợp token bị lưu thành chuỗi "null" hoặc "undefined"
+            if (token !== "null" && token !== "undefined") {
+                // Sử dụng config.headers.Authorization (viết hoa chữ A cho chuẩn Standard)
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
+        
+        // Log nhẹ để Như kiểm tra lúc debug (Xóa khi chạy thật)
+        // console.log("Header gửi đi:", config.headers.Authorization);
         
         return config;
     },
     (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// MỚI: Thêm Interceptor cho phản hồi (Response) để xử lý khi Token hết hạn
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        // Nếu Server trả về 401 (Unauthorized) nghĩa là Token "oẳng" rồi
+        if (error.response && error.response.status === 401) {
+            console.warn("Phiên đăng nhập hết hạn!");
+            // localStorage.removeItem('token'); 
+            // window.location.href = '/login'; // Có thể đá ra trang login nếu cần
+        }
         return Promise.reject(error);
     }
 );

@@ -43,7 +43,7 @@ const Sidebar = ({ tournaments, onCreate }) => {
             <div style={{ padding: '0 25px', marginBottom: '20px' }}>
                 <div className="sidebar-label">HỆ THỐNG</div>
                 <button onClick={() => navigate('/admin/users')} className={`sidebar-btn ${activeTab === 'global-users' ? 'active' : ''}`}>NGƯỜI DÙNG</button>
-                <button onClick={() => navigate('/admin/rules')} className={`sidebar-btn ${activeTab === 'rules-library' ? 'active' : ''}`}>KHO LUẬT</button>
+                <button onClick={() => navigate('/admin/tournaments')} className={`sidebar-btn ${activeTab === 'rules-library' ? 'active' : ''}`}>GIẢI ĐẤU</button>
             </div>
 
             {/* TOURNAMENT SELECTOR */}
@@ -60,16 +60,26 @@ const Sidebar = ({ tournaments, onCreate }) => {
             {selectedTourId && (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <div className="sidebar-label">ĐIỀU HÀNH</div>
-                    {['dashboard', 'matches', 'teams', 'courts',  'finance'].map(tabId => {
-                        // Xác định đường dẫn tương ứng với từng tab
+                    {/* THÊM 'rules' VÀO MẢNG DƯỚI ĐÂY */}
+                    {['dashboard', 'rules', 'matches', 'teams', 'courts', 'finance'].map(tabId => {
                         let targetPath = `/admin/tournament/${selectedTourId}`;
                         if (tabId !== 'dashboard') {
                             targetPath = `/admin/tournament/${selectedTourId}/${tabId}`;
                         }
                         
+                        // Việt hóa text hiển thị trên Sidebar cho đẹp
+                        const tabLabels = {
+                            'dashboard': 'DASHBOARD',
+                            'rules': 'VÒNG ĐẤU & LUẬT',
+                            'matches': 'TRẬN ĐẤU',
+                            'teams': 'ĐỘI TUYỂN',
+                            'courts': 'SÂN BÃI',
+                            'finance': 'TÀI CHÍNH'
+                        };
+                        
                         return (
                             <button key={tabId} onClick={() => navigate(targetPath)} className={`sidebar-btn sub ${activeTab === tabId ? 'active' : ''}`}>
-                                {tabId.toUpperCase()}
+                                {tabLabels[tabId]}
                             </button>
                         );
                     })}

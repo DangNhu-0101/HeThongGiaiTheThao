@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('token');
             setUser(null);
-            window.location.href = '/signin';
+            window.location.href = '/login';
         } catch (error) {
             console.error("Lỗi đăng xuất", error);
         }
