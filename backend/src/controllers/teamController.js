@@ -6,8 +6,8 @@ import Tournament from '../models/tournament.js';
 import PlayerModel from '../models/players.js'; 
 import Member from '../models/members.js';
 import User from '../models/User.js';
-// Đã xóa import Invitation vì không còn dùng collection này nữa
-import Notification from '../models/Notification.js';
+
+import Notification from '../models/notification.js';
 import handleCreateInvitation from '../utils/invitationHelper.js';
 
 export const handleRandomMatching = async (currentUserId, tournamentId, ruleId, mySkill, session) => {
