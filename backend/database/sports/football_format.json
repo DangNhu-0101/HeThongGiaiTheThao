@@ -1,0 +1,141 @@
+{
+  "templateName": "Football_Master_Official_Rules_Full_ViEn",
+  "sportType": "football",
+  "version": "1.0",
+  "language": "vi",
+  "tournamentStructure": {
+    "categories": [
+      {
+        "id": "FIELD_11",
+        "name": "Bóng đá sân 11 (Chuyên nghiệp)",
+        "minPlayers": 7
+      },
+      {
+        "id": "FIELD_7",
+        "name": "Bóng đá sân 7 (Bán chuyên/Phủi)",
+        "minPlayers": 4
+      },
+      {
+        "id": "FIELD_5",
+        "name": "Bóng đá sân 5 (Futsal)",
+        "minPlayers": 3
+      }
+    ],
+    "skillLevels": [
+      "Professional",
+      "Semi-Pro",
+      "Amateur"
+    ],
+    "stages": [
+      {
+        "stageName": "Vòng Bảng",
+        "type": "GROUP_STAGE",
+        "format": "ROUND_ROBIN",
+        "scoring": "3_POINTS_FOR_WIN",
+        "advanceCriteria": "TIE_BREAKER_CRITERIA"
+      },
+      {
+        "stageName": "Vòng Loại Trực Tiếp",
+        "type": "KNOCKOUT",
+        "format": "SINGLE_ELIMINATION",
+        "hasBronzeMatch": true,
+        "scoring": "PENALTY_SHOOTOUT_IF_DRAW"
+      }
+    ]
+  },
+  "gameRules": {
+    "serving": {
+      "style": "KICK_OFF",
+      "rules": [
+        "Bóng phải được đá tại tâm vòng tròn giữa sân",
+        "Cầu thủ đối phương phải đứng ngoài vòng tròn",
+        "Đá biên bằng chân (Sân 5) hoặc Ném biên bằng tay (Sân 7/11)",
+        "Luật việt vị áp dụng theo từng loại sân"
+      ],
+      "letServePolicy": "N/A",
+      "serviceSequence": {
+        "doubles": "Thay người tối đa 5-7 lượt tùy loại sân",
+        "singles": "Thủ môn được phép dùng tay trong vòng cấm"
+      }
+    },
+    "doubleBounceRule": {
+      "enabled": false,
+      "description": "Không áp dụng cho bóng đá; bóng có thể chơi chạm một hoặc nảy nhiều lần."
+    },
+    "nonVolleyZone": {
+      "name": "Penalty Area (Vòng cấm địa)",
+      "depth": "16m50 (Sân 11)",
+      "rules": "Thủ môn chỉ được dùng tay trong khu vực này. Phạm lỗi trong đây dẫn đến quả phạt đền."
+    }
+  },
+  "scoringConfigurations": {
+    "standardSideOut": {
+      "description": "Tính điểm theo bàn thắng",
+      "winByTwo": false,
+      "formats": [
+        {
+          "name": "Field_11_Standard",
+          "pointsToWin": 0,
+          "switchSidesAt": 45
+        },
+        {
+          "name": "Field_7_Standard",
+          "pointsToWin": 0,
+          "switchSidesAt": 25
+        },
+        {
+          "name": "Field_5_Standard",
+          "pointsToWin": 0,
+          "switchSidesAt": 20
+        }
+      ]
+    },
+    "rallyScoring": {
+      "enabled": true,
+      "description": "Ghi điểm bất kể bên nào giao bóng (Mỗi bàn thắng tính 1 điểm)",
+      "pointsToWin": 0
+    }
+  },
+  "timeManagement": {
+    "warmUpMinutes": 15,
+    "standardTimeOutsPerSet": 1,
+    "timeOutDurationSeconds": 60,
+    "medicalTimeOutMinutes": 3,
+    "betweenSetRestMinutes": 15,
+    "maxWaitTimeBeforeForfeit": 15
+  },
+  "resourceManagement": {
+    "courts": {
+      "minRequired": 1,
+      "dimensions": "105x68m (Sân 11) / 30x50m (Sân 7) / 20x40m (Sân 5)",
+      "surfaceType": [
+        "Natural Grass",
+        "Artificial Turf",
+        "Parquet"
+      ]
+    },
+    "personnelPerMatch": {
+      "mainReferee": 1,
+      "lineJudges": 2,
+      "scoreKeepers": 1
+    },
+    "equipment": {
+      "ballType": "Size 4 (Sân 5) / Size 5 (Sân 7/11)",
+      "netHeightCenter": "2.44m (Sân 11) / 2.1m (Sân 7) / 2.0m (Sân 5)"
+    }
+  },
+  "faultsAndPenalties": {
+    "technicalFaults": [
+      "Việt vị",
+      "Lỗi chuyền về",
+      "Chạm tay chơi bóng",
+      "Lối chơi nguy hiểm"
+    ],
+    "conductPenalties": {
+      "yellowCard": "Cảnh cáo (Tích lũy 2 thẻ = 1 thẻ đỏ)",
+      "redCard": "Trục xuất và cấm thi đấu trận kế tiếp",
+      "blueCard": "Tạm đuổi khỏi sân 2 phút (Chỉ áp dụng sân 5)",
+      "verbalWarning": "Nhắc nhở từ trọng tài chính"
+    }
+  }
+}

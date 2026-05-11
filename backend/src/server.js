@@ -1,0 +1,85 @@
+import path from 'path';
+import express from 'express';
+import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+
+import { connectDB } from './libs/db.js';
+import authRoute from './routes/authRoute.js';
+import userRoute from './routes/userRoute.js';
+import ruleRoute from './routes/ruleRoute.js';
+import tournamentRoute from './routes/tournamentRoute.js';
+import teamRoute from './routes/teamRoute.js';
+import refereeRoute from './routes/refereeRoute.js';
+import courtRoute from './routes/courtRoute.js';
+import matchRoute from './routes/matchRoute.js';
+import sponsorRoute from './routes/sponsorRoute.js';
+// 1. 👉 BỔ SUNG IMPORT NOTIFICATION ROUTE
+import notificationRoute from './routes/notificationRoute.js'; 
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5001;
+const __dirname = path.resolve();
+
+// --- Cấu hình Middleware ---
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://hethonggiaithethao.onrender.com'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Chặn bởi CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Thêm PATCH cho editProfile/Tournament
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json());
+app.use(cookieParser());
+
+// 2. 👉 QUAN TRỌNG: CẤU HÌNH TRUY CẬP FILE ẢNH (STATIC FILES)
+// Dòng này giúp link http://localhost:5001/uploads/... hoạt động
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// --- Đăng ký Routes ---
+app.use('/api/auth', authRoute);
+app.use('/api/users', userRoute);
+app.use('/api/rules', ruleRoute);
+app.use('/api/matches', matchRoute);
+app.use('/api/teams', teamRoute);
+// Lưu ý: Đổi tên cho khớp với Frontend đang gọi (/api/tournaments)
+app.use('/api/tournaments', tournamentRoute); 
+app.use('/api/referees', refereeRoute);
+app.use('/api/courts', courtRoute);
+app.use('/api/sponsors', sponsorRoute);
+
+// 3.  ĐĂNG KÝ ROUTE THÔNG BÁO
+app.use('/api/notifications', notificationRoute);
+
+// --- Xử lý Production ---
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, "../frontend/dist")));
+    app.get('/{*path}', (req, res) => { // Sửa lại regex cho chuẩn
+        res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+    });
+}
+
+// --- Khởi động hệ thống ---
+connectDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(` Server started on port: ${PORT}`);
+        console.log(` Static files available at: http://localhost:${PORT}/uploads`);
+    });
+}).catch((error) => {
+    console.error("Kết nối Database thất bại:", error);
+    process.exit(1);
+});
