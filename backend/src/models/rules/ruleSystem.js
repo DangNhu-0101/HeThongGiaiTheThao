@@ -1,91 +1,81 @@
 import mongoose from "mongoose";
-import Tournament from "../tournament.js";
-import BaseRule from "./baseRules.js";
 
-// Schema con cho tournamentStructure – khá chuẩn chung
-const tournamentStructureSchema = new mongoose.Schema(
-    {
-        categories: [
-            {
-                id: String,
-                name: String,
-                minPlayers: Number,
-            },
-        ],
-        skillLevels: [String],
-        stages: [
-            {
-                stageName: String,
-                type: String, // GROUP_STAGE, KNOCKOUT
-                format: String, // ROUND_ROBIN, SINGLE_ELIMINATION,...
-                scoring: String, // "3_POINTS_FOR_WIN", "BEST_OF_3_TO_11", ...
-                advanceCriteria: String,
-                hasBronzeMatch: Boolean,
-            },
-        ],
+const ruleSystemSchema = new mongoose.Schema({
+    ruleName: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true
     },
-    { _id: false }
-);
+    sport: {
+        type: String,
+        required: true,
+        // Đảm bảo khớp với hàm mapSportName trong script seed
+        enum: ['Football', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Other']
+    },
+    version: { type: String, default: "1.0" },
+    language: { type: String, default: "vi" },
 
-// Schema con cho scoring – khá giống nhau giữa các môn
-const scoringConfigSchema = new mongoose.Schema(
-    {
+    // 1. Cấu trúc giải đấu (Categories, Stages, Skill Levels)
+    tournamentStructure: {
+        categories: [{
+            id: String,
+            name: String,
+            minPlayers: Number
+        }],
+        skillLevels: [String],
+        stages: [{
+            stageName: String,
+            type: { type: String }, // GROUP_STAGE, KNOCKOUT
+            format: { type: String }, // ROUND_ROBIN, SINGLE_ELIMINATION
+            scoring: String,
+            advanceCriteria: String,
+            hasBronzeMatch: { type: Boolean, default: false }
+        }]
+    },
+
+    // 2. Luật chơi (Serving, Kitchen rule,...)
+    // Sử dụng Mixed vì mỗi môn có một bộ luật đặc thù khác nhau hoàn toàn
+    gameRules: { type: mongoose.Schema.Types.Mixed },
+
+    // 3. Cấu hình tính điểm (Xương sống của hệ thống)
+    scoringConfigurations: {
         standardSideOut: {
             description: String,
-            winByTwo: Boolean,
-            formats: [
-                {
-                    name: String,
-                    pointsToWin: Number,
-                    switchSidesAt: Number,
-                },
-            ],
+            winByTwo: { type: Boolean, default: true },
+            formats: [{
+                name: String,
+                pointsToWin: Number,
+                switchSidesAt: Number
+            }]
         },
         rallyScoring: {
-            enabled: Boolean,
+            enabled: { type: Boolean, default: false },
             description: String,
-            pointsToWin: Number,
-        },
+            pointsToWin: Number
+        }
     },
-    { _id: false }
-);
 
-// Schema con cho timeManagement – có thể dùng chung
-const timeManagementSchema = new mongoose.Schema(
-    {
+    // 4. Quản lý thời gian
+    timeManagement: {
         warmUpMinutes: Number,
         standardTimeOutsPerSet: Number,
         timeOutDurationSeconds: Number,
         medicalTimeOutMinutes: Number,
         betweenSetRestMinutes: Number,
-        maxWaitTimeBeforeForfeit: Number,
+        maxWaitTimeBeforeForfeit: Number
     },
-    { _id: false }
-);
 
-// Schema chính: dùng Mixed cho những phần đặc thù môn
-const ruleSystemSchema = new mongoose.Schema(
-    {
-        ruleName: { type: String, required: true, unique: true },
-        sportType: {
-            type: String,
-            required: true,
-            enum: ["football", "pickleball", "basketball", "tennis", "badminton", "volleyball", "other"],
-        },
-        version: { type: String, default: "1.0" },
-        language: { type: String, default: "vi" },
+    // 5. Quản lý tài nguyên & Thiết bị
+    resourceManagement: { type: mongoose.Schema.Types.Mixed },
 
-        // Các phần có cấu trúc gần như chuẩn chung
-        tournamentStructure: tournamentStructureSchema,
-        scoringConfigurations: scoringConfigSchema,
-        timeManagement: timeManagementSchema,
+    // 6. Lỗi và hình phạt
+    faultsAndPenalties: { type: mongoose.Schema.Types.Mixed }
 
-        // Các phần hoàn toàn linh hoạt theo môn
-        gameRules: { type: mongoose.Schema.Types.Mixed, required: true }, // serving, doubleBounce, kitchen, penalty area, v.v.
-        resourceManagement: { type: mongoose.Schema.Types.Mixed, required: true }, // courts, personnel, equipment
-        faultsAndPenalties: { type: mongoose.Schema.Types.Mixed, required: true }, // thẻ, lỗi kỹ thuật, v.v.
-    },
-    { timestamps: true, versionKey: false }
-);
+}, {
+    timestamps: true,
+    versionKey: false
+});
 
-export const RuleSystem = mongoose.model("RuleSystem", ruleSystemSchema);
+const RuleSystem = mongoose.model("RuleSystem", ruleSystemSchema);
+export default RuleSystem;

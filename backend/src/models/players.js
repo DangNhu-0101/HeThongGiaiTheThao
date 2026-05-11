@@ -12,7 +12,7 @@ const playerSchema = new moogoose.Schema({
         required: true },
     birthDate: { 
         type: Date, 
-        required
+        required:true
     },
     gender: { type: String, 
         enum: ['male', 'female', 'other'], 

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import User from "./user.js";
-import Team from "./team.js";
+import User from "./users.js";
+import Team from "./teams.js";
 
 
 const invitationSchema = new mongoose.Schema({
@@ -37,5 +37,5 @@ const invitationSchema = new mongoose.Schema({
     }
 );
 
-const Invitation = mongoose.model('invitation', invitationSchema);
+const Invitation = mongoose.models.Invitation || mongoose.model('Invitation', invitationSchema);
 export default Invitation;

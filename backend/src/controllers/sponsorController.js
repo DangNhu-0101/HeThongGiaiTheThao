@@ -1,6 +1,6 @@
 
-import Sponsor from "../models/Sponsor.js";
-import Tournament from "../models/tournament.js";
+import Sponsor from "../models/sponsors.js";
+import Tournament from "../models/tournaments.js";
 import mongoose from "mongoose";
 
 // 1. Lấy danh sách nhà tài trợ theo giải đấu (có phân trang + lọc)

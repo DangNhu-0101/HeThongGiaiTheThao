@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Tournament from "../tournament.js";
+import Tournament from "../tournaments.js";
 
 // Schema cho Category (gọn hơn)
 const categorySchema = new mongoose.Schema({

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Tournament from "../tournament.js";
+import Tournament from "../tournaments.js";
 import BaseRule from "./baseRules.js";
 // Main Time Management Rules Schema
 const timeManagementRulesSchema = new mongoose.Schema({

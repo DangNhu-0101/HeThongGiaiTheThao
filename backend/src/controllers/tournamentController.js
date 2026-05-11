@@ -1,10 +1,10 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import Tournament from '../models/tournament.js';
-import User from '../models/User.js';
-import Organization from '../models/orgnizations.js';
-import { createRuleServices } from '../services/createRuleServices.js';
-import { initializeSportStructure } from '../services/tournamentStructureService.js';
+import Tournament from '../models/tournaments.js';
+import User from '../models/users.js';
+import Organization from '../models/orgs.js';
+import { createRuleServices } from '../services/createRuleService.js';
+import { initializeSportStructure } from '../services/tournamentInstanceService.js';
 
 // LẤY TẤT CẢ GIẢI ĐẤU (có phân trang)
 export const getAllTournament = async (req, res) => {

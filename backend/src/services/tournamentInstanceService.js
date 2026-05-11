@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import BaseRule from '../models/Rule/baseRules.js';
-import StageRule from '..//models/Rule/stageRules.js';
-import Bracket from '../models/bracket.js';
-import Group from '../models/tables.js';
+import BaseRule from '../models/rules/baseRules.js';
+import StageRule from '..//models/rules/stageRules.js';
+import Bracket from '../models/rules/brackets.js';
+import Group from '../models/groups.js';
 import Team from '../models/teams.js';
-import Match from '../models/match.js';
+import Match from '../models/matches.js';
 
 export const initializeSportStructure = async (tournamentId, baseRuleId, sportItem, session) => {
     const baseRule = await BaseRule.findById(baseRuleId).populate('tournamentStructure.stages');

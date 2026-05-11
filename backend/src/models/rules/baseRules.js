@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
-import Tournament from "../tournament.js";
+import Tournament from "../tournaments.js";
 import CategoryRule from "./categories.js";
 import StageRule from "./stageRules.js";
 import GameRule from "./gameRules.js";
-import TimeManagementRule from "./timeManagementRules.js";
+import TimeManagementRule from "./timeManagements.js";
 import ResourceManagementRule from "./resourceManagements.js";
 import FaultsAndPenalties from "./faultsAndPenalties.js";
 // Cấu hình chung cho Discriminator
@@ -80,7 +80,6 @@ const baseRuleSchema = new mongoose.Schema({
 , { timestamps: true });
 
 baseRuleSchema.index({ sport: 1, ruleName: 1 }, { unique: true });
-baseRuleSchema.index({ tournamentId: 1 });
 
 const BaseRule = mongoose.model("BaseRule", baseRuleSchema);
 export default BaseRule;
