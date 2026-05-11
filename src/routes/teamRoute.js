@@ -25,9 +25,6 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Tất cả các route đều yêu cầu xác thực (trừ khi có public, ví dụ GET /tournaments/:tournamentId/teams có thể public)
-router.use(authenticate);
-
 // ======================== TEAM CRUD ========================
 router.post('/create', protectedRoute('player'), createTeam);                                    // Tạo đội
 router.put('/edit/:id', protectedRoute('player'), updateTeam);                                 // Cập nhật đội
@@ -54,6 +51,6 @@ router.post('/join-requests/:requestId/reject', protectedRoute('player'), reject
 router.get('/:teamId/join-requests', protectedRoute('player'), getTeamJoinRequests);      // Lấy danh sách yêu cầu (captain)
 
 // ======================== PAYMENT ========================
-router.patch('/:id/payment', authorizeRoles('org', 'admin'), updatePaymentStatus); // Cập nhật thanh toán
+router.patch('/:id/payment', protectedRoute('org'), updatePaymentStatus); // Cập nhật thanh toán
 
 export default router;

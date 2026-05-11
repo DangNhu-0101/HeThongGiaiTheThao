@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
-import Tournament from "../tournament.js";
+import Tournament from "../tournaments.js";
 import BaseRule from "./baseRules.js";
 import ScoringRule from "./scoringRules.js";
-import Bracket from "./bracket.js";
+import Bracket from "./brackets.js";
 
 // Schema cho Stage Configuration
 const stageConfigSchema = new mongoose.Schema({

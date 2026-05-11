@@ -1,18 +1,18 @@
 // controllers/ruleController.js
-import BaseRule from '../models/Rule/baseRules.js';
-import StageRule from '../models/Rule/stageRules.js';
-import ScoringRule from '../models/Rule/scoringRules.js';
-import GameRule from '../models/Rule/gameRules.js';
-import CategoryRule from '../models/Rule/categoryRules.js';
-import TimeManagementRule from '../models/Rule/timeManagementRules.js';
-import ResourceManagementRule from '../models/Rule/resourceManagementRules.js';
-import FaultsAndPenalties from '../models/Rule/faultsAndPenalties.js';
-import Tournament from '../models/tournament.js';
-import Bracket from '../models/bracket.js';
-import Group from '../models/tables.js';
-import Match from '../models/match.js';
+import BaseRule from '../models/rules/baseRules.js';
+import StageRule from '../models/rules/stageRules.js';
+import ScoringRule from '../models/rules/scoringRules.js';
+import GameRule from '../models/rules/gameRules.js';
+import CategoryRule from '../models/rules/categories.js';
+import TimeManagementRule from '../models/rules/timeManagements.js';
+import ResourceManagementRule from '../models/rules/resourceManagements.js';
+import FaultsAndPenalties from '../models/rules/faultsAndPenalties.js';
+import Tournament from '../models/tournaments.js';
+import Bracket from '../models/rules//brackets.js';
+import Group from '../models/groups.js';
+import Match from '../models/matches.js';
 import Team from '../models/teams.js';
-import { initializeSportStructure } from '../services/tournamentStructureService.js';
+import { initializeSportStructure } from '../services/tournamentInstanceService.js';
 
 export const getBaseRules = async (req, res) => {
     try {
@@ -223,7 +223,8 @@ export const editRule = async (req, res) => {
             // Tạo lại cấu trúc thi đấu mới dựa trên rule vừa cập nhật
             const sportItem = {
                 sport: newData.sport,
-                feeEntry: newData.feeEntry,
+                
+                feeEntry: max,
                 maxTeams: newData.teamComposition?.maxTeams || 32,
                 ruleData: newData
             };

@@ -1,10 +1,10 @@
 // controllers/teamController.js
 import mongoose from 'mongoose';
 import Team from '../models/teams.js';
-import Member from '../models/members.js';
+import Member from '../models/membersOfTeam.js';
 import Invitation from '../models/invitations.js';
-import Tournament from '../models/tournament.js';
-import User from '../models/User.js';
+import Tournament from '../models/tournaments.js';
+import User from '../models/users.js';
 import { handleCreateInvitation } from '../utils/invitationHelper.js';
 
 // ======================== HELPERS ========================

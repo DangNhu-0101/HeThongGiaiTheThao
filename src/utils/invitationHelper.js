@@ -1,6 +1,6 @@
 import Invitation from '../models/Invitations.js';
-import User from '../models/User.js';
-import Member from '../models/members.js';
+import User from '../models/users.js';
+import Member from '../models/membersOfTeam.js';
 
 /**
  * Tạo lời mời và upsert member (dùng cho captain mời)

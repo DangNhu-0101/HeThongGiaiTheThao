@@ -2,7 +2,7 @@
 import Team from "./teams.js";
 import mongoose from "mongoose";
 import StageRule from "./rules/stageRules.js";
-import Bracket from "./rules//bracket.js";
+import Bracket from "./rules//brackets.js";
 
 const groupSchema = new mongoose.Schema({
     name: {

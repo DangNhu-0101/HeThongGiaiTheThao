@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import User from '../models/users.js';
 
 // Đổi thành function nhận allowedRoles
 export const protectedRoute = (allowedRoles = []) => {

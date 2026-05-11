@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import Group from "..groups.js";
-import StageRule from "./Rule/stageRules.js";
+import Group from "../groups.js";
+import StageRule from "./stageRules.js";
 
 const bracketSchema = new mongoose.Schema({
     tournamentId: {

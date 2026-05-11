@@ -1,6 +1,6 @@
 // controllers/courts.js
 import Court from "../models/courts.js";
-import Tournament from "../models/tournament.js";
+import Tournament from "../models/tournaments.js";
 
 // 1. Lấy danh sách sân (có phân trang, lọc)
 export const getCourtsByTournament = async (req, res) => {

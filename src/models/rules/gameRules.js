@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import BaseRule from "./baseRules.js";
-import Tournament from "../tournament.js";
+import Tournament from "../tournaments.js";
 
 const gameRulesSchema = new mongoose.Schema({
     tournamentId: { 
