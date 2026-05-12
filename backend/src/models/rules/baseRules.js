@@ -43,6 +43,13 @@ const baseRuleSchema = new mongoose.Schema({
         minTeams: { type: Number, default: 2 }             // Tổng số đội tối thiểu
     },
 
+    timeLine: {
+        timeRegiter: { type: Date, default: null },
+        timeCloseRegister: { type: Date, default: null },
+        timeOpen: { type: Date, default: Date.now },
+        timeClose: { type: Date, default: null }
+    },
+
     tournamentStructure:{
         categories:[{
             type:mongoose.Schema.Types.ObjectId,
