@@ -1,21 +1,23 @@
 import mongoose from "mongoose";
+import User from "./users.js";
+import Team from "./teams.js";
 
 
 const invitationSchema = new mongoose.Schema({
     senderId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: User,
         required: true
     },
     receiverId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: User,
         required: true
     },
 
     teamId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team',
+        ref: Team,
         required: true
     },
     status: {
@@ -35,5 +37,5 @@ const invitationSchema = new mongoose.Schema({
     }
 );
 
-const Invitation = mongoose.model('invitation', invitationSchema);
+const Invitation = mongoose.models.Invitation || mongoose.model('Invitation', invitationSchema);
 export default Invitation;

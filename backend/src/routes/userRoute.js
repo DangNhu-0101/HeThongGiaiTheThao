@@ -1,53 +1,42 @@
+// routes/userRoutes.js
 import express from 'express';
-import { 
-    authMe, 
-    changePassword, 
-    completeUser, 
-    editProfile, 
-    getProfile, 
-    getAllUsers, 
-    searchUsers 
-} from '../controllers/userController.js'; 
+import {
+    authMe,
+    getAllUsers,
+    searchUsers,
+    changePassword,
+    getProfile,
+    editProfile,
+    getAllOrganizations
+} from '../controllers/userController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
-
-// Nếu bạn muốn lấy danh sách đội ngay tại đây, hãy import từ teamController
-// import { getAllTeam } from '../controllers/teamController.js'; 
 
 const router = express.Router();
 
-// ==========================================
-// 1. PUBLIC ROUTES (Không cần đăng nhập)
-// ==========================================
-router.get('/all', getAllUsers);
-router.get('/search', searchUsers); // Tìm kiếm thành viên để mời vào đội
+// --- NHỮNG ROUTE DÙNG CHUNG (Chỉ cần đăng nhập là vào được) ---
+// Bỏ các tham số role đi, chỉ để protectedRoute() là đủ
 
-
-// ==========================================
-// 2. PRIVATE ROUTES (Yêu cầu Token)
-// ==========================================
-
-// Lấy thông tin tài khoản đang đăng nhập (dùng cho App.jsx / Header)
+// Lấy thông tin user từ token (auth/me)
 router.get('/me', protectedRoute(), authMe); 
 
-// Hoàn thiện hồ sơ lần đầu (nếu có)
-router.post('/completeUser', protectedRoute(), completeUser);
-
-// Xem hồ sơ chi tiết (gồm Skill Level, thông tin thi đấu)
-router.get('/getprofile', protectedRoute(['Player', 'Referee', 'Organization']), getProfile);
-
-// Chỉnh sửa hồ sơ cá nhân
-router.patch('/editProfile', protectedRoute(['Player', 'Referee', 'Organization']), editProfile);
-
 // Đổi mật khẩu
-router.patch('/changePassword', protectedRoute(['Player', 'Referee', 'Organization']), changePassword);
+router.post('/change-password', protectedRoute(), changePassword);
+
+// Lấy profile chi tiết
+router.get('/profile', protectedRoute(), getProfile);
+
+// Cập nhật profile
+router.put('/profile', protectedRoute(), editProfile);
 
 
-// ==========================================
-// 3. TEAM MANAGEMENT (Quản lý đội từ phía User)
-// ==========================================
+// --- NHỮNG ROUTE PHÂN QUYỀN CỤ THỂ ---
 
-// Endpoint này trả về thông tin user kèm danh sách đội họ tham gia
-// Lưu ý: Đảm bảo hàm getProfile trong controller đã được viết để .populate('teams')
-router.get('/my-teams', protectedRoute(['Player', 'Organization']), getProfile); 
+// Lấy danh sách tất cả users (Giả sử chỉ Organization mới xem được)
+router.get('/', protectedRoute('Organization'), getAllUsers);
+
+// Tìm kiếm users
+router.get('/search', protectedRoute('player', 'referee', 'Organization'), searchUsers);
+
+router.get('/organizations', getAllOrganizations);
 
 export default router;

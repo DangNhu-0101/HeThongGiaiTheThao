@@ -1,33 +1,54 @@
-import BaseRule from '../models/Rule/baseRules.js';
-import StageRule from '../models/Rule/stageRules.js'; // Import cái này để dùng trong stages
-import RuleSystem from '../models/RuleSystem.js'; // Bạn quên import cái này!
-import Tournament from '../models/tournament.js';
+// controllers/ruleController.js
+import BaseRule from '../models/rules/baseRules.js';
+import StageRule from '../models/rules/stageRules.js';
+import ScoringRule from '../models/rules/scoringRules.js';
+import GameRule from '../models/rules/gameRules.js';
+import CategoryRule from '../models/rules/categories.js';
+import TimeManagementRule from '../models/rules/timeManagements.js';
+import ResourceManagementRule from '../models/rules/resourceManagements.js';
+import FaultsAndPenalties from '../models/rules/faultsAndPenalties.js';
+import Tournament from '../models/tournaments.js';
+import Bracket from '../models/rules//brackets.js';
+import Group from '../models/groups.js';
+import Match from '../models/matches.js';
+import Team from '../models/teams.js';
+import { initializeSportStructure } from '../services/tournamentInstanceService.js';
 
-export const getRuleSystems = async (req, res) => {
+export const getBaseRules = async (req, res) => {
     try {
         const { sport } = req.query;
-        let query = {};
-        if (sport) query.sport = { $regex: new RegExp(`^${sport}$`, "i") };
+        let filter = {};
+        if (sport) filter.sport = { $regex: new RegExp(`^${sport}$`, 'i') };
 
-        const rules = await RuleSystem.find(query);
+        const rules = await BaseRule.find(filter)
+            .populate('tournamentStructure.stages')
+            .populate('tournamentStructure.scoringRules')
+            .lean();
+
         return res.status(200).json({ success: true, count: rules.length, data: rules });
     } catch (error) {
-        return res.status(500).json({ success: false, message: "Lỗi hệ thống", error: error.message });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
+// GET /api/rules?tournamentId=...
 export const getAllRules = async (req, res) => {
     try {
         const { tournamentId } = req.query;
         let filter = {};
         if (tournamentId) filter.tournamentId = tournamentId;
 
-        // Populate sâu để lấy hết config của vòng đấu, điểm số...
         const rules = await BaseRule.find(filter)
-            .populate('tournamentStructure.stages')
-            .populate('tournamentStructure.ScoringRule')
+            .populate({
+                path: 'tournamentStructure.stages',
+                model: 'StageRule',
+                populate: { path: 'scoringRuleId', model: 'ScoringRule' }
+            })
+            .populate('tournamentStructure.scoringRules')
+            .populate('tournamentStructure.gameRules')
+            .populate('tournamentStructure.categories')
             .sort({ createdAt: -1 })
-            .lean(); 
+            .lean();
 
         return res.status(200).json({ success: true, count: rules.length, data: rules });
     } catch (error) {
@@ -35,105 +56,224 @@ export const getAllRules = async (req, res) => {
     }
 };
 
+// GET /api/rules/:id
 export const getDetailRules = async (req, res) => {
     try {
-        const { id } = req.params; // Đổi thành id cho chuẩn RESTful
+        const { id } = req.params;
         const rule = await BaseRule.findById(id)
-            .populate('tournamentStructure.stages')
-            .populate('tournamentStructure.ScoringRule')
+            .populate({
+                path: 'tournamentStructure.stages',
+                model: 'StageRule',
+                populate: { path: 'scoringRuleId', model: 'ScoringRule' }
+            })
+            .populate('tournamentStructure.scoringRules')
+            .populate('tournamentStructure.gameRules')
+            .populate('tournamentStructure.categories')
             .lean();
-            
-        if (!rule) return res.status(404).json({ success: false, message: "Không tìm thấy bộ luật." });
+
+        if (!rule) return res.status(404).json({ success: false, message: 'Không tìm thấy bộ luật.' });
         return res.status(200).json({ success: true, data: rule });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
 
+// PUT /api/rules/:id (chỉ cho phép sửa một số trường an toàn)
 export const editRule = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const { id } = req.params;
-        const updateData = req.body;
+        const newData = req.body; // chứa toàn bộ cấu hình rule mới
 
-        // Cập nhật thẳng vào BaseRule (Hoặc phải update các bảng phụ như ScoringRule nếu có sửa đổi chi tiết)
-        const updatedRule = await BaseRule.findByIdAndUpdate(
-            id,
-            { $set: updateData },
-            { new: true, runValidators: true }
-        );
+        // 1. Tìm BaseRule cũ và tournament liên quan
+        const baseRule = await BaseRule.findById(id);
+        if (!baseRule) throw new Error('Rule not found');
+        const tournament = await Tournament.findById(baseRule.tournamentId).session(session);
+        ìf(!tournament)
+        {
+            return res.status(404).json({ success: false, message: "Không tìm thấy giải đấu liên quan đến bộ luật này." });
+        }
 
-        if (!updatedRule) return res.status(404).json({ message: "Không tìm thấy bộ luật." });
+        if (tournament && !['upcoming'].includes(tournament.status)) {
+           return res.status(400).json({ success: false, message: "Giải đấu đã bắt đầu hoặc kết thúc, không thể chỉnh sửa bộ luật." });
+        }
 
-        return res.status(200).json({ success: true, data: updatedRule });
+        // 2. Cập nhật các trường đơn giản của BaseRule
+        baseRule.ruleName = newData.ruleName;
+        baseRule.description = newData.description;
+        baseRule.sport = newData.sport;
+        baseRule.playerEntryFee = newData.playerEntryFee;
+        if (newData.teamComposition) baseRule.teamComposition = newData.teamComposition;
+        // (có thể thêm version, language nếu cần)
+
+        // 3. Cập nhật hoặc tạo mới ScoringRule (mỗi BaseRule chỉ có một ScoringRule)
+        let scoringRuleId = baseRule.tournamentStructure?.scoringRules?.[0];
+        if (newData.scoringConfig) {
+            if (scoringRuleId) {
+                await ScoringRule.findByIdAndUpdate(scoringRuleId, newData.scoringConfig, { session, runValidators: true });
+            } else {
+                const [newScoring] = await ScoringRule.create([newData.scoringConfig], { session });
+                scoringRuleId = newScoring._id;
+            }
+        }
+
+        // 4. Cập nhật CategoryRules (mảng) - xử lý đồng bộ: giữ lại các id cũ nếu có, thêm mới, xóa những cái không còn
+        let newCategoryIds = [];
+        if (newData.categoryConfig) {
+            const oldCategoryIds = baseRule.tournamentStructure?.categories || [];
+            // Tạo map từ id cũ đến document (nếu có) để update
+            const oldCategories = await CategoryRule.find({ _id: { $in: oldCategoryIds } }).session(session);
+            const oldMap = new Map(oldCategories.map(c => [c._id.toString(), c]));
+            // Duyệt qua từng category config mới
+            for (const catConfig of newData.categoryConfig) {
+                if (catConfig._id && oldMap.has(catConfig._id)) {
+                    // Cập nhật category cũ
+                    await CategoryRule.findByIdAndUpdate(catConfig._id, catConfig, { session, runValidators: true });
+                    newCategoryIds.push(catConfig._id);
+                    oldMap.delete(catConfig._id);
+                } else {
+                    // Tạo mới category
+                    const [newCat] = await CategoryRule.create([catConfig], { session });
+                    newCategoryIds.push(newCat._id);
+                }
+            }
+            // Những category cũ không còn trong config mới thì xóa
+            const toDeleteIds = [...oldMap.keys()];
+            if (toDeleteIds.length) {
+                await CategoryRule.deleteMany({ _id: { $in: toDeleteIds } }, { session });
+            }
+        } else {
+            // Nếu không có categoryConfig mới, giữ nguyên hoặc xóa hết? Ở đây giữ nguyên
+            newCategoryIds = baseRule.tournamentStructure?.categories || [];
+        }
+
+        // 5. Tương tự cho GameRules, TimeManagementRules, ResourceManagementRules, FaultsAndPenalties
+        // Viết hàm helper hoặc lặp lại cấu trúc tương tự. Để tránh dài dòng, tôi tóm tắt:
+        const updateArrayRule = async (model, oldIds, newConfigs, session) => {
+            const oldDocs = await model.find({ _id: { $in: oldIds } }).session(session);
+            const oldMap = new Map(oldDocs.map(d => [d._id.toString(), d]));
+            const newIds = [];
+            for (const config of newConfigs) {
+                if (config._id && oldMap.has(config._id)) {
+                    await model.findByIdAndUpdate(config._id, config, { session, runValidators: true });
+                    newIds.push(config._id);
+                    oldMap.delete(config._id);
+                } else {
+                    const [newDoc] = await model.create([config], { session });
+                    newIds.push(newDoc._id);
+                }
+            }
+            const toDelete = [...oldMap.keys()];
+            if (toDelete.length) await model.deleteMany({ _id: { $in: toDelete } }, { session });
+            return newIds;
+        };
+
+        const newGameIds = newData.gameConfig ? await updateArrayRule(GameRule, baseRule.tournamentStructure?.gameRules || [], newData.gameConfig, session) : baseRule.tournamentStructure?.gameRules || [];
+        const newTimeIds = newData.timeManagementConfig ? await updateArrayRule(TimeManagementRule, baseRule.tournamentStructure?.timeManagementRules || [], newData.timeManagementConfig, session) : baseRule.tournamentStructure?.timeManagementRules || [];
+        const newResourceIds = newData.resourceManagementConfig ? await updateArrayRule(ResourceManagementRule, baseRule.tournamentStructure?.resourceManagementRules || [], newData.resourceManagementConfig, session) : baseRule.tournamentStructure?.resourceManagementRules || [];
+        const newFaultIds = newData.faultAndPenaltyConfig ? await updateArrayRule(FaultsAndPenalties, baseRule.tournamentStructure?.faultsAndPenalties || [], newData.faultAndPenaltyConfig, session) : baseRule.tournamentStructure?.faultsAndPenalties || [];
+
+        // 6. Cập nhật StageRule (quan trọng nhất)
+        let stageRuleId = baseRule.tournamentStructure?.stages?.[0];
+        if (stageRuleId) {
+            // Cập nhật trực tiếp stageRule
+            await StageRule.findByIdAndUpdate(stageRuleId, {
+                stages: newData.stages,
+                sport: newData.sport,
+                ruleName: newData.ruleName,
+                scoringRuleId: scoringRuleId
+            }, { session, runValidators: true });
+        } else {
+            const [newStage] = await StageRule.create([{
+                tournamentId: baseRule.tournamentId,
+                baseRuleId: baseRule._id,
+                sport: newData.sport,
+                ruleName: newData.ruleName,
+                scoringRuleId: scoringRuleId,
+                stages: newData.stages,
+                bracketIds: []
+            }], { session });
+            stageRuleId = newStage._id;
+        }
+
+        // 7. Lưu lại BaseRule với cấu trúc tournamentStructure mới
+        baseRule.tournamentStructure = {
+            categories: newCategoryIds,
+            stages: [stageRuleId],
+            gameRules: newGameIds,
+            scoringRules: scoringRuleId ? [scoringRuleId] : [],
+            timeManagementRules: newTimeIds,
+            resourceManagementRules: newResourceIds,
+            faultsAndPenalties: newFaultIds
+        };
+        await baseRule.save({ session });
+
+        // 8. Nếu giải đã có cấu trúc thi đấu (bracket, group, match) thì cần tái tạo lại vì stages thay đổi
+        if (tournament) {
+            // Xoá các dữ liệu thi đấu cũ (bracket, group, match, team placeholder)
+            const allBrackets = await Bracket.find({ tournamentId: tournament._id }).distinct('_id', { session });
+            if (allBrackets.length) {
+                await Match.deleteMany({ bracketId: { $in: allBrackets } }, { session });
+                await Group.deleteMany({ bracketId: { $in: allBrackets } }, { session });
+                await Bracket.deleteMany({ _id: { $in: allBrackets } }, { session });
+            }
+            await Team.deleteMany({ tournamentId: tournament._id, isPlaceholder: true }, { session });
+
+            // Tạo lại cấu trúc thi đấu mới dựa trên rule vừa cập nhật
+            const sportItem = {
+                sport: newData.sport,
+                
+                playerEntryFee: max,
+                maxTeams: newData.teamComposition?.maxTeams || 32,
+                ruleData: newData
+            };
+            await initializeSportStructure(tournament._id, baseRule._id, sportItem, session);
+        }
+
+        await session.commitTransaction();
+        return res.status(200).json({ success: true, message: 'Cập nhật rule thành công', data: baseRule });
     } catch (error) {
-        return res.status(500).json({ message: error.message });
+        await session.abortTransaction();
+        console.error('fullUpdateRule error:', error);
+        return res.status(500).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
     }
 };
 
+// DELETE /api/rules/:id
 export const deleteRule = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const { id } = req.params;
-        const deletedRule = await BaseRule.findByIdAndDelete(id);
-        
-        if (!deletedRule) return res.status(404).json({ message: "Bộ luật không tồn tại." });
+        const baseRule = await BaseRule.findById(id).session(session);
+        if (!baseRule) throw new Error('Bộ luật không tồn tại.');
 
+        // Xóa các rule con liên quan
+        if (baseRule.tournamentStructure?.stages) {
+            await StageRule.deleteMany({ _id: { $in: baseRule.tournamentStructure.stages } }, { session });
+        }
+        if (baseRule.tournamentStructure?.scoringRules) {
+            await ScoringRule.deleteMany({ _id: { $in: baseRule.tournamentStructure.scoringRules } }, { session });
+        }
+        // Tương tự có thể xóa categories, gameRules, ...
+        await BaseRule.findByIdAndDelete(id, { session });
+
+        // Xóa tham chiếu trong Tournament
         await Tournament.updateMany(
             { rules: id },
-            { $pull: { rules: id } }
+            { $pull: { rules: id } },
+            { session }
         );
 
-        return res.status(200).json({ success: true, message: "Đã xóa thành công." });
+        await session.commitTransaction();
+        return res.status(200).json({ success: true, message: 'Đã xóa bộ luật và các thành phần liên quan.' });
     } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-};
-export const saveTournamentStages = async (req, res) => {
-    try {
-        const { tournamentId } = req.params;
-        const { stages, sportType } = req.body; // Hứng payload { sportType, stages } từ React gửi lên
-
-        console.log(`Đang lưu cấu hình vòng đấu cho giải: ${tournamentId}, môn: ${sportType}`);
-
-        // 1. Kiểm tra giải đấu có tồn tại không
-        const tournament = await Tournament.findById(tournamentId);
-        if (!tournament) {
-            return res.status(404).json({ success: false, message: "Không tìm thấy giải đấu tương ứng!" });
-        }
-
-        // 2. Tìm xem môn này trong giải đã từng cấu hình vòng đấu chưa
-        let stageRule = await StageRule.findOne({ tournamentId, sport: sportType });
-
-        if (stageRule) {
-            // Đã có cấu hình -> Chỉ cập nhật mảng stages mới ghi đè lên
-            stageRule.stages = stages;
-            await stageRule.save();
-        } else {
-            // Chưa cấu hình -> Tạo mới bộ luật vòng đấu cho môn thi này
-            stageRule = await StageRule.create({
-                tournamentId,
-                sport: sportType || 'Pickleball',
-                ruleName: `Cấu hình vòng đấu môn ${sportType || 'Pickleball'}`,
-                stages: stages
-            });
-
-            // 3. Đút ID của bộ luật mới tạo vào mảng rules của giải đấu để liên kết
-            await Tournament.findByIdAndUpdate(tournamentId, {
-                $addToSet: { rules: stageRule._id } // Dùng $addToSet để không bị push trùng lặp ID
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: `Lưu cấu hình vòng đấu môn ${sportType} thành công!`,
-            data: stageRule
-        });
-
-    } catch (error) {
-        console.error("🔥 Lỗi tại saveTournamentStages:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Lỗi hệ thống khi lưu cấu hình vòng đấu",
-            error: error.message
-        });
+        await session.abortTransaction();
+        return res.status(500).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
     }
 };

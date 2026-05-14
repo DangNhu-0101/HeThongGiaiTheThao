@@ -113,7 +113,7 @@ const RegisterTeam = () => {
 
     const getCalculatedFee = () => {
         if (!selectedSport) return 0;
-        const baseFee = selectedSport.feeEntry || 0;
+        const baseFee = selectedSport.playerEntryFee || 0;
         if (regMode === 'random') {
             return baseFee / 2;
         }
@@ -191,7 +191,7 @@ const RegisterTeam = () => {
                         )}
 
                         <div className="space-y-2 text-sm text-gray-300">
-                            <p>Đơn vị tổ chức: <b className="text-white uppercase">{selectedTour?.organization?.orgName || "Ban tổ chức"}</b></p>
+                            <p>Đơn vị tổ chức: <b className="text-white uppercase">{selectedTour?.Organization?.OrganizationName || "Ban tổ chức"}</b></p>
                             {/* 👉 ĐÃ FIX: Dịch nội dung thi đấu sang Tiếng Việt đầy đủ */}
                             <p>Hạng mục thi đấu: <b className="text-cyan-400">{selectedSport?.sport} - {CATEGORY_MAPPER[selectedCategory] || selectedCategory}</b></p>
                             <p>Địa điểm thi đấu: <b className="text-white">{selectedTour?.venue}</b></p>

@@ -1,0 +1,155 @@
+{
+  "templateName": "Pickleball_Grand_Tournament_Full_Config",
+  "sportType": "pickleball",
+  "version": "1.0",
+  "language": "vi",
+  "tournamentStructure": {
+    "categories": [
+      {
+        "id": "MD",
+        "name": "Đôi Nam",
+        "minPlayers": 2
+      },
+      {
+        "id": "WD",
+        "name": "Đôi Nữ",
+        "minPlayers": 2
+      },
+      {
+        "id": "XD",
+        "name": "Đôi Nam Nữ",
+        "minPlayers": 2
+      },
+      {
+        "id": "MS",
+        "name": "Đơn Nam",
+        "minPlayers": 1
+      },
+      {
+        "id": "WS",
+        "name": "Đơn Nữ",
+        "minPlayers": 1
+      }
+    ],
+    "skillLevels": [
+      "1.0",
+      "1.5",
+      "2.0",
+      "2.5",
+      "3.0",
+      "3.5",
+      "4.0",
+      "4.5",
+      "5.0"
+    ],
+    "stages": [
+      {
+        "stageName": "Vòng Bảng",
+        "type": "GROUP_STAGE",
+        "format": "ROUND_ROBIN",
+        "scoring": "BEST_OF_3_TO_11",
+        "advanceCriteria": "TOP_2_PER_GROUP"
+      },
+      {
+        "stageName": "Vòng Loại Trực Tiếp",
+        "type": "KNOCKOUT",
+        "format": "SINGLE_ELIMINATION",
+        "hasBronzeMatch": true,
+        "scoring": "BEST_OF_3_TO_11"
+      }
+    ]
+  },
+  "gameRules": {
+    "serving": {
+      "style": "UNDERHAND",
+      "rules": [
+        "Tay vợt phải di chuyển thấp hơn thắt lưng",
+        "Điểm tiếp xúc bóng phải nằm dưới thắt lưng",
+        "Giao bóng chéo sân",
+        "Bóng phải vượt qua vạch Kitchen (vùng không volley)"
+      ],
+      "letServePolicy": "PLAY_ON",
+      "serviceSequence": {
+        "doubles": "Mỗi đội có 2 lượt giao ngoại trừ lượt đầu trận",
+        "singles": "Giao bên phải nếu điểm chẵn, bên trái nếu điểm lẻ"
+      }
+    },
+    "doubleBounceRule": {
+      "enabled": true,
+      "description": "Bóng phải nảy một lần ở mỗi bên sân sau cú giao bóng trước khi được volley."
+    },
+    "nonVolleyZone": {
+      "name": "The Kitchen",
+      "depth": "7 feet",
+      "rules": "Không được volley khi đứng trong hoặc dẫm vạch Kitchen."
+    }
+  },
+  "scoringConfigurations": {
+    "standardSideOut": {
+      "description": "Chỉ bên giao bóng mới ghi điểm",
+      "winByTwo": true,
+      "formats": [
+        {
+          "name": "Standard",
+          "pointsToWin": 11,
+          "switchSidesAt": 6
+        },
+        {
+          "name": "LongGame",
+          "pointsToWin": 15,
+          "switchSidesAt": 8
+        },
+        {
+          "name": "OneGameTo21",
+          "pointsToWin": 21,
+          "switchSidesAt": 11
+        }
+      ]
+    },
+    "rallyScoring": {
+      "enabled": false,
+      "description": "Tính điểm trực tiếp cho mỗi pha bóng",
+      "pointsToWin": 21
+    }
+  },
+  "timeManagement": {
+    "warmUpMinutes": 5,
+    "standardTimeOutsPerSet": 2,
+    "timeOutDurationSeconds": 60,
+    "medicalTimeOutMinutes": 15,
+    "betweenSetRestMinutes": 2,
+    "maxWaitTimeBeforeForfeit": 15
+  },
+  "resourceManagement": {
+    "courts": {
+      "minRequired": 4,
+      "dimensions": "20x44 feet",
+      "surfaceType": [
+        "Hard Court",
+        "Indoor"
+      ]
+    },
+    "personnelPerMatch": {
+      "mainReferee": 1,
+      "lineJudges": 0,
+      "scoreKeepers": 1
+    },
+    "equipment": {
+      "ballType": "Standard Pickleball (Outdoor/Indoor)",
+      "netHeightCenter": "34 inches"
+    }
+  },
+  "faultsAndPenalties": {
+    "technicalFaults": [
+      "Lỗi chân khi giao bóng",
+      "Lỗi chân vùng Kitchen",
+      "Chạm lưới",
+      "Bóng chạm người"
+    ],
+    "conductPenalties": {
+      "yellowCard": "Cảnh cáo",
+      "redCard": "Trừ điểm hoặc truất quyền thi đấu",
+      "verbalWarning": "Nhắc nhở trực tiếp"
+    }
+  }
+}

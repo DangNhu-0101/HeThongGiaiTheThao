@@ -12,7 +12,7 @@ const Profile = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const res = await api.get('/users/getprofile');
+                const res = await api.get('/users/profile');
                 if (res.data.success) setProfileData(res.data.data);
             } catch (err) { console.error("Lỗi lấy hồ sơ:", err); }
             finally { setLoading(false); }

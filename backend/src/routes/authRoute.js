@@ -1,12 +1,15 @@
 import express from 'express';
-import { register, login, logout } from '../controllers/authController.js';
+import { registerFull, login, logout } from '../controllers/authController.js';
 
-const router =express.Router();
+const router = express.Router();
 
-router.post("/register",register);
+// Đăng ký tài khoản
+router.post('/register-full', registerFull);
 
-router.post("/login",login);
+// Đăng nhập
+router.post('/login', login);
 
-router.post("/logout",logout)
+// Đăng xuất
+router.post('/logout', logout);
 
 export default router;

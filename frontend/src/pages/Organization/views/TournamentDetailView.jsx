@@ -23,7 +23,7 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
 
     // 2. STATE MÔN THI ĐẤU
     const getInitialSports = () => SPORTS_LIST.reduce((acc, sport) => {
-        acc[sport] = { selected: false, feeEntry: "", maxTeams: "", categories: [] };
+        acc[sport] = { selected: false, playerEntryFee: "", maxTeams: "", categories: [] };
         return acc;
     }, {});
     const [sportsConfig, setSportsConfig] = useState(getInitialSports());
@@ -65,7 +65,7 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
                         if (newSports[item.sport]) {
                             newSports[item.sport] = {
                                 selected: true,
-                                feeEntry: item.feeEntry,
+                                playerEntryFee: item.playerEntryFee,
                                 maxTeams: item.maxTeams || "",
                                 categories: item.categories || []
                             };
@@ -150,7 +150,7 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
             .filter(key => sportsConfig[key].selected)
             .map(key => ({
                 sport: key,
-                feeEntry: Number(sportsConfig[key].feeEntry) || 0,
+                playerEntryFee: Number(sportsConfig[key].playerEntryFee) || 0,
                 maxTeams: sportsConfig[key].maxTeams ? Number(sportsConfig[key].maxTeams) : null,
                 categories: sportsConfig[key].categories
             }));
@@ -262,7 +262,7 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
                                     <div className="grid grid-cols-2 gap-4 mb-3">
                                         <div className="form-group">
                                             <label className="info-label-tech text-[10px]">Lệ phí</label>
-                                            <input type="number" className="auth-input w-full text-sm" value={sportsConfig[sport].feeEntry} onChange={(e) => handleSportSettingChange(sport, 'feeEntry', e.target.value)} />
+                                            <input type="number" className="auth-input w-full text-sm" value={sportsConfig[sport].playerEntryFee} onChange={(e) => handleSportSettingChange(sport, 'playerEntryFee', e.target.value)} />
                                         </div>
                                         <div className="form-group">
                                             <label className="info-label-tech text-[10px]">Giới hạn Đội</label>

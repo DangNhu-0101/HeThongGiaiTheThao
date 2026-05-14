@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
-import Tournament from "../tournament.js";
-import BaseRule from "./baseRules.js";
+
 
 // Schema cho Conduct Penalties
 const conductPenaltiesSchema = new mongoose.Schema({

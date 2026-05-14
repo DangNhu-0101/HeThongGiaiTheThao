@@ -1,94 +1,110 @@
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import Session from '../models/session.js';
+import User from '../models/users.js';
+import Player from '../models/players.js';       // <--- THIẾU DÒNG NÀY ĐÂY!
+import Referee from '../models/referees.js';     // Import luôn cho chắc
+import Organization from '../models/Organizations.js'; // Import luôn cho chắc
 
 const ACCESS_TOKEN_TTL = 30 * 60 * 1000; // 30 phút (tính bằng ms để set Cookie)
 const REFRESH_TOKEN_TTL = 12 * 24 * 60 * 60 * 1000; // 12 ngày
 
 // 1. ĐĂNG KÝ TÀI KHOẢN
-export const register = async (req, res) => {
+export const registerFull = async (req, res) => {
     try {
-        const { username, password, gender, birthYear, email, displayName, role, confirmPassword, phoneNumber } = req.body;
+        const { username, password, email, phoneNumber, role, profileData } = req.body;
 
-        // 1. Validate input
-        if (!username || !password || !gender || !birthYear || !email || !displayName || !confirmPassword || !role || !phoneNumber) {
-            return res.status(400).json({ message: "Thiếu thông tin đăng ký (Kiểm tra Năm sinh/Giới tính/SĐT)" });
+        // 1. Kiểm tra dữ liệu đầu vào
+        if (!username || !password || !email || !phoneNumber || !role || !profileData) {
+            return res.status(400).json({ message: "Dữ liệu gửi lên bị thiếu trường rồi Như ơi!" });
         }
 
-        if (confirmPassword !== password) {
-            return res.status(400).json({ message: "Mật khẩu xác nhận không trùng khớp" });
-        }
-
-        // 2. Kiểm tra tồn tại
-        const check = await User.findOne({ $or: [{ username }, { email }] });
-        if (check) {
-            return res.status(409).json({ message: "Tên đăng nhập hoặc Email đã tồn tại" });
-        }
+        // 2. Kiểm tra trùng lặp
+        const check = await User.findOne({ $or: [{ username }, { email }, { phoneNumber }] });
+        if (check) return res.status(409).json({ message: "Username, Email hoặc SĐT đã tồn tại!" });
 
         // 3. Mã hóa mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 4. Tạo người dùng mới
-        const newUser = await User.create({
+        // 4. Khởi tạo User (Chưa save)
+        const newUser = new User({
             username,
-            password: hashedPassword,
+            hashedPassword,
             email,
-            displayName,
-            gender,
-            birthYear: Number(birthYear),
             phoneNumber,
-            role: role || 'Player'
+            role
         });
 
-        // 5. Kiểm tra Secret Key (Chống crash 500)
-        if (!process.env.ACCESS_TOKEN) {
-            console.error("LỖI: Chưa cấu hình ACCESS_TOKEN trong file .env");
-            return res.status(500).json({ message: "Lỗi cấu hình server (JWT Secret)" });
+        // 5. Khởi tạo Profile tương ứng dựa trên Role
+        let profile;
+        if (role === 'player') {
+            profile = new Player({
+                userId: newUser._id,
+                name: profileData.name,
+                gender: profileData.gender,
+                birthDate: profileData.birthDate,
+                sports: [{ category: 'Pickleball', level: profileData.skill }]
+            });
+        } else if (role === 'referee') {
+            profile = new Referee({
+                userId: newUser._id,
+                name: profileData.name,
+                birthDay: profileData.birthDate,
+                gender: profileData.gender,
+                sports: [{ category: 'Pickleball', yearsOfExperience: profileData.experienceYears }]
+            });
+        } else if (role === 'Organization') {
+            profile = new Organization({
+                ownerId: newUser._id,
+                name: profileData.name,
+                contactEmail: email,
+                contactPhone: phoneNumber,
+                address: { city: profileData.city, district: profileData.district, detail: profileData.detail }
+            });
         }
 
-        // 6. Tạo Access Token (Dùng chuỗi '30m' cho an toàn)
+        // 6. LƯU CẢ HAI (Nếu 1 cái lỗi, catch sẽ bắt được và không lưu gì cả)
+        await newUser.save();
+        await profile.save();
+
+        // 7. TẠO TOKEN ĐỂ ĐĂNG NHẬP LUÔN
         const accessToken = jwt.sign(
             { userId: newUser._id },
-            process.env.ACCESS_TOKEN,
-            { expiresIn: '30m' } 
+            process.env.ACCESS_TOKEN || 'SECRET_KEY_TAM_THOI',
+            { expiresIn: '15m' }
         );
 
-        // 7. Tạo Refresh Token
         const refreshToken = crypto.randomBytes(64).toString('hex');
+
+        // 8. LƯU SESSION
         await Session.create({
             userId: newUser._id,
             refreshToken,
-            expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL), 
+            expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL)
         });
 
-        // 8. Gửi Refresh Token qua Cookie
+        // 9. TRẢ VỀ KẾT QUẢ
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: REFRESH_TOKEN_TTL,
+            maxAge: REFRESH_TOKEN_TTL
         });
 
         return res.status(201).json({
-            message: "Đăng ký thành công!",
+            message: "Đăng ký trọn gói thành công!",
             accessToken,
-            user: {
-                username: newUser.username,
-                displayName: newUser.displayName,
-                role: newUser.role,
-                userId: newUser._id
-            }
+            user: { username: newUser.username, role: newUser.role }
         });
 
     } catch (error) {
-        // Dòng này cực quan trọng để Như soi lỗi ở Terminal
-        console.error("==== LỖI REGISTER CHI TIẾT ====");
-        console.error(error); 
-        return res.status(500).json({ message: "Lỗi hệ thống: " + error.message });
+        console.error("LỖI TẠI REGISTER_FULL:", error);
+        return res.status(500).json({ 
+            message: "Server bị lỗi rồi: " + error.message 
+        });
     }
-}
+};
 
 // 2. ĐĂNG NHẬP TRUYỀN THỐNG
 export const login = async (req, res) => {
@@ -111,7 +127,7 @@ export const login = async (req, res) => {
         }
 
         // Kiểm tra mật khẩu đã mã hóa
-        const passwordCorrect = await bcrypt.compare(password, user.password);
+        const passwordCorrect = await bcrypt.compare(password, user.hashedPassword);
 
         if (!passwordCorrect) {
             return res.status(401).json({
@@ -146,12 +162,11 @@ export const login = async (req, res) => {
 
         // Trả về Access Token cho phía Client
         return res.status(200).json({
-            message: `Chào mừng ${user.displayName}, bạn đã đăng nhập thành công!`,
+            message: `Chào mừng ${user.username}, bạn đã đăng nhập thành công!`,
             accessToken,
             user: {
                 id: user._id,
                 username: user.username,
-                displayName: user.displayName,
                 role: user.role
             }
         });

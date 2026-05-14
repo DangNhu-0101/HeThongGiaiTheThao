@@ -1,40 +1,38 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const refereeSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
- 
-    // Liên kết với User
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        unique: true,
         required: true,
+        unique: true
     },
-    // Thông tin nghề nghiệp
-    experienceYears: {
-        type: Number,
-        required: true,
-        min: 0
-    },
-   
-    specializedSports: [{
+    phoneNumber: {
         type: String,
-        comment: "Môn thể thao sở trường: Football, Volleyball..."
-    }],
-    // Trạng thái vận hành
-    status: {
-        type: String,
-        enum: ['available', 'busy', 'inactive'],
-        default: 'available'
+        unique: true
     },
-    avatarUrl: { type: String }
-}, {
-    timestamps: true // Thêm để biết trọng tài này tham gia hệ thống khi nào
-});
 
-const Referee = mongoose.model("Referee", refereeSchema);
+    name: {
+        type: String,
+        required: true
+    },
+
+    birthDate: {
+        type: Date,
+        required: true
+    },
+
+    gender: {
+        type: String,
+        enum: ['male', 'female', 'other'],
+        required: true
+    },
+
+    sports: [{
+        category: { type: String },
+        yearsOfExperience: { type: Number, default: 0 },
+    }],
+}, { timestamps: true });
+
+const Referee = mongoose.model('Referee', refereeSchema);
 export default Referee;

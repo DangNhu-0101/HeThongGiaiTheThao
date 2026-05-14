@@ -11,7 +11,7 @@ const Organization = () => {
 
     const fetchTournaments = async () => {
         try {
-            const res = await api.get('/tournaments/getAllTournament');
+            const res = await api.get('/tournaments');
             setTournaments(res.data.data || []);
         } catch (e) { 
             console.error("Lỗi fetch giải đấu"); 

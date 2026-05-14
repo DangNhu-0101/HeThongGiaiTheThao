@@ -28,17 +28,16 @@ const sponsorSchema = new mongoose.Schema({
         enum: ['Diamond', 'Gold', 'Silver', 'Bronze', 'Other'],
         default: 'Gold'
     },
+    
+    sponsorshipType: {
+        type: String,
+        enum: ['Money', 'Goods', 'Services'],
+        default: 'Money'
+    },
     amount: {
         type: Number,
         required: true,
         min: 0,
-    },
-
-    // TRẠNG THÁI THANH TOÁN
-    paymentStatus: {
-        type: String,
-        enum: ['pending', 'partially_paid', 'paid', 'cancelled'],
-        default: 'pending'
     },
 
     // NGƯỜI LIÊN HỆ (Để ban tổ chức gọi khi cần)
@@ -47,6 +46,12 @@ const sponsorSchema = new mongoose.Schema({
         phone: String,
         email: String
     },
+
+    status:{
+        type: String,
+        enum: ['active', 'inactive'],
+        default: 'active'
+    }
 
 }, {
     timestamps: true

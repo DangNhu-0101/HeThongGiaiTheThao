@@ -20,7 +20,7 @@ import RegisterTeam from './pages/RegisterTeam';
 import TeamDetail from './pages/TeamDetail';
 import Navbar from './components/Navbar';
 
-// --- CÁC TRANG DÀNH RIÊNG CHO ORGANIZATION (ADMIN) ---
+// --- CÁC TRANG DÀNH RIÊNG CHO Organization (ADMIN) ---
 // Admin chính là component Organization (chứa Layout Sidebar + Outlet)
 import Admin from './pages/Organization/Organization'; 
 
@@ -97,19 +97,19 @@ function App() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         
           {/* ==========================================
-              CÁC TRANG DÀNH CHO PLAYER (VÀ ORG)
+              CÁC TRANG DÀNH CHO PLAYER (VÀ Organization)
           ========================================== */}
           <Route path="/notifications" element={<ProtectedRoute allowedRoles={['Player', 'Referee']}><Notifications /></ProtectedRoute>} />
           <Route path="/register-team" element={<ProtectedRoute allowedRoles={['Player']}><RegisterTeam /></ProtectedRoute>} />
           <Route path="/my-teams" element={<ProtectedRoute allowedRoles={['Player']}><MyTeams /></ProtectedRoute>} />
           <Route path="/team/detail/:id" element={<ProtectedRoute allowedRoles={['Player']}><TeamDetail /></ProtectedRoute>} />
           <Route path="/payment/:id" element={<Payment />} />          {/* ==========================================
-              CÁC TRANG DÀNH CHO REFEREE (VÀ ORG)
+              CÁC TRANG DÀNH CHO REFEREE (VÀ Organization)
           =================================== ======= */}
           <Route path="/referee" element={<ProtectedRoute allowedRoles={['Referee']}><Referee /></ProtectedRoute>} />
 
           {/* ==========================================
-              CÁC TRANG QUYỀN LỰC NHẤT DÀNH CHO ORGANIZATION (NESTED ROUTING)
+              CÁC TRANG QUYỀN LỰC NHẤT DÀNH CHO Organization (NESTED ROUTING)
           ========================================== */}
           <Route 
             path="/admin" 

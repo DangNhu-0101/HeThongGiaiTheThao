@@ -1,369 +1,392 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../../api/axiosConfig';
 
-const SPORTS_LIST = ["Pickleball", "Tennis", "Badminton", "Table Tennis", "Football",  "Volleyball"];
+const SPORTS_LIST = ["Pickleball", "Tennis", "Badminton", "Table Tennis", "Football", "Volleyball"];
 const CATEGORIES_LIST = [
-    { id: 'MS', label: 'Đơn Nam (MS)' },
-    { id: 'WS', label: 'Đơn Nữ (WS)' },
-    { id: 'MD', label: 'Đôi Nam (MD)' },
-    { id: 'WD', label: 'Đôi Nữ (WD)' },
-    { id: 'XD', label: 'Đôi Nam Nữ (XD)' }
+  { id: 'MS', label: 'Đơn Nam (MS)' },
+  { id: 'WS', label: 'Đơn Nữ (WS)' },
+  { id: 'MD', label: 'Đôi Nam (MD)' },
+  { id: 'WD', label: 'Đôi Nữ (WD)' },
+  { id: 'XD', label: 'Đôi Nam Nữ (XD)' },
 ];
 
+const IMAGE_BASE_URL = "http://localhost:5001/";
+
 const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
-    const [loading, setLoading] = useState(false);
-    
-    // 1. STATE THÔNG TIN CƠ BẢN & LỊCH TRÌNH
-    const [formData, setFormData] = useState({
-        displayName: "",
-        slogan: "",
-        contactPerson: "",
-        targetAudience: "",
-        venue: "",
-        description: "",
-        prizes: "",
-        timeRegister: "",
-        timeCloseRegister: "",
-        timeOpen: "",
-        timeClose: ""
-    });
+  const [loading, setLoading] = useState(false);
+  const [organizations, setOrganizations] = useState([]); // Đã đổi từ orgs sang Organization
 
-    // 2. STATE QUẢN LÝ MÔN THI ĐẤU (Khởi tạo động dựa trên SPORTS_LIST)
-    const initialSports = SPORTS_LIST.reduce((acc, sport) => {
-        acc[sport] = { selected: false, feeEntry: "", maxTeams: "", categories: [] };
-        return acc;
-    }, {});
-    const [sportsConfig, setSportsConfig] = useState(initialSports);
+  // 1. STATE THÔNG TIN CHUNG
+  const [formData, setFormData] = useState({
+    name: '',
+    slogan: '',
+    targetParticipants: '', // Đã để dạng String theo yêu cầu mới
+    location: '',
+    description: '',
+    prizes: '',
+    organizer: '' // Chứa ObjectId của Organization
+  });
 
-    // 3. STATE QUẢN LÝ GALA
-    const [galaConfig, setGalaConfig] = useState({
-        hasGala: false, time: "", venue: "", description: ""
-    });
+  const [contactPerson, setContactPerson] = useState({ name: '', phone: '' });
 
-    // 4. STATE QUẢN LÝ FILE UPLOAD & PREVIEW
-    const [files, setFiles] = useState({ logo: null, banner: null, paymentQR: null });
-    const [previews, setPreviews] = useState({ logo: null, banner: null, paymentQR: null });
+  const [timeLine, setTimeLine] = useState({
+    registrationStart: '',
+    registrationEnd: '',
+    tournamentStart: '',
+    tournamentEnd: ''
+  });
 
-    // --- HANDLERS ---
-    const handleTextChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+  // 2. STATE CẤU HÌNH MÔN THI ĐẤU
+  const [sportsConfig, setSportsConfig] = useState(
+    SPORTS_LIST.reduce((acc, sport) => {
+      acc[sport] = { selected: false, feePerAthlete: '', maxTeams: '', categories: [] };
+      return acc;
+    }, {})
+  );
 
-    const handleGalaChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setGalaConfig(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
+  // 3. STATE GALA DINNER
+  const [galaConfig, setGalaConfig] = useState({
+    hasGala: false,
+    time: '',
+    location: '',
+    description: ''
+  });
 
-    const handleFileChange = (e) => {
-        const { name, files: selectedFiles } = e.target;
-        const file = selectedFiles[0];
-        if (file) {
-            setFiles(prev => ({ ...prev, [name]: file }));
-            setPreviews(prev => ({ ...prev, [name]: URL.createObjectURL(file) }));
-        }
-    };
+  // 4. STATE FILES (Banner cho phép nhiều ảnh)
+  const [files, setFiles] = useState({ logo: null, paymentQR: null, banners: [] });
+  const [previews, setPreviews] = useState({ logo: null, paymentQR: null, banners: [] });
 
-    // Handler riêng cho mảng Thể Thao
-    const toggleSport = (sport) => {
-        setSportsConfig(prev => ({
-            ...prev,
-            [sport]: { ...prev[sport], selected: !prev[sport].selected }
-        }));
-    };
-
-    const handleSportSettingChange = (sport, field, value) => {
-        setSportsConfig(prev => ({
-            ...prev,
-            [sport]: { ...prev[sport], [field]: value }
-        }));
-    };
-
-    const toggleCategory = (sport, categoryId) => {
-        setSportsConfig(prev => {
-            const currentCats = prev[sport].categories;
-            const newCats = currentCats.includes(categoryId)
-                ? currentCats.filter(c => c !== categoryId)
-                : [...currentCats, categoryId];
-            return {
-                ...prev,
-                [sport]: { ...prev[sport], categories: newCats }
-            };
-        });
-    };
-
-    // --- SUBMIT ---
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const payload = new FormData();
+  /* ── LOAD DATA ── */
+useEffect(() => {
+    // Lấy TẤT CẢ organizations trong hệ thống
+    api.get('/users/organizations')  // Gọi API get all organizations
+           .then(res => {
+        console.log("Full response:", res); // Xem toàn bộ response
+        console.log("Response data:", res.data); // Xem res.data
         
-        // 1. Append Thông tin cơ bản
-        Object.keys(formData).forEach(key => {
-            if (formData[key]) payload.append(key, formData[key]);
-        });
+        // Thử các cách lấy data khác nhau
+        const orgList = res.data?.data?.data || // Trường hợp { data: { data: [...] } }
+                       res.data?.data ||         // Trường hợp { data: [...] }
+                       res.data?.organizations || // Trường hợp { organizations: [...] }
+                       [];
+        
+        console.log("Processed orgList:", orgList);
+        setOrganizations(orgList);
+      })
+      .catch(err => {
+        console.error("Lỗi tải danh sách tổ chức:", err);
+        setOrganizations([]);
+      });
 
-        // 2. Build & Append mảng SportsConfig
-        const activeSportsArray = Object.keys(sportsConfig)
-            .filter(key => sportsConfig[key].selected)
-            .map(key => ({
-                sport: key,
-                feeEntry: Number(sportsConfig[key].feeEntry) || 0,
-                maxTeams: sportsConfig[key].maxTeams ? Number(sportsConfig[key].maxTeams) : null,
-                categories: sportsConfig[key].categories
-            }));
-            
-        if (activeSportsArray.length === 0) {
-            alert("Vui lòng chọn ít nhất 1 môn thi đấu!");
-            setLoading(false);
-            return;
-        }
-        payload.append('sportsConfig', JSON.stringify(activeSportsArray));
+ 
+    if (mode === 'edit' && tourId) {
+      setLoading(true);
+      api.get(`/tournaments/getTournament/${tourId}`)
+        .then(res => {
+          const d = res.data.data;
+          if (!d) return;
+          setFormData({
+            name: d.name || '',
+            slogan: d.slogan || '',
+            targetParticipants: d.targetParticipants || '',
+            location: d.location || '',
+            description: d.description || '',
+            prizes: d.prizes || '',
+            organizer: d.organizer?._id || d.organizer || ''
+          });
+          setContactPerson({ name: d.contactPerson?.name || '', phone: d.contactPerson?.phone || '' });
+          setTimeLine({
+            registrationStart: d.timeLine?.registrationStart?.slice(0, 16) || '',
+            registrationEnd: d.timeLine?.registrationEnd?.slice(0, 16) || '',
+            tournamentStart: d.timeLine?.tournamentStart?.slice(0, 16) || '',
+            tournamentEnd: d.timeLine?.tournamentEnd?.slice(0, 16) || '',
+          });
 
-        // 3. Build & Append GalaConfig
-        payload.append('galaConfig', JSON.stringify(galaConfig));
+          // Load sports config
+          const newSports = { ...sportsConfig };
+          d.sportsConfig?.forEach(item => {
+            if (newSports[item.sport]) {
+              newSports[item.sport] = {
+                selected: true,
+                feePerAthlete: item.feePerAthlete || '',
+                maxTeams: item.maxTeams || '',
+                categories: item.categories || []
+              };
+            }
+          });
+          setSportsConfig(newSports);
 
-        // 4. Append Files
-        if (files.logo) payload.append('logo', files.logo);
-        if (files.banner) payload.append('banner', files.banner);
-        if (files.paymentQR) payload.append('paymentQR', files.paymentQR);
+          if (d.galaConfig) setGalaConfig({ ...d.galaConfig, time: d.galaConfig.time?.slice(0, 16) || '' });
 
-        try {
-            
-            const endpoint = mode === 'create' 
-                ? '/tournaments/createTournament' 
-                : `/tournaments/editTournament/${tourId}`;
-            
-            const method = mode === 'create' ? 'post' : 'patch';
-            
-            await api[method](endpoint, payload, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            onSuccess();
-        }catch (err) {
-            alert(err.response?.data?.message || "LỖI HỆ THỐNG GIAO TIẾP");
-        } finally {
-            setLoading(false);
-        }
-    };
+          const fp = p => p ? (p.startsWith('http') ? p : IMAGE_BASE_URL + p.replace(/\\/g, '/')) : null;
+          setPreviews({
+            logo: fp(d.logo),
+            paymentQR: fp(d.paymentQR),
+            banners: Array.isArray(d.banners) ? d.banners.map(b => fp(b)) : []
+          });
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [mode, tourId]);
 
-    return (
-        <div className="modal-overlay">
-            <div className="modal-container glass-card custom-scrollbar">
-                <div className="modal-header border-b border-cyan-500/30 pb-3 mb-5 flex justify-between items-center">
-                    <h2 className="text-xl font-black text-neon-cyan tracking-widest uppercase">
-                        {mode === 'create' ? "🏆 KHỞI TẠO GIẢI ĐẤU / HỘI THAO" : "🔧 CẬP NHẬT GIẢI ĐẤU"}
-                    </h2>
-                    <button onClick={onClose} className="text-red-400 hover:text-red-300 font-bold">✕ ĐÓNG</button>
+  /* ── HANDLERS ── */
+  const handleTextChange = e => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
+  const handleContactChange = e => setContactPerson(p => ({ ...p, [e.target.name]: e.target.value }));
+  const handleTimeChange = e => setTimeLine(p => ({ ...p, [e.target.name]: e.target.value }));
+  const handleGalaChange = e => setGalaConfig(p => ({ ...p, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+
+  const handleFileChange = e => {
+    const { name, files: f } = e.target;
+    if (name === 'banners') {
+      const arr = Array.from(f);
+      setFiles(p => ({ ...p, banners: [...p.banners, ...arr] }));
+      setPreviews(p => ({ ...p, banners: [...p.banners, ...arr.map(x => URL.createObjectURL(x))] }));
+    } else {
+      if (f[0]) {
+        setFiles(p => ({ ...p, [name]: f[0] }));
+        setPreviews(p => ({ ...p, [name]: URL.createObjectURL(f[0]) }));
+      }
+    }
+  };
+
+  const removeBanner = (index) => {
+    setFiles(p => ({ ...p, banners: p.banners.filter((_, i) => i !== index) }));
+    setPreviews(p => ({ ...p, banners: p.banners.filter((_, i) => i !== index) }));
+  };
+
+  const toggleSport = sport => setSportsConfig(p => ({ ...p, [sport]: { ...p[sport], selected: !p[sport].selected } }));
+  const handleSportFieldChange = (sport, field, val) => setSportsConfig(p => ({ ...p, [sport]: { ...p[sport], [field]: val } }));
+  const toggleCategory = (sport, catId) => setSportsConfig(p => {
+    const cats = p[sport].categories;
+    const newCats = cats.includes(catId) ? cats.filter(c => c !== catId) : [...cats, catId];
+    return { ...p, [sport]: { ...p[sport], categories: newCats } };
+  });
+
+  /* ── SUBMIT ── */
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setLoading(true);
+    const payload = new FormData();
+
+    // Data texts
+    Object.keys(formData).forEach(k => payload.append(k, formData[k]));
+    payload.append('contactPerson', JSON.stringify(contactPerson));
+    payload.append('timeLine', JSON.stringify(timeLine));
+    payload.append('galaConfig', JSON.stringify(galaConfig));
+
+    // Sports config
+    const activeSports = Object.keys(sportsConfig)
+      .filter(k => sportsConfig[k].selected)
+      .map(k => ({
+        sport: k,
+        feePerAthlete: Number(sportsConfig[k].feePerAthlete) || 0,
+        maxTeams: sportsConfig[k].maxTeams ? Number(sportsConfig[k].maxTeams) : null,
+        categories: sportsConfig[k].categories
+      }));
+
+    if (activeSports.length === 0) { alert("Vui lòng chọn ít nhất 1 môn thi đấu!"); setLoading(false); return; }
+    payload.append('sportsConfig', JSON.stringify(activeSports));
+    payload.append('sportType', JSON.stringify(activeSports.map(s => s.sport)));
+
+    // Files
+    if (files.logo) payload.append('logo', files.logo);
+    if (files.paymentQR) payload.append('paymentQR', files.paymentQR);
+    files.banners.forEach(b => payload.append('banners', b)); // Gửi mảng file banner
+
+    try {
+      const ep = mode === 'create' ? '/tournaments/createTournament' : `/tournaments/editTournament/${tourId}`;
+      await api[mode === 'create' ? 'post' : 'patch'](ep, payload);
+      alert("Xử lý giải đấu thành công!");
+      onSuccess();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Lỗi hệ thống');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <>
+      <style>{`
+        .tm-overlay { position: fixed; inset: 0; background: rgba(2,30,55,0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 20px; }
+        .tm-dialog { background: #fff; border-radius: 24px; width: 100%; max-width: 850px; max-height: 95vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.3); font-family: 'Be Vietnam Pro', sans-serif; }
+        .tm-header { padding: 20px 30px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .tm-body { flex: 1; overflow-y: auto; padding: 30px; display: flex; flex-direction: column; gap: 24px; background: #fcfcfc; }
+        .tm-section { border: 1px solid rgba(1,138,190,0.1); border-radius: 20px; padding: 20px; background: #fff; }
+        .tm-label-sec { font-size: 11px; font-weight: 800; color: #018ABE; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .tm-label-sec::before { content: ""; width: 4px; height: 14px; background: #018ABE; border-radius: 4px; }
+        .tm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .tm-full { grid-column: 1 / -1; }
+        .tm-input, .tm-select, .tm-textarea { width: 100%; padding: 12px; border: 1.5px solid #E2E8F0; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s; }
+        .tm-input:focus { border-color: #018ABE; box-shadow: 0 0 0 4px rgba(1,138,190,0.08); }
+        .tm-sport-tag { padding: 8px 18px; border-radius: 12px; border: 1.5px solid #E2E8F0; cursor: pointer; font-size: 13px; font-weight: 600; background: #fff; color: #64748b; }
+        .tm-sport-tag.sel { background: #018ABE; color: #fff; border-color: #018ABE; }
+        .tm-cat-card { border: 1px solid #EEF6FB; border-radius: 16px; padding: 18px; background: #F8FAFC; margin-bottom: 10px; }
+        .tm-upload-box { border: 2px dashed #CBD5E1; border-radius: 16px; height: 110px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #F1F5F9; }
+        .tm-upload-box img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+        .tm-banner-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-top: 10px; }
+        .tm-banner-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid #ddd; }
+        .tm-remove { position: absolute; top: 2px; right: 2px; background: rgba(220,38,38,0.9); color: #fff; border: none; width: 18px; height: 18px; border-radius: 50%; font-size: 10px; cursor: pointer; }
+        .tm-footer { padding: 20px 30px; border-top: 1px solid #f0f0f0; display: flex; gap: 12px; background: #fff; }
+        .tm-btn-submit { flex: 1; background: #018ABE; color: #fff; border: none; padding: 14px; border-radius: 14px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        .tm-btn-submit:hover { background: #02457A; }
+      `}</style>
+
+      <div className="tm-overlay">
+        <div className="tm-dialog">
+          <div className="tm-header">
+            <h2 style={{ margin: 0, color: '#02457A', fontSize: '20px', fontWeight: 800 }}>
+              {mode === 'create' ? '🏆 KHỞI TẠO GIẢI ĐẤU' : '🔧 CHỈNH SỬA GIẢI ĐẤU'}
+            </h2>
+            <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 24, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+          </div>
+
+          <div className="tm-body">
+            <form id="tour-form" onSubmit={handleSubmit}>
+
+              {/* SECTION: THÔNG TIN CƠ BẢN */}
+              <div className="tm-section">
+                <div className="tm-label-sec">Thông tin định danh</div>
+                <div className="tm-grid">
+                  <div className="tm-field tm-full">
+                    <input name="name" className="tm-input" required value={formData.name} onChange={handleTextChange} placeholder="Tên giải đấu chính thức *" />
+                  </div>
+                  <div className="tm-field">
+                    <input name="slogan" className="tm-input" value={formData.slogan} onChange={handleTextChange} placeholder="Slogan giải đấu" />
+                  </div>
+                  <div className="tm-field">
+                    <select name="organizer" className="tm-select" required value={formData.organizer} onChange={handleTextChange}>
+                      <option value="">-- Chọn Đơn vị tổ chức --</option>
+                      {organizations.map(o => <option key={o._id} value={o._id}>{o.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="tm-field">
+                    <input name="targetParticipants" className="tm-input" value={formData.targetParticipants} onChange={handleTextChange} placeholder="Đối tượng tham gia (VD: Sinh viên, IT...)" />
+                  </div>
+                  <div className="tm-field">
+                    <input name="location" className="tm-input" value={formData.location} onChange={handleTextChange} placeholder="Địa điểm tổ chức" />
+                  </div>
+                  <div className="tm-field tm-full">
+                    <textarea name="description" className="tm-textarea" value={formData.description} onChange={handleTextChange} placeholder="Mô tả ngắn gọn về giải đấu..." />
+                  </div>
                 </div>
+              </div>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* SECTION 1: THÔNG TIN CƠ BẢN */}
-                    <div className="section-block">
-                        <h3 className="section-title">📌 THÔNG TIN CƠ BẢN</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="form-group full-width">
-                                <label className="info-label-tech">Tên giải đấu (*)</label>
-                                <input name="displayName" className="auth-input w-full" required value={formData.displayName} onChange={handleTextChange} placeholder="VD: Hội Thao Mùa Hè 2026" />
-                            </div>
-                            <div className="form-group">
-                                <label className="info-label-tech">Slogan</label>
-                                <input name="slogan" className="auth-input w-full" value={formData.slogan} onChange={handleTextChange} placeholder="VD: Bứt phá giới hạn" />
-                            </div>
-                            <div className="form-group">
-                                <label className="info-label-tech">Đối tượng tham gia</label>
-                                <input name="targetAudience" className="auth-input w-full" value={formData.targetAudience} onChange={handleTextChange} placeholder="VD: Sinh viên toàn quốc" />
-                            </div>
-                            <div className="form-group full-width">
-                                <label className="info-label-tech">Địa điểm tổ chức (Venue)</label>
-                                <input name="venue" className="auth-input w-full" value={formData.venue} onChange={handleTextChange} placeholder="VD: Cụm sân trung tâm Vũng Tàu" />
-                            </div>
-                            <div className="form-group full-width">
-                                <label className="info-label-tech">Mô tả giải đấu</label>
-                                <textarea name="description" className="auth-input w-full min-h-[80px]" value={formData.description} onChange={handleTextChange} placeholder="Giới thiệu mục đích, ý nghĩa..." />
-                            </div>
-                            <div className="form-group full-width">
-                                <label className="info-label-tech">Người liên hệ / Hotline</label>
-                                <input 
-                                    name="contactPerson" 
-                                    className="auth-input w-full" 
-                                    value={formData.contactPerson} 
-                                    onChange={handleTextChange} 
-                                    placeholder="VD: Mr. A - 090xxxxxxx" 
-                                />
-                            </div>
+              {/* SECTION: LIÊN HỆ & LỊCH TRÌNH */}
+              <div className="tm-section">
+                <div className="tm-label-sec">Lịch trình & Liên hệ</div>
+                <div className="tm-grid">
+                  <div className="tm-field"><input name="name" className="tm-input" value={contactPerson.name} onChange={handleContactChange} placeholder="Người phụ trách liên hệ" /></div>
+                  <div className="tm-field"><input name="phone" className="tm-input" value={contactPerson.phone} onChange={handleContactChange} placeholder="Hotline/Zalo liên hệ" /></div>
+                  <div className="tm-field"><label style={{fontSize:9, fontWeight:700, color:'#94a3b8'}}>MỞ ĐĂNG KÝ</label><input type="datetime-local" name="registrationStart" className="tm-input" required value={timeLine.registrationStart} onChange={handleTimeChange} /></div>
+                  <div className="tm-field"><label style={{fontSize:9, fontWeight:700, color:'#94a3b8'}}>ĐÓNG ĐĂNG KÝ</label><input type="datetime-local" name="registrationEnd" className="tm-input" required value={timeLine.registrationEnd} onChange={handleTimeChange} /></div>
+                  <div className="tm-field"><label style={{fontSize:9, fontWeight:700, color:'#94a3b8'}}>KHAI MẠC</label><input type="datetime-local" name="tournamentStart" className="tm-input" required value={timeLine.tournamentStart} onChange={handleTimeChange} /></div>
+                  <div className="tm-field"><label style={{fontSize:9, fontWeight:700, color:'#94a3b8'}}>BẾ MẠC</label><input type="datetime-local" name="tournamentEnd" className="tm-input" required value={timeLine.tournamentEnd} onChange={handleTimeChange} /></div>
+                </div>
+              </div>
+
+              {/* SECTION: MÔN THI ĐẤU */}
+              <div className="tm-section">
+                <div className="tm-label-sec">Môn thi đấu & Nội dung</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 15 }}>
+                  {SPORTS_LIST.map(s => (
+                    <div key={s} className={`tm-sport-tag ${sportsConfig[s].selected ? 'sel' : ''}`} onClick={() => toggleSport(s)}>{s}</div>
+                  ))}
+                </div>
+                {SPORTS_LIST.filter(s => sportsConfig[s].selected).map(s => (
+                  <div key={s} className="tm-cat-card">
+                    <div style={{ fontWeight: 800, color: '#018ABE', marginBottom: 12, fontSize: 12 }}>MÔN {s.toUpperCase()}</div>
+                    <div className="tm-grid">
+                      <input type="number" className="tm-input" placeholder="Lệ phí / 1 VĐV (VNĐ)" value={sportsConfig[s].feePerAthlete} onChange={e => handleSportFieldChange(s, 'feePerAthlete', e.target.value)} />
+                      <input type="number" className="tm-input" placeholder="Giới hạn số đội (Để trống = KGH)" value={sportsConfig[s].maxTeams} onChange={e => handleSportFieldChange(s, 'maxTeams', e.target.value)} />
+                    </div>
+                    <div style={{ marginTop: 15 }}>
+                      <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>NỘI DUNG TỔ CHỨC:</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                        {CATEGORIES_LIST.map(cat => {
+                          const isSel = sportsConfig[s].categories.includes(cat.id);
+                          return (
+                            <button type="button" key={cat.id} onClick={() => toggleCategory(s, cat.id)}
+                              style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #E2E8F0', background: isSel ? '#018ABE' : '#fff', color: isSel ? '#fff' : '#64748b', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                              {cat.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* SECTION: GALA DINNER */}
+              <div className="tm-section">
+                <div className="tm-label-sec">Sự kiện Gala Dinner</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 15, cursor: 'pointer' }}>
+                  <input type="checkbox" name="hasGala" checked={galaConfig.hasGala} onChange={handleGalaChange} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#02457A' }}>Có tổ chức Gala Dinner tổng kết & trao giải</span>
+                </label>
+                {galaConfig.hasGala && (
+                  <div className="tm-grid">
+                    <input type="datetime-local" name="time" className="tm-input" value={galaConfig.time} onChange={handleGalaChange} />
+                    <input name="location" className="tm-input" value={galaConfig.location} onChange={handleGalaChange} placeholder="Địa điểm tổ chức Gala" />
+                    <textarea name="description" className="tm-textarea tm-full" value={galaConfig.description} onChange={handleGalaChange} placeholder="Mô tả Gala (Dresscode, kịch bản...)" />
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION: MEDIA & THANH TOÁN */}
+              <div className="tm-section">
+                <div className="tm-label-sec">Hình ảnh & Giải thưởng</div>
+                <div className="tm-grid">
+                  <textarea name="prizes" className="tm-textarea tm-full" value={formData.prizes} onChange={handleTextChange} placeholder="Cơ cấu giải thưởng (VD: Nhất 5tr, Nhì 3tr...)" />
+                  
+                  <div className="tm-field">
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>LOGO GIẢI</label>
+                    <div className="tm-upload-box">
+                      {previews.logo && <img src={previews.logo} alt="" />}
+                      <input type="file" name="logo" accept="image/*" onChange={handleFileChange} style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }} />
+                      {!previews.logo && <span style={{ fontSize: 10, color: '#018ABE', fontWeight: 800 }}>+ TẢI LOGO</span>}
+                    </div>
+                  </div>
+
+                  <div className="tm-field">
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>QR THANH TOÁN</label>
+                    <div className="tm-upload-box">
+                      {previews.paymentQR && <img src={previews.paymentQR} alt="" />}
+                      <input type="file" name="paymentQR" accept="image/*" onChange={handleFileChange} style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }} />
+                      {!previews.paymentQR && <span style={{ fontSize: 10, color: '#018ABE', fontWeight: 800 }}>+ TẢI QR</span>}
+                    </div>
+                  </div>
+
+                  <div className="tm-field tm-full">
+                    <label style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>BANNER GIẢI (CHỌN NHIỀU ẢNH)</label>
+                    <div className="tm-upload-box" style={{ height: 60 }}>
+                      <input type="file" name="banners" accept="image/*" multiple onChange={handleFileChange} style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }} />
+                      <span style={{ fontSize: 11, color: '#018ABE', fontWeight: 800 }}>+ BẤM ĐỂ CHỌN NHIỀU BANNER</span>
+                    </div>
+                    <div className="tm-banner-wrap">
+                      {previews.banners.map((url, i) => (
+                        <div key={i} className="tm-banner-item">
+                          <img src={url} alt="" />
+                          <button type="button" className="tm-remove" onClick={() => removeBanner(i)}>✕</button>
                         </div>
+                      ))}
                     </div>
+                  </div>
+                </div>
+              </div>
 
-                    {/* SECTION 2: LỊCH TRÌNH */}
-                    <div className="section-block">
-                        <h3 className="section-title">⏱️ LỊCH TRÌNH THỜI GIAN</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="form-group">
-                                <label className="info-label-tech">Mở đăng ký</label>
-                                <input type="datetime-local" name="timeRegister" className="auth-input w-full" value={formData.timeRegister} onChange={handleTextChange} />
-                            </div>
-                            <div className="form-group">
-                                <label className="info-label-tech">Đóng đăng ký</label>
-                                <input type="datetime-local" name="timeCloseRegister" className="auth-input w-full" value={formData.timeCloseRegister} onChange={handleTextChange} />
-                            </div>
-                            <div className="form-group">
-                                <label className="info-label-tech">Khai mạc giải</label>
-                                <input type="datetime-local" name="timeOpen" className="auth-input w-full" required value={formData.timeOpen} onChange={handleTextChange} />
-                            </div>
-                            <div className="form-group">
-                                <label className="info-label-tech">Bế mạc giải</label>
-                                <input type="datetime-local" name="timeClose" className="auth-input w-full" value={formData.timeClose} onChange={handleTextChange} />
-                            </div>
-                        </div>
-                    </div>
+            </form>
+          </div>
 
-                    {/* SECTION 3: MÔN THI ĐẤU & LỆ PHÍ */}
-                    <div className="section-block">
-                        <h3 className="section-title">🏅 MÔN THI ĐẤU & NỘI DUNG</h3>
-                        <div className="mb-4">
-                            <label className="info-label-tech mb-2 block">Chọn các môn tổ chức (*)</label>
-                            <div className="flex flex-wrap gap-3">
-                                {SPORTS_LIST.map(sport => (
-                                    <div key={sport} className={`sport-tag ${sportsConfig[sport].selected ? 'active' : ''}`} onClick={() => toggleSport(sport)}>
-                                        {sportsConfig[sport].selected ? '✅ ' : ''}{sport}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* HIỂN THỊ CHI TIẾT CÁC MÔN ĐÃ CHỌN */}
-                        <div className="space-y-4">
-                            {SPORTS_LIST.filter(sport => sportsConfig[sport].selected).map(sport => (
-                                <div key={sport} className="p-4 border border-cyan-800 rounded-lg bg-slate-900/50">
-                                    <h4 className="text-cyan-400 font-bold mb-3 uppercase tracking-wider">{sport}</h4>
-                                    <div className="grid grid-cols-2 gap-4 mb-3">
-                                        <div className="form-group">
-                                            <label className="info-label-tech text-[10px]">Lệ phí (VNĐ)</label>
-                                            <input type="number" className="auth-input w-full text-sm" placeholder="VD: 200000" value={sportsConfig[sport].feeEntry} onChange={(e) => handleSportSettingChange(sport, 'feeEntry', e.target.value)} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="info-label-tech text-[10px]">Giới hạn Đội (Để trống = KGH)</label>
-                                            <input type="number" className="auth-input w-full text-sm" placeholder="VD: 32" value={sportsConfig[sport].maxTeams} onChange={(e) => handleSportSettingChange(sport, 'maxTeams', e.target.value)} />
-                                        </div>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="info-label-tech text-[10px] mb-2 block">Nội dung thi đấu:</label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {CATEGORIES_LIST.map(cat => (
-                                                <label key={cat.id} className="flex items-center gap-1 text-sm text-gray-300 cursor-pointer">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={sportsConfig[sport].categories.includes(cat.id)}
-                                                        onChange={() => toggleCategory(sport, cat.id)}
-                                                        className="accent-cyan-500"
-                                                    />
-                                                    {cat.label}
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* SECTION 4: GIẢI THƯỞNG & THANH TOÁN */}
-                    <div className="section-block">
-                        <h3 className="section-title">💰 GIẢI THƯỞNG & THANH TOÁN</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="form-group full-width">
-                                <label className="info-label-tech">Cơ cấu giải thưởng</label>
-                                <textarea name="prizes" className="auth-input w-full min-h-[60px]" value={formData.prizes} onChange={handleTextChange} placeholder="Nhất: Cúp + 5tr | Nhì: Cờ + 2tr..." />
-                            </div>
-                            <div className="form-group full-width">
-                                <label className="info-label-tech">QR Code Thanh toán (Momo/Bank)</label>
-                                <div className="preview-box h-32 w-32 border-cyan-600 border-dashed rounded-lg bg-slate-800">
-                                    {previews.paymentQR ? <img src={previews.paymentQR} alt="QR" className="h-full w-full object-cover" /> : <span className="text-xs text-gray-500">+ TẢI QR LÊN</span>}
-                                    <input type="file" name="paymentQR" onChange={handleFileChange} accept="image/*" className="opacity-0 absolute inset-0 cursor-pointer" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* SECTION 5: SỰ KIỆN GALA */}
-                    <div className="section-block">
-                        <h3 className="section-title">🥂 SỰ KIỆN GALA LÊN NGÔI</h3>
-                        <label className="flex items-center gap-2 text-cyan-400 font-bold cursor-pointer mb-4">
-                            <input type="checkbox" name="hasGala" checked={galaConfig.hasGala} onChange={handleGalaChange} className="w-5 h-5 accent-cyan-500" />
-                            Có tổ chức Gala Dinner tổng kết và trao giải
-                        </label>
-                        
-                        {galaConfig.hasGala && (
-                            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700 animate-fade-in">
-                                <div className="form-group">
-                                    <label className="info-label-tech">Thời gian Gala</label>
-                                    <input type="datetime-local" name="time" className="auth-input w-full" value={galaConfig.time} onChange={handleGalaChange} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="info-label-tech">Địa điểm Gala</label>
-                                    <input type="text" name="venue" className="auth-input w-full" placeholder="Nhà hàng..." value={galaConfig.venue} onChange={handleGalaChange} />
-                                </div>
-                                <div className="form-group full-width">
-                                    <label className="info-label-tech">Mô tả Gala</label>
-                                    <input type="text" name="description" className="auth-input w-full" placeholder="Dresscode, Chi phí người nhà..." value={galaConfig.description} onChange={handleGalaChange} />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* SECTION 6: HÌNH ẢNH NHẬN DIỆN */}
-                    <div className="section-block">
-                        <h3 className="section-title">🖼️ HÌNH ẢNH NHẬN DIỆN</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="form-group">
-                                <label className="info-label-tech">Logo Giải</label>
-                                <div className="preview-box h-32 border-cyan-600 border-dashed rounded-lg bg-slate-800">
-                                    {previews.logo ? <img src={previews.logo} alt="logo preview" className="h-full w-full object-contain" /> : <span className="text-xs text-gray-500">+ TẢI LOGO</span>}
-                                    <input type="file" name="logo" onChange={handleFileChange} accept="image/*" className="opacity-0 absolute inset-0 cursor-pointer" />
-                                </div>
-                            </div>
-                            <div className="form-group">
-                                <label className="info-label-tech">Banner Giải</label>
-                                <div className="preview-box h-32 border-cyan-600 border-dashed rounded-lg bg-slate-800">
-                                    {previews.banner ? <img src={previews.banner} alt="banner preview" className="h-full w-full object-cover" /> : <span className="text-xs text-gray-500">+ TẢI BANNER</span>}
-                                    <input type="file" name="banner" onChange={handleFileChange} accept="image/*" className="opacity-0 absolute inset-0 cursor-pointer" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4 pt-4 border-t border-cyan-900">
-                        <button type="button" onClick={onClose} className="auth-button bg-transparent border border-red-500 text-red-500 hover:bg-red-500/20 w-1/3">
-                            HỦY BỎ
-                        </button>
-                        <button type="submit" className="auth-button flex-1" disabled={loading}>
-                            {loading ? "ĐANG XỬ LÝ HỆ THỐNG..." : "🚀 TẠO GIẢI & LƯU THÔNG TIN"}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <style>{`
-                .modal-overlay { position: fixed; inset: 0; background: rgba(7, 11, 20, 0.95); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 20px; }
-                .modal-container { background: #0F172A; border: 1px solid #00F0FF; padding: 30px; width: 100%; max-width: 800px; max-height: 95vh; overflow-y: auto; box-shadow: 0 0 30px rgba(0, 240, 255, 0.1); border-radius: 12px; }
-                .full-width { grid-column: 1 / -1; }
-                .section-block { background: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; padding: 20px; border-radius: 8px; }
-                .section-title { color: #fff; font-size: 1.1rem; font-weight: 900; margin-bottom: 15px; border-left: 4px solid #00F0FF; padding-left: 10px; }
-                .info-label-tech { color: #00F0FF; font-size: 0.75rem; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; display: block; }
-                .preview-box { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; transition: all 0.3s; }
-                .preview-box:hover { border-color: #fff; background: rgba(0,240,255,0.1); }
-                .sport-tag { padding: 8px 16px; border: 1px solid #00F0FF; border-radius: 6px; cursor: pointer; color: #94a3b8; font-weight: bold; font-size: 0.9rem; transition: all 0.2s; }
-                .sport-tag.active { background: #00F0FF; color: #000; box-shadow: 0 0 10px rgba(0,240,255,0.5); border-color: #00F0FF; }
-                .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-            `}</style>
+          <div className="tm-footer">
+            <button type="button" onClick={onClose} style={{ padding: '12px 25px', borderRadius: 14, border: '1.5px solid #E2E8F0', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}>Hủy bỏ</button>
+            <button type="submit" form="tour-form" className="tm-btn-submit" disabled={loading}>
+              {loading ? 'Đang xử lý dữ liệu...' : mode === 'create' ? '🚀 KHỞI TẠO GIẢI ĐẤU' : '🔧 LƯU THAY ĐỔI'}
+            </button>
+          </div>
         </div>
-    );
+      </div>
+    </>
+  );
 };
 
 export default TournamentModal;

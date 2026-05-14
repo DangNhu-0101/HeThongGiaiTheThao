@@ -1,0 +1,145 @@
+{
+  "templateName": "Badminton_Ultimate_Full_Rules",
+  "sportType": "badminton",
+  "version": "1.0",
+  "language": "vi",
+  "tournamentStructure": {
+    "categories": [
+      {
+        "id": "MS",
+        "name": "Đơn Nam",
+        "minPlayers": 1
+      },
+      {
+        "id": "WS",
+        "name": "Đơn Nữ",
+        "minPlayers": 1
+      },
+      {
+        "id": "MD",
+        "name": "Đôi Nam",
+        "minPlayers": 2
+      },
+      {
+        "id": "WD",
+        "name": "Đôi Nữ",
+        "minPlayers": 2
+      },
+      {
+        "id": "XD",
+        "name": "Đôi Nam Nữ",
+        "minPlayers": 2
+      }
+    ],
+    "skillLevels": [
+      "Professional (BWF)",
+      "Semi-Pro",
+      "Amateur"
+    ],
+    "stages": [
+      {
+        "stageName": "Vòng Bảng",
+        "type": "GROUP_STAGE",
+        "format": "ROUND_ROBIN",
+        "scoring": "BEST_OF_3_SETS_TO_21",
+        "advanceCriteria": "RANKING_CRITERIA_MATCHES_WON"
+      },
+      {
+        "stageName": "Vòng Loại Trực Tiếp",
+        "type": "KNOCKOUT",
+        "format": "SINGLE_ELIMINATION",
+        "hasBronzeMatch": true,
+        "scoring": "BEST_OF_3_SETS_TO_21"
+      }
+    ]
+  },
+  "gameRules": {
+    "serving": {
+      "style": "UNDERHAND_STRICT",
+      "rules": [
+        "Toàn bộ quả cầu phải dưới 1.15m khi tiếp xúc vợt",
+        "Chuyển động vợt phải liên tục về phía trước",
+        "Cả hai chân phải chạm đất và không dẫm vạch",
+        "Giao chéo sân vào ô đối diện tương ứng"
+      ],
+      "letServePolicy": "PLAY_ON",
+      "serviceSequence": {
+        "doubles": "Chỉ đổi ô đứng sau khi ghi điểm từ chính lượt giao bóng của đội mình",
+        "singles": "Giao bên phải nếu điểm chẵn, bên trái nếu điểm lẻ"
+      }
+    },
+    "doubleBounceRule": {
+      "enabled": false,
+      "description": "Cầu lông không áp dụng luật nảy; cầu chạm đất là pha cầu kết thúc."
+    },
+    "nonVolleyZone": {
+      "name": "Short Service Line",
+      "depth": "1.98m",
+      "rules": "Khi giao bóng, quả cầu phải vượt qua vạch này để được tính là hợp lệ."
+    }
+  },
+  "scoringConfigurations": {
+    "standardSideOut": {
+      "description": "Hệ thống điểm trực tiếp (Rally Point System)",
+      "winByTwo": true,
+      "formats": [
+        {
+          "name": "Standard_21",
+          "pointsToWin": 21,
+          "switchSidesAt": 11
+        },
+        {
+          "name": "Deuce_Limit",
+          "pointsToWin": 30,
+          "switchSidesAt": 11
+        }
+      ]
+    },
+    "rallyScoring": {
+      "enabled": true,
+      "description": "Tính điểm trực tiếp cho mỗi pha bóng",
+      "pointsToWin": 21
+    }
+  },
+  "timeManagement": {
+    "warmUpMinutes": 2,
+    "standardTimeOutsPerSet": 1,
+    "timeOutDurationSeconds": 60,
+    "medicalTimeOutMinutes": 5,
+    "betweenSetRestMinutes": 2,
+    "maxWaitTimeBeforeForfeit": 15
+  },
+  "resourceManagement": {
+    "courts": {
+      "minRequired": 1,
+      "dimensions": "13.4m x 6.1m (Double) / 13.4m x 5.18m (Single)",
+      "surfaceType": [
+        "PVC Mats",
+        "Wooden Floor"
+      ]
+    },
+    "personnelPerMatch": {
+      "mainReferee": 1,
+      "lineJudges": 10,
+      "scoreKeepers": 1
+    },
+    "equipment": {
+      "ballType": "Shuttlecock (Feather/Synthetic)",
+      "netHeightCenter": "1.524m"
+    }
+  },
+  "faultsAndPenalties": {
+    "technicalFaults": [
+      "Chạm lưới",
+      "Đánh cầu sang sân đối phương",
+      "Đánh cầu 2 lần (Double hit)",
+      "Cầu chạm người/quần áo"
+    ],
+    "conductPenalties": {
+      "yellowCard": "Cảnh cáo hành vi",
+      "redCard": "Lỗi hành vi (Đối phương +1 điểm)",
+      "blackCard": "Truất quyền thi đấu ngay lập tức",
+      "verbalWarning": "Nhắc nhở từ trọng tài chính"
+    }
+  }
+}

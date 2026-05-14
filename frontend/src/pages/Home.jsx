@@ -2,329 +2,1056 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axiosConfig';
 
-const Home = () => {
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+/* ─────────────────────────────────────────
+   CSS – paste vào file global.css hoặc index.css
+   (hoặc dùng styled-components / CSS Modules tùy project)
+   ───────────────────────────────────────── */
+const styles = `
+  :root {
+    --ocean-deep:    #02457A;
+    --ocean-mid:     #018ABE;
+    --ocean-pale:    #97CADB;
+    --sky-mist:      #D6E7EE;
+    --purple-accent: #A999DC;
+    --logo-red:      #BD0014;
+    --dark-base:     #18181C;
+    --bg-light:      #D6E7EE;
+    --bg-white:      #FFFFFF;
+  }
+
+  /* ── RESET NHẸ ── */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* ── BODY / WRAP ── */
+  .home-wrap {
+    background: var(--sky-mist);
+    font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+    color: var(--dark-base);
+    min-height: 100vh;
+  }
+
+  /* ══════════════════════════════════════
+     HERO
+  ══════════════════════════════════════ */
+  .hero {
+    background:
+      linear-gradient(160deg, rgba(2,69,122,0.97) 0%, rgba(1,57,106,0.95) 60%, rgba(1,138,190,0.85) 100%),
+      url('https://images.unsplash.com/photo-1626225443592-349806440788?q=80&w=2070&auto=format&fit=crop') center/cover no-repeat;
+    padding: 64px 24px 72px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 50%;
+    transform: translateX(-50%);
+    width: 200%; height: 64px;
+    background: var(--sky-mist);
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: var(--logo-red);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    padding: 5px 18px;
+    border-radius: 20px;
+    margin-bottom: 22px;
+  }
+  .hero h1 {
+    font-size: clamp(24px, 5.5vw, 44px);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+    letter-spacing: 1px;
+    margin: 0 0 8px;
+  }
+  .hero-sub {
+    font-size: 13px;
+    color: var(--ocean-pale);
+    letter-spacing: 2px;
+    margin-bottom: 40px;
+  }
+
+  /* ── COUNTDOWN ── */
+  .countdown {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .cd-box {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(151,202,219,0.25);
+    border-radius: 14px;
+    padding: 16px 20px;
+    min-width: 76px;
+    text-align: center;
+    backdrop-filter: blur(6px);
+  }
+  .cd-num {
+    font-size: 30px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .cd-label {
+    font-size: 10px;
+    color: var(--ocean-pale);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ocean-mid);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 15px 38px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .hero-cta:hover {
+    background: #019fd8;
+    transform: translateY(-1px);
+  }
+
+  /* ══════════════════════════════════════
+     SPONSOR MARQUEE
+  ══════════════════════════════════════ */
+  .sponsor-strip {
+    background: var(--bg-white);
+    border-bottom: 1px solid rgba(2,69,122,0.08);
+    padding: 14px 0;
+    overflow: hidden;
+  }
+  .sponsor-track {
+    display: flex;
+    gap: 40px;
+    animation: marquee 20s linear infinite;
+    width: max-content;
+  }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .sponsor-chip {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ocean-mid);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: 1px solid rgba(1,138,190,0.2);
+    border-radius: 20px;
+    padding: 5px 18px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ══════════════════════════════════════
+     MAIN LAYOUT
+  ══════════════════════════════════════ */
+  .home-main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 44px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  /* ── SECTION HEADER ── */
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .sec-head-text {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ocean-mid);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+  .sec-head-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--ocean-pale), transparent);
+  }
+
+  /* ══════════════════════════════════════
+     ABOUT CARD
+  ══════════════════════════════════════ */
+  .about-card {
+    background: var(--bg-white);
+    border-radius: 20px;
+    padding: 32px;
+    border: 1px solid rgba(2,69,122,0.1);
+  }
+  .about-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .about-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--ocean-deep);
+    line-height: 1.2;
+  }
+  .about-title span { color: var(--ocean-mid); }
+  .about-desc {
+    font-size: 14px;
+    color: #5a6a7a;
+    line-height: 1.75;
+    margin-top: 10px;
+    max-width: 520px;
+  }
+  .about-courts {
+    background: linear-gradient(135deg, var(--ocean-deep), var(--ocean-mid));
+    border-radius: 14px;
+    padding: 16px 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .about-courts-num {
+    font-size: 36px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .about-courts-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.75);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+  }
+
+  /* ── INFO GRID ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .info-item {
+    background: var(--sky-mist);
+    border-radius: 14px;
+    padding: 18px;
+    border: 1px solid rgba(1,138,190,0.12);
+    transition: border-color 0.2s;
+  }
+  .info-item:hover { border-color: var(--ocean-mid); }
+  .info-icon {
+    width: 38px; height: 38px;
+    background: var(--ocean-deep);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  .info-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ocean-mid);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 4px;
+  }
+  .info-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ocean-deep);
+  }
+  .info-sub {
+    font-size: 12px;
+    color: #7a8fa0;
+    margin-top: 3px;
+  }
+  .info-link {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--ocean-mid);
+    text-decoration: none;
+    margin-top: 6px;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .info-link:hover { border-color: var(--ocean-mid); }
+
+  /* ── TIMELINE ── */
+  .timeline-wrap {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+  }
+  .timeline-wrap::before {
+    content: '';
+    position: absolute;
+    top: 7px; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--ocean-pale), var(--ocean-mid), var(--ocean-pale));
+  }
+  .tl-item { text-align: center; flex: 1; position: relative; }
+  .tl-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--ocean-mid);
+    border: 3px solid var(--bg-white);
+    outline: 2px solid var(--ocean-mid);
+    margin: 0 auto 12px;
+    position: relative; z-index: 1;
+  }
+  .tl-time {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ocean-deep);
+  }
+  .tl-name {
+    font-size: 12px;
+    color: #7a8fa0;
+    margin-top: 3px;
+  }
+
+  /* ══════════════════════════════════════
+     FORMAT + PRIZE (2 cols)
+  ══════════════════════════════════════ */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── FORMAT ── */
+  .format-card {
+    background: var(--bg-white);
+    border-radius: 20px;
+    padding: 28px;
+    border: 1px solid rgba(2,69,122,0.1);
+  }
+  .format-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ocean-deep);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .format-item {
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: var(--sky-mist);
+    border-left: 3px solid var(--ocean-mid);
+  }
+  .format-item.final { border-left-color: var(--logo-red); }
+  .format-item:last-child { margin-bottom: 0; }
+  .fi-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ocean-deep);
+  }
+  .fi-name.red { color: var(--logo-red); }
+  .fi-desc {
+    font-size: 12px;
+    color: #7a8fa0;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  /* ── PRIZE ── */
+  .prize-card {
+    background: var(--ocean-deep);
+    border-radius: 20px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .prize-card::before {
+    content: '';
+    position: absolute;
+    top: -50px; right: -50px;
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: rgba(1,138,190,0.2);
+  }
+  .prize-card::after {
+    content: '';
+    position: absolute;
+    bottom: -30px; left: -30px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: rgba(169,153,220,0.12);
+  }
+  .prize-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ocean-pale);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .prize-amount-big {
+    font-size: 40px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .prize-unit {
+    font-size: 13px;
+    color: var(--ocean-pale);
+    margin-bottom: 22px;
+    margin-top: 3px;
+  }
+  .prize-divider {
+    height: 1px;
+    background: rgba(151,202,219,0.2);
+    margin-bottom: 18px;
+  }
+  .prize-list { list-style: none; padding: 0; margin: 0; position: relative; z-index: 1; }
+  .prize-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+  }
+  .prize-row:last-child { border-bottom: none; }
+  .prize-icon {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .pi-gold { background: rgba(255,215,0,0.15); }
+  .pi-silver { background: rgba(192,192,192,0.15); }
+  .pi-bronze { background: rgba(205,127,50,0.15); }
+  .pi-purple { background: rgba(169,153,220,0.15); }
+  .prize-row-amount {
+    margin-left: auto;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  .prize-row-amount.purple { color: var(--purple-accent); }
+
+  /* ══════════════════════════════════════
+     VIDEO
+  ══════════════════════════════════════ */
+  .video-wrap {
+    background: var(--bg-white);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(2,69,122,0.1);
+  }
+  .video-ratio {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+  }
+  .video-ratio iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    border: none;
+  }
+
+  /* ══════════════════════════════════════
+     LIVE MATCH
+  ══════════════════════════════════════ */
+  .live-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .live-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--logo-red);
+    animation: blink 1.3s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+  .live-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--logo-red);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .live-refresh {
+    margin-left: auto;
+    font-size: 11px;
+    color: #aaa;
+  }
+
+  .match-card-wrap {
+    background: var(--bg-white);
+    border-radius: 16px;
+    border: 1px solid rgba(2,69,122,0.1);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .match-top-bar {
+    background: var(--sky-mist);
+    padding: 9px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .match-court-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ocean-mid);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .match-group-tag {
+    font-size: 11px;
+    color: #9aadba;
+  }
+  .match-body {
+    padding: 24px 28px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+  }
+  .match-side { text-align: center; }
+  .match-team-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ocean-deep);
+    margin-bottom: 6px;
+  }
+  .match-score-num {
+    font-size: 44px;
+    font-weight: 700;
+    color: var(--ocean-deep);
+    line-height: 1;
+  }
+  .match-vs {
+    font-size: 13px;
+    font-weight: 600;
+    color: #c5d5de;
+    text-align: center;
+  }
+  .match-empty {
+    background: var(--bg-white);
+    border-radius: 16px;
+    border: 1px solid rgba(2,69,122,0.1);
+    padding: 48px;
+    text-align: center;
+    color: #9aadba;
+    font-size: 14px;
+  }
+
+  /* ══════════════════════════════════════
+     STANDINGS
+  ══════════════════════════════════════ */
+  .standings-card {
+    background: var(--bg-white);
+    border-radius: 20px;
+    border: 1px solid rgba(2,69,122,0.1);
+    overflow: hidden;
+  }
+  .standing-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 22px;
+    gap: 14px;
+    border-bottom: 1px solid rgba(214,231,238,0.8);
+    transition: background 0.15s;
+  }
+  .standing-row:hover { background: rgba(214,231,238,0.4); }
+  .standing-row:last-of-type { border-bottom: none; }
+  .srank {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--sky-mist);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ocean-deep);
+    flex-shrink: 0;
+  }
+  .srank.gold { background: rgba(255,215,0,0.18); color: #b8860b; }
+  .srank.silver { background: rgba(192,192,192,0.2); color: #708090; }
+  .sname {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ocean-deep);
+    flex: 1;
+  }
+  .sgroup {
+    font-size: 12px;
+    color: #9aadba;
+  }
+  .spts {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ocean-mid);
+    min-width: 70px;
+    text-align: right;
+  }
+  .sdiff {
+    font-size: 12px;
+    color: #9aadba;
+    min-width: 40px;
+    text-align: right;
+  }
+  .standings-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 15px;
+    background: var(--sky-mist);
+    color: var(--ocean-mid);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .standings-more:hover { background: #c4dde8; }
+
+  /* ══════════════════════════════════════
+     FOOTER
+  ══════════════════════════════════════ */
+  .home-footer {
+    background: var(--ocean-deep);
+    padding: 52px 24px 36px;
+    text-align: center;
+    margin-top: 16px;
+  }
+  .footer-sponsor-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ocean-pale);
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    margin-bottom: 24px;
+  }
+  .footer-tiers {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 44px;
+  }
+  .tier-chip {
+    border-radius: 10px;
+    padding: 10px 22px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border: 1px solid;
+  }
+  .tier-special  { color: #FFD700; border-color: rgba(255,215,0,0.25); background: rgba(255,215,0,0.07); }
+  .tier-diamond  { color: var(--ocean-pale); border-color: rgba(151,202,219,0.25); background: rgba(151,202,219,0.07); }
+  .tier-gold     { color: #d4a017; border-color: rgba(212,160,23,0.25); background: rgba(212,160,23,0.07); }
+  .footer-copy {
+    font-size: 12px;
+    color: rgba(151,202,219,0.45);
+    border-top: 1px solid rgba(151,202,219,0.12);
+    padding-top: 22px;
+  }
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    margin-top: 10px;
+  }
+  .footer-links a {
+    font-size: 12px;
+    color: rgba(151,202,219,0.7);
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    transition: color 0.15s;
+  }
+  .footer-links a:hover { color: var(--ocean-pale); }
+
+  /* ══════════════════════════════════════
+     LOADING
+  ══════════════════════════════════════ */
+  .skeleton {
+    background: linear-gradient(90deg, #dce8ee 25%, #c4d8e2 50%, #dce8ee 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+`;
+
+/* ──────────────────────────────────────── */
+
+const SPONSORS = ['Nhà Tài Trợ Đặc Biệt', 'Nhà Tài Trợ Kim Cương', 'Nhà Tài Trợ Vàng', 'Đối Tác Truyền Thông', 'Đối Tác Thiết Bị'];
+
+export default function Home() {
+  const [timeLeft, setTimeLeft]     = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [liveMatches, setLiveMatches] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [teams, setTeams]           = useState([]);
+  const [isLoading, setIsLoading]   = useState(true);
 
-  // 1. Logic Đếm ngược (Countdown)
+  /* ── Countdown ── */
   useEffect(() => {
-    const targetDate = new Date("2025-10-26T14:00:00").getTime(); 
-
-    const timer = setInterval(() => {
-      const distance = targetDate - new Date().getTime();
-
-      if (distance > 0) {
-        setTimeLeft({
-          days: Math.floor(distance / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((distance % (1000 * 60)) / 1000)
-        });
-      } else {
-        clearInterval(timer);
-      }
-    }, 1000);
-    return () => clearInterval(timer);
+    const target = new Date('2025-10-26T14:00:00').getTime();
+    const tick = () => {
+      const dist = target - Date.now();
+      if (dist <= 0) return;
+      setTimeLeft({
+        days:    Math.floor(dist / 86400000),
+        hours:   Math.floor((dist % 86400000) / 3600000),
+        minutes: Math.floor((dist % 3600000)  / 60000),
+        seconds: Math.floor((dist % 60000)    / 1000),
+      });
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
   }, []);
 
-  // 2. Lấy dữ liệu THẬT từ API
-
+  /* ── Fetch data ── */
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Dùng Promise.all để gọi 2 API song song, giúp trang load nhanh gấp đôi
         const [matchesRes, teamsRes] = await Promise.all([
-            api.get('/tournament/'), 
-            api.get('/teams/all')
+          api.get('/tournaments/'),
+          api.get('/teams'),
         ]);
-        
-        // Gán dữ liệu trận đấu (Dùng đúng biến matchesRes)
         const allMatches = matchesRes.data.data || [];
         setLiveMatches(allMatches.filter(m => m.matchStatus === 'playing'));
-        
-        // Gán dữ liệu đội bóng và sắp xếp (Dùng đúng biến teamsRes)
+
         let fetchedTeams = teamsRes.data.data || [];
-        
-        // FIX LỖI SCHEMA: Đổi từ start.ponits sang stats.points theo cấu trúc Database mới
         fetchedTeams.sort((a, b) => (b.stats?.points || 0) - (a.stats?.points || 0));
-        
         setTeams(fetchedTeams);
-      } catch (error) {
-        console.error("Lỗi lấy dữ liệu trang chủ:", error);
+      } catch (err) {
+        console.error('Home fetch error:', err);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchData();
-    
-    // Auto-refresh mỗi 10 giây để cập nhật tỷ số Real-time
-    const interval = setInterval(fetchData, 10000); 
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const topTeamsPreview = teams.slice(0, 5); // Lấy Top 5 đội
+  const pad    = n => String(n).padStart(2, '0');
+  const top5   = teams.slice(0, 5);
+  const rankClass = i => i === 0 ? 'gold' : i === 1 ? 'silver' : '';
 
   return (
-    <div className="home-wrapper">
-      
-      {/* --- 1. HERO SECTION (Tông Xanh Lá/Vàng Chanh) --- */}
-      <section className="hero-section" style={{ 
-        background: 'linear-gradient(rgba(19, 56, 9, 0.85), rgba(19, 56, 9, 0.85)), url("https://images.unsplash.com/photo-1626225443592-349806440788?q=80&w=2070&auto=format&fit=crop")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}>
-        <h1>ITVTG PICKLEBALL TOURNAMENT 2025</h1>
-        <div className="countdown-text">
-          Khai mạc sau: {timeLeft.days} ngày : {timeLeft.hours} giờ : {timeLeft.minutes} phút : {timeLeft.seconds} giây
-        </div>
-        <Link to="/register" style={{ textDecoration: 'none' }}>
-          <button className="auth-button shadow-hover" style={{ maxWidth: '320px', margin: '40px auto' }}>ĐĂNG KÝ THAM GIA NGAY</button>
-        </Link>
-      </section>
+    <>
+      {/* Inject CSS */}
+      <style>{styles}</style>
 
-      {/* --- 2. SPONSOR MARQUEE --- */}
-      <div style={{ background: '#fff', padding: '20px 0', borderBottom: '1px solid #eee', overflow: 'hidden' }}>
-        <div className="sponsor-track">
-          {[1,2,3,4,5,1,2,3,4,5].map((i, idx) => (
-            <div key={idx} style={{ width: '250px', flexShrink: 0, textAlign: 'center', fontWeight: '800', color: '#ccc', fontSize: '1.2rem' }}>
-               SPONSOR {i} LOGO
-            </div>
-          ))}
-        </div>
-      </div>
+      <div className="home-wrap">
 
-      {/* --- 3. BỐ CỤC 3 CỘT (MAIN CONTENT) --- */}
-      <div className="home-main-layout">
-        
-        {/* CỘT TRÁI: BANNER TÀI TRỢ */}
-        <aside className="side-banner">
-          <h4 className="text-muted" style={{ marginBottom: '15px' }}>TÀI TRỢ VÀNG</h4>
-          <img src="https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=300&q=80" alt="Sponsor" className="shadow-hover" />
-          <img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?w=300&q=80" alt="Sponsor" className="shadow-hover" />
-        </aside>
+        {/* ═══════════════════════════════
+            HERO
+        ═══════════════════════════════ */}
+        <section className="hero">
+          <div className="hero-badge">Giải Pickleball Nội Bộ</div>
+          <h1>ITVTG PICKLEBALL<br />TOURNAMENT 2025</h1>
+          <div className="hero-sub">IT Vũng Tàu Group &nbsp;·&nbsp; 26.10.2025</div>
 
-        {/* CỘT GIỮA: NỘI DUNG CHÍNH */}
-        <main>
-          
-          {/* A. KHỐI ABOUT TOURNAMENT */}
-          <div className="about-unified-container-v2">
-            <h2 style={{ fontSize: '2.5rem', marginBottom: '15px', color: 'var(--primary-lime)' }}>ABOUT TOURNAMENT</h2>
-            <p style={{ fontSize: '1.05rem', lineHeight: 1.6, opacity: 0.85, marginBottom: '35px' }}>
-              Với quy mô <strong>03 Sân</strong> kích thước chuẩn thi đấu, có hệ thống mái che làm mát hàng đầu. 
-              Khu vực nghỉ ngơi cho VĐV cùng các dịch vụ đi kèm nhằm tạo trải nghiệm tuyệt vời nhất cho người tham dự.
-            </p>
-
-            {/* Thẻ thông tin */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-              <div className="about-info-item-v2">
-                <div className="icon-wrapper">🏢</div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--primary-lime)', fontWeight: 800, letterSpacing: '1px' }}>Ban Tổ Chức</div>
-                  <div style={{ fontWeight: 600, fontSize: '1.1rem', marginTop: '2px' }}>IT Vũng Tàu Group</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.6, marginTop: '2px' }}>Date: 26-10-2025 (14:00)</div>
-                </div>
+          <div className="countdown">
+            {[
+              { val: timeLeft.days,    label: 'Ngày'  },
+              { val: timeLeft.hours,   label: 'Giờ'   },
+              { val: timeLeft.minutes, label: 'Phút'  },
+              { val: timeLeft.seconds, label: 'Giây'  },
+            ].map(({ val, label }) => (
+              <div className="cd-box" key={label}>
+                <div className="cd-num">{pad(val)}</div>
+                <div className="cd-label">{label}</div>
               </div>
-
-              <div className="about-info-item-v2">
-                <div className="icon-wrapper">🏟️</div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--primary-lime)', fontWeight: 800, letterSpacing: '1px' }}>Địa điểm thi đấu</div>
-                  <div style={{ fontWeight: 600, fontSize: '1.1rem', marginTop: '2px' }}>HM Sport Pickleball</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.6, marginTop: '2px' }}>195 Võ Thị Sáu, Vũng Tàu</div>
-                  <a href="https://maps.google.com" target="_blank" rel="noreferrer" className="about-link" style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '5px', display: 'inline-block' }}>➡ Mở Google Map</a>
-                </div>
-              </div>
-
-              <div className="about-info-item-v2">
-                <div className="icon-wrapper">🍻</div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--primary-lime)', fontWeight: 800, letterSpacing: '1px' }}>Tiệc tri ân (18:30)</div>
-                  <div style={{ fontWeight: 600, fontSize: '1.1rem', marginTop: '2px' }}>Quán nhậu Thống Nhất</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.6, marginTop: '2px' }}>56 Thống Nhất, Vũng Tàu</div>
-                  <a href="https://maps.google.com" target="_blank" rel="noreferrer" className="about-link" style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '5px', display: 'inline-block' }}>➡ Mở Google Map</a>
-                </div>
-              </div>
-
-              <div className="about-info-item-v2">
-                <div className="icon-wrapper">📸</div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--primary-lime)', fontWeight: 800, letterSpacing: '1px' }}>Góc Khoảnh Khắc</div>
-                  <div style={{ fontWeight: 600, fontSize: '1.1rem', marginTop: '2px' }}>Photo Album Giải</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.6, marginTop: '2px' }}>Cập nhật liên tục</div>
-                  <a href="#" target="_blank" rel="noreferrer" className="about-link" style={{ color: 'var(--primary-lime)', fontSize: '0.8rem', marginTop: '5px', display: 'inline-block' }}>📁 Mở thư mục Drive</a>
-                </div>
-              </div>
-            </div>
-
-            {/* Timeline */}
-            <div className="timeline-container-v2">
-              <div style={{ textAlign: 'center', flex: 1 }}>
-                <div className="timeline-dot-v2"></div>
-                <div style={{ fontFamily: 'var(--font-title)', fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary-lime)' }}>14:00</div>
-                <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Tập trung</div>
-              </div>
-              <div style={{ textAlign: 'center', flex: 1 }}>
-                <div className="timeline-dot-v2"></div>
-                <div style={{ fontFamily: 'var(--font-title)', fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary-lime)' }}>14:30</div>
-                <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Khai mạc</div>
-              </div>
-              <div style={{ textAlign: 'center', flex: 1 }}>
-                <div className="timeline-dot-v2"></div>
-                <div style={{ fontFamily: 'var(--font-title)', fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary-lime)' }}>15:00</div>
-                <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Thi đấu</div>
-              </div>
-              <div style={{ textAlign: 'center', flex: 1 }}>
-                <div className="timeline-dot-v2"></div>
-                <div style={{ fontFamily: 'var(--font-title)', fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary-lime)' }}>18:30</div>
-                <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Gala Dinner</div>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* B. THỂ THỨC & GIẢI THƯỞNG (HIỆN ĐẠI & SANG TRỌNG) */}
-          <div className="modern-grid">
-            {/* Cột Thể thức */}
-            <div className="modern-card">
-              <h3 className="text-teal text-center mb-4">THỂ THỨC THI ĐẤU</h3>
-            
-              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', marginBottom: '15px' }}>
-                <div className="fw-bold text-forest mb-1" style={{ fontSize: '1.1rem' }}>VÒNG BẢNG</div>
-                <div className="text-muted" style={{ fontSize: '0.9rem' }}>Thi đấu chạm 11 điểm (6 điểm đổi sân)</div>
-              </div>
-              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px' }}>
-                <div className="fw-bold text-forest mb-1" style={{ fontSize: '1.1rem' }}>LOẠI TRỰC TIẾP</div>
-                <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                  <span style={{ display: 'block', marginBottom: '5px' }}>Tứ kết, Bán kết: Chạm 11 điểm</span>
-                  <span>Chung kết: Chạm 15 điểm</span>
-                </div>
-              </div>
-            </div>
+          <Link to="/register" className="hero-cta">
+            ✦ Đăng ký tham gia ngay
+          </Link>
+        </section>
 
-            {/* Cột Giải thưởng (VIP Gold) */}
-            <div className="prize-card-vip">
-              <div className="text-center" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '20px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '1.1rem', letterSpacing: '1px', opacity: 0.8, fontWeight: 600 }}>TỔNG GIÁ TRỊ GIẢI THƯỞNG</div>
-                <div className="prize-amount-gold">50 TRIỆU</div>
-                <div style={{ letterSpacing: '2px', opacity: 0.8 }}>VNĐ</div>
-              </div>
+        {/* ═══════════════════════════════
+            SPONSOR MARQUEE
+        ═══════════════════════════════ */}
+        <div className="sponsor-strip">
+          <div className="sponsor-track">
+            {[...SPONSORS, ...SPONSORS].map((s, i) => (
+              <span className="sponsor-chip" key={i}>{s}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════
+            MAIN CONTENT
+        ═══════════════════════════════ */}
+        <div className="home-main">
+
+          {/* ── ABOUT ── */}
+          <div className="about-card">
+            <div className="about-header">
               <div>
-                <div style={{ color: 'var(--primary-lime)', fontWeight: 800, marginBottom: '15px' }}>Cơ cấu giải từng nội dung:</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.95rem', opacity: 0.9, lineHeight: 1.8 }}>
-                  <li><span style={{ color: '#FFD700', marginRight: '8px' }}>🥇</span> <b>Giải Nhất:</b> Cúp + 10.000.000đ</li>
-                  <li><span style={{ color: '#C0C0C0', marginRight: '8px' }}>🥈</span> <b>Giải Nhì:</b> Cúp + 7.000.000đ</li>
-                  <li><span style={{ color: '#CD7F32', marginRight: '8px' }}>🥉</span> <b>Đồng hạng Ba:</b> Cúp + 5.000.000đ</li>
-                  <li style={{ marginTop: '10px' }}>🌟 <b>Giải phụ:</b> Best Iconic & Cặp đôi ăn ý</li>
-                </ul>
+                <div className="about-title">Về <span>Giải Đấu</span></div>
+                <p className="about-desc">
+                  Với quy mô <strong>03 sân</strong> kích thước chuẩn thi đấu, có hệ thống mái che làm mát hàng đầu.
+                  Khu vực nghỉ ngơi cho VĐV cùng các dịch vụ đi kèm nhằm tạo trải nghiệm tuyệt vời nhất cho người tham dự.
+                </p>
+              </div>
+              <div className="about-courts">
+                <div className="about-courts-num">03</div>
+                <div className="about-courts-label">Sân thi đấu</div>
               </div>
             </div>
-          </div>
 
-          {/* C. VIDEO HIGHLIGHT / TRAILER */}
-          <h2 className="section-title text-forest">🎥 TRAILER GIẢI ĐẤU</h2>
-          <div className="video-container">
-            <iframe 
-              src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
-              title="Pickleball Tournament Trailer" 
-              frameBorder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen>
-            </iframe>
-          </div>
+            {/* INFO GRID */}
+            <div className="info-grid">
+              <div className="info-item">
+                <div className="info-icon">🏢</div>
+                <div className="info-label">Ban tổ chức</div>
+                <div className="info-val">IT Vũng Tàu Group</div>
+                <div className="info-sub">26-10-2025 · 14:00</div>
+              </div>
+              <div className="info-item">
+                <div className="info-icon">🏟️</div>
+                <div className="info-label">Địa điểm thi đấu</div>
+                <div className="info-val">HM Sport Pickleball</div>
+                <div className="info-sub">195 Võ Thị Sáu, Vũng Tàu</div>
+                <a href="https://maps.google.com" target="_blank" rel="noreferrer" className="info-link">
+                  ↗ Mở Google Maps
+                </a>
+              </div>
+              <div className="info-item">
+                <div className="info-icon">🍻</div>
+                <div className="info-label">Tiệc tri ân (18:30)</div>
+                <div className="info-val">Quán nhậu Thống Nhất</div>
+                <div className="info-sub">56 Thống Nhất, Vũng Tàu</div>
+                <a href="https://maps.google.com" target="_blank" rel="noreferrer" className="info-link">
+                  ↗ Mở Google Maps
+                </a>
+              </div>
+              <div className="info-item">
+                <div className="info-icon">📸</div>
+                <div className="info-label">Góc khoảnh khắc</div>
+                <div className="info-val">Photo Album Giải</div>
+                <div className="info-sub">Cập nhật liên tục</div>
+                <a href="#" className="info-link">📁 Mở thư mục Drive</a>
+              </div>
+            </div>
 
-          {/* D. TRẠM PHÁT SÓNG TRỰC TIẾP (LIVE SCORE) */}
-          <h2 className="section-title"><span className="live-dot"></span> ĐANG THI ĐẤU</h2>
-          {isLoading ? (
-            <p className="text-center text-muted">Đang tải...</p>
-          ) : liveMatches.length === 0 ? (
-            <div className="card text-center text-muted" style={{ padding: '40px', marginBottom: '40px' }}>Hiện chưa có trận nào diễn ra.</div>
-          ) : (
-            <div style={{ display: 'grid', gap: '20px', marginBottom: '40px' }}>
-              {liveMatches.map(match => (
-                <div key={match._id} className="match-card-premium">
-                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#ccc' }}>
-                    <span className="text-primary fw-bold">🔴 {match.court || 'Sân chưa xếp'}</span>
-                    <span>BẢNG {match.group || '-'}</span>
-                  </div>
-                  <div className="flex-between" style={{ padding: '30px 20px' }}>
-                    <div className="text-center" style={{ flex: 1 }}>
-                      <div className="team-name">{match.team1?.teamname || 'Đội 1'}</div>
-                      <div className="score-neon">{match.score1 || 0}</div>
-                    </div>
-                    <div className="fw-black text-muted" style={{ fontSize: '1.5rem' }}>VS</div>
-                    <div className="text-center" style={{ flex: 1 }}>
-                      <div className="team-name">{match.team2?.teamname || 'Đội 2'}</div>
-                      <div className="score-neon">{match.score2 || 0}</div>
-                    </div>
-                  </div>
+            {/* TIMELINE */}
+            <div className="info-label" style={{ marginBottom: '16px' }}>Lịch trình ngày thi đấu</div>
+            <div className="timeline-wrap">
+              {[
+                { time: '14:00', name: 'Tập trung' },
+                { time: '14:30', name: 'Khai mạc'  },
+                { time: '15:00', name: 'Thi đấu'   },
+                { time: '18:30', name: 'Gala Dinner'},
+              ].map(({ time, name }) => (
+                <div className="tl-item" key={time}>
+                  <div className="tl-dot" />
+                  <div className="tl-time">{time}</div>
+                  <div className="tl-name">{name}</div>
                 </div>
               ))}
             </div>
-          )}
+          </div>
 
-          {/* E. BẢNG XẾP HẠNG TOP ĐỘI */}
-          <h2 className="section-title text-forest">🏆 BẢNG XẾP HẠNG TOP ĐỘI</h2>
-          <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '40px' }}>
+          {/* ── FORMAT + PRIZE ── */}
+          <div className="two-col">
+            <div className="format-card">
+              <div className="format-card-title">🏓 Thể thức thi đấu</div>
+              <div className="format-item">
+                <div className="fi-name">Vòng bảng</div>
+                <div className="fi-desc">Thi đấu chạm 11 điểm · Đổi sân ở 6 điểm</div>
+              </div>
+              <div className="format-item">
+                <div className="fi-name">Tứ kết · Bán kết</div>
+                <div className="fi-desc">Thi đấu chạm 11 điểm</div>
+              </div>
+              <div className="format-item final">
+                <div className="fi-name red">Chung kết</div>
+                <div className="fi-desc">Thi đấu chạm 15 điểm</div>
+              </div>
+            </div>
+
+            <div className="prize-card">
+              <div className="prize-label">Tổng giá trị giải thưởng</div>
+              <div className="prize-amount-big">50 triệu</div>
+              <div className="prize-unit">VNĐ · Mỗi nội dung</div>
+              <div className="prize-divider" />
+              <ul className="prize-list">
+                <li className="prize-row">
+                  <span className="prize-icon pi-gold">🥇</span>
+                  <span>Giải nhất</span>
+                  <span className="prize-row-amount">10.000.000đ</span>
+                </li>
+                <li className="prize-row">
+                  <span className="prize-icon pi-silver">🥈</span>
+                  <span>Giải nhì</span>
+                  <span className="prize-row-amount">7.000.000đ</span>
+                </li>
+                <li className="prize-row">
+                  <span className="prize-icon pi-bronze">🥉</span>
+                  <span>Đồng hạng ba</span>
+                  <span className="prize-row-amount">5.000.000đ</span>
+                </li>
+                <li className="prize-row">
+                  <span className="prize-icon pi-purple">🌟</span>
+                  <span>Best Iconic · Cặp đôi ăn ý</span>
+                  <span className="prize-row-amount purple">Giải phụ</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* ── VIDEO ── */}
+          <div>
+            <div className="sec-head">
+              <span className="sec-head-text">🎥 Trailer giải đấu</span>
+              <div className="sec-head-line" />
+            </div>
+            <div className="video-wrap">
+              <div className="video-ratio">
+                <iframe
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                  title="Pickleball Tournament Trailer"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── LIVE SCORES ── */}
+          <div>
+            <div className="live-bar">
+              <div className="live-dot" />
+              <span className="live-tag">Đang thi đấu</span>
+              <span className="live-refresh">Cập nhật mỗi 10 giây</span>
+            </div>
+
             {isLoading ? (
-              <p className="text-center text-muted" style={{ padding: '20px' }}>Đang tải bảng xếp hạng...</p>
-            ) : topTeamsPreview.length === 0 ? (
-              <p className="text-center text-muted" style={{ padding: '20px' }}>Chưa có dữ liệu đội thi đấu.</p>
+              <div style={{ height: 100 }} className="skeleton" />
+            ) : liveMatches.length === 0 ? (
+              <div className="match-empty">
+                ⏱ Hiện chưa có trận nào đang diễn ra.
+              </div>
             ) : (
-              <div>
-                {topTeamsPreview.map((team, index) => (
-                  <div key={team._id || index} className={`mini-standing-row ${index === 0 ? 'top-1' : index === 1 ? 'top-2' : ''}`}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <div className="mini-standing-rank">{index + 1}</div>
-                      <div>
-                        <div className="fw-bold text-forest" style={{ fontSize: '1.1rem' }}>{team.teamname || team.teamCode}</div>
-                        <div className="text-muted" style={{ fontSize: '0.85rem' }}>Bảng {team.group || '?'}</div>
-                      </div>
+              liveMatches.map(match => (
+                <div className="match-card-wrap" key={match._id}>
+                  <div className="match-top-bar">
+                    <span className="match-court-name">
+                      🔴 {match.court || 'Sân chưa xếp'}
+                    </span>
+                    <span className="match-group-tag">Bảng {match.group || '—'}</span>
+                  </div>
+                  <div className="match-body">
+                    <div className="match-side">
+                      <div className="match-team-name">{match.team1?.teamname || 'Đội 1'}</div>
+                      <div className="match-score-num">{match.score1 ?? 0}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="fw-black text-teal" style={{ fontSize: '1.2rem' }}>{team.start?.ponits || 0} Điểm</div>
-                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>HS: {team.start?.scoreDiff > 0 ? `+${team.start.scoreDiff}` : team.start?.scoreDiff || 0}</div>
+                    <div className="match-vs">VS</div>
+                    <div className="match-side">
+                      <div className="match-team-name">{match.team2?.teamname || 'Đội 2'}</div>
+                      <div className="match-score-num">{match.score2 ?? 0}</div>
                     </div>
                   </div>
-                ))}
-                <Link to="/standings" style={{ display: 'block', textAlign: 'center', padding: '15px', background: '#f5f5f5', color: 'var(--teal-accent)', fontWeight: 'bold', textDecoration: 'none' }}>
-                  XEM TOÀN BỘ BẢNG XẾP HẠNG ➡
-                </Link>
-              </div>
+                </div>
+              ))
             )}
           </div>
 
-        </main>
+          {/* ── STANDINGS ── */}
+          <div>
+            <div className="sec-head">
+              <span className="sec-head-text">🏆 Bảng xếp hạng top đội</span>
+              <div className="sec-head-line" />
+            </div>
+            <div className="standings-card">
+              {isLoading ? (
+                <div style={{ padding: 20 }}>
+                  {[1,2,3].map(i => (
+                    <div key={i} className="skeleton" style={{ height: 48, marginBottom: 8 }} />
+                  ))}
+                </div>
+              ) : top5.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '24px', color: '#9aadba', fontSize: 14 }}>
+                  Chưa có dữ liệu đội thi đấu.
+                </p>
+              ) : (
+                <>
+                  {top5.map((team, i) => (
+                    <div className="standing-row" key={team._id || i}>
+                      <div className={`srank ${rankClass(i)}`}>{i + 1}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className="sname">{team.teamname || team.teamCode}</div>
+                        <div className="sgroup">Bảng {team.group || '?'}</div>
+                      </div>
+                      <div className="spts">{team.stats?.points ?? 0} điểm</div>
+                      <div className="sdiff">
+                        {(team.stats?.scoreDiff ?? 0) >= 0
+                          ? `+${team.stats?.scoreDiff ?? 0}`
+                          : team.stats?.scoreDiff}
+                      </div>
+                    </div>
+                  ))}
+                  <Link to="/standings" className="standings-more">
+                    Xem toàn bộ bảng xếp hạng →
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
 
-        {/* CỘT PHẢI: BANNER TÀI TRỢ */}
-        <aside className="side-banner">
-          <h4 className="text-muted" style={{ marginBottom: '15px' }}>TÀI TRỢ BẠC</h4>
-          <img src="https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?w=300&q=80" alt="Sponsor" className="shadow-hover" />
-        </aside>
+        </div>{/* end .home-main */}
+
+        {/* ═══════════════════════════════
+            FOOTER
+        ═══════════════════════════════ */}
+        <footer className="home-footer">
+          <div className="footer-sponsor-label">Đối tác & nhà tài trợ chiến lược</div>
+          <div className="footer-tiers">
+            <div className="tier-chip tier-special">Tài trợ đặc biệt · 40 triệu</div>
+            <div className="tier-chip tier-diamond">Tài trợ kim cương · 30 triệu</div>
+            <div className="tier-chip tier-gold">Tài trợ vàng · 20 triệu</div>
+          </div>
+          <div className="footer-copy">
+            © 2025 IT Vũng Tàu Group Tournament
+            <div className="footer-links">
+              <a href="#">Điều lệ giải</a>
+              <a href="#">Liên hệ BTC</a>
+            </div>
+          </div>
+        </footer>
 
       </div>
-
-      {/* --- 4. FOOTER SPONSORS --- */}
-      <footer style={{ backgroundColor: '#0a1d05', color: '#555', padding: '60px 20px', textAlign: 'center', marginTop: '40px' }}>
-        <h3 style={{ color: 'var(--primary-lime)', marginBottom: '30px' }}>ĐỐI TÁC & NHÀ TÀI TRỢ CHIẾN LƯỢC</h3>
-        <div className="footer-sponsor-grid">
-          <div className="footer-sponsor-item" style={{ borderColor: '#FFD700', color: '#FFD700' }}>TÀI TRỢ ĐẶC BIỆT: 40 TRIỆU</div>
-          <div className="footer-sponsor-item" style={{ borderColor: '#00FFFF', color: '#00FFFF' }}>TÀI TRỢ KIM CƯƠNG: 30 TRIỆU</div>
-          <div className="footer-sponsor-item" style={{ borderColor: '#C0C0C0', color: '#C0C0C0' }}>TÀI TRỢ VÀNG: 20 TRIỆU</div>
-        </div>
-        
-        <div style={{ marginTop: '50px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
-          <p style={{ color: '#888', fontWeight: 'bold' }}>© 2025 IT VŨNG TÀU GROUP TOURNAMENT</p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginTop: '10px' }}>
-            <a href="#" style={{ color: 'var(--teal-accent)', textDecoration: 'none', fontWeight: 'bold' }}>Điều lệ giải</a>
-            <a href="#" style={{ color: 'var(--teal-accent)', textDecoration: 'none', fontWeight: 'bold' }}>Liên hệ BTC</a>
-          </div>
-        </div>
-      </footer>
-
-    </div>
+    </>
   );
-};
-
-export default Home;
+}
