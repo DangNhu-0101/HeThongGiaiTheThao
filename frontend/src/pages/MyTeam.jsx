@@ -14,24 +14,28 @@ const MyTeams = () => {
     const [receivedInvites, setReceivedInvites] = useState([]); // ← THÊM
     const [loading, setLoading] = useState(true);
 
-    const fetchAllData = async () => {
-        try {
-            setLoading(true);
-            const [teamsRes, sentRes, receivedRes] = await Promise.all([
-                api.get('/teams/users'),
-                api.get('/teams/users/sent-invitations'),
-                api.get('/teams/users/invitations'),  // ← THÊM: lời mời nhận được
-            ]);
+   const fetchAllData = async () => {
+    try {
+        setLoading(true);
+        const [teamsRes, sentRes, receivedRes] = await Promise.all([
+            api.get('/teams/users'),
+            api.get('/teams/users/sent-invitations'),
+            api.get('/teams/users/invitations'),
+        ]);
 
-            if (teamsRes.data.success) setTeams(teamsRes.data.data);
-            if (sentRes.data.success) setSentInvites(sentRes.data.data);
-            if (receivedRes.data.success) setReceivedInvites(receivedRes.data.data); // ← THÊM
-        } catch (err) {
-            console.error("Lỗi tải dữ liệu:", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+        console.log("Teams:", teamsRes.data);
+        console.log("Sent:", sentRes.data);
+        console.log("Received:", receivedRes.data);  // ← XEM DÒNG NÀY
+
+        if (teamsRes.data.success) setTeams(teamsRes.data.data);
+        if (sentRes.data.success) setSentInvites(sentRes.data.data);
+        if (receivedRes.data.success) setReceivedInvites(receivedRes.data.data);
+    } catch (err) {
+        console.error("Lỗi tải dữ liệu:", err);
+    } finally {
+        setLoading(false);
+    }
+};
 
     useEffect(() => { fetchAllData(); }, []);
 

@@ -370,12 +370,14 @@ export const rejectInvitation = async (req, res) => {
         session.endSession();
     }
 };
-
-// 13. Lấy danh sách lời mời đang chờ
 export const getUserInvitations = async (req, res) => {
     try {
         const userId = req.user.id;
-        const invites = await Invitation.find({ receiverId: userId, status: 'pending', invitationType: 'captain_invite' })
+        const invites = await Invitation.find({ 
+            receiverId: userId, 
+            status: 'pending'
+            // BỎ: invitationType: 'captain_invite'
+        })
             .populate('senderId', 'username email')
             .populate('teamId', 'name sportCategory')
             .lean();
@@ -384,7 +386,6 @@ export const getUserInvitations = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
-
 // ======================== PLAYER REQUESTS (JOIN TEAM) ========================
 // 14. Cầu thủ gửi yêu cầu tham gia
 export const requestToJoinTeam = async (req, res) => {
