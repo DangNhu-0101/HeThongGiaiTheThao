@@ -97,12 +97,12 @@ function App() {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         
           {/* ==========================================
-              CÁC TRANG DÀNH CHO PLAYER (VÀ Organization)
+              CÁC TRANG DÀNH CHO player (VÀ Organization)
           ========================================== */}
-          <Route path="/notifications" element={<ProtectedRoute allowedRoles={['Player', 'Referee']}><Notifications /></ProtectedRoute>} />
-          <Route path="/register-team" element={<ProtectedRoute allowedRoles={['Player']}><RegisterTeam /></ProtectedRoute>} />
-          <Route path="/my-teams" element={<ProtectedRoute allowedRoles={['Player']}><MyTeams /></ProtectedRoute>} />
-          <Route path="/team/detail/:id" element={<ProtectedRoute allowedRoles={['Player']}><TeamDetail /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute allowedRoles={['player', 'Referee']}><Notifications /></ProtectedRoute>} />
+          <Route path="/register-team" element={<ProtectedRoute allowedRoles={['player']}><RegisterTeam /></ProtectedRoute>} />
+          <Route path="/my-teams" element={<ProtectedRoute allowedRoles={['player']}><MyTeams /></ProtectedRoute>} />
+          <Route path="/team/detail/:id" element={<ProtectedRoute allowedRoles={['player']}><TeamDetail /></ProtectedRoute>} />
           <Route path="/payment/:id" element={<Payment />} />          {/* ==========================================
               CÁC TRANG DÀNH CHO REFEREE (VÀ Organization)
           =================================== ======= */}

@@ -196,7 +196,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           color: #fff;
         }
 
-        /* ─── ACTIVE TOUR PILL ─── */
+        /* ─── active TOUR PILL ─── */
         .sb-tour-active {
           margin: 0 16px 4px;
           background: rgba(1,138,190,0.15);
@@ -282,7 +282,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
             </button>
           </div>
 
-          {/* ACTIVE TOUR + LOCAL NAV */}
+          {/* active TOUR + LOCAL NAV */}
           {selectedTourId && (() => {
             const activeTour = tournaments.find(t => t._id === selectedTourId);
             return (

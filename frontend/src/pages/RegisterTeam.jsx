@@ -38,7 +38,7 @@ const RegisterTeam = () => {
     useEffect(() => {
         const fetchTours = async () => {
             try {
-                const res = await api.get('/tournaments/getAllTournament');
+                const res = await api.get('/tournaments');
                 if (res.data?.data) {
                     const upcomingTours = res.data.data.filter(t => t.status === 'upcoming');
                     setUpcomingTournaments(upcomingTours);
@@ -55,7 +55,7 @@ const RegisterTeam = () => {
         const tourId = e.target.value;
         const fetchTourDetail = async () => {
             try {
-                const res = await api.get(`/tournaments/getTournament/${tourId}`);
+                const res = await api.get(`/tournaments/${tourId}`);
                 if (res.data?.success && res.data?.data) {
                     setSelectedTour(res.data.data);
                 }
@@ -83,18 +83,19 @@ const RegisterTeam = () => {
 
     // TÌM KIẾM THÀNH VIÊN
     const handleSearchUser = async () => {
-        if (!searchQuery.trim()) return;
-        setIsSearching(true);
-        try {
-            const res = await api.get(`/users/search?keyword=${searchQuery}`);
-            setSearchResults(res.data?.data || []);
-        } catch (error) {
-            console.error("Lỗi tìm kiếm:", error);
-            setSearchResults([]);
-        } finally {
-            setIsSearching(false);
-        }
-    };
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+        // Backend searchUsers dùng query 'name', không phải 'keyword'
+        const res = await api.get(`/users/search?name=${searchQuery}`);
+        setSearchResults(res.data?.data || []);
+    } catch (error) {
+        console.error("Lỗi tìm kiếm:", error);
+        setSearchResults([]);
+    } finally {
+        setIsSearching(false);
+    }
+};
 
     const addMember = (user) => {
         if (invitedMembers.find(m => m._id === user._id)) return;
@@ -113,10 +114,8 @@ const RegisterTeam = () => {
 
     const getCalculatedFee = () => {
         if (!selectedSport) return 0;
-        const baseFee = selectedSport.playerEntryFee || 0;
-        if (regMode === 'random') {
-            return baseFee / 2;
-        }
+        const baseFee = selectedSport.feePerAthlete || 0;
+        
         return baseFee;
     };
 
@@ -172,7 +171,7 @@ const RegisterTeam = () => {
 
                     <div className="text-left p-6 bg-slate-900 border border-cyan-800 rounded-2xl mb-6 shadow-inner">
                         <h4 className="font-black border-b border-cyan-800 pb-2 mb-4 text-cyan-400 flex justify-between uppercase text-xs tracking-widest">
-                            💳 THÔNG TIN LỆ PHÍ: {selectedTour?.displayName}
+                            💳 THÔNG TIN LỆ PHÍ: {selectedTour?.name}
                         </h4>
                         
                         {selectedTour?.paymentQR ? (
@@ -191,10 +190,10 @@ const RegisterTeam = () => {
                         )}
 
                         <div className="space-y-2 text-sm text-gray-300">
-                            <p>Đơn vị tổ chức: <b className="text-white uppercase">{selectedTour?.Organization?.OrganizationName || "Ban tổ chức"}</b></p>
+                            <p>Đơn vị tổ chức: <b className="text-white uppercase">{selectedTour?.Organization?.name || "Ban tổ chức"}</b></p>
                             {/* 👉 ĐÃ FIX: Dịch nội dung thi đấu sang Tiếng Việt đầy đủ */}
                             <p>Hạng mục thi đấu: <b className="text-cyan-400">{selectedSport?.sport} - {CATEGORY_MAPPER[selectedCategory] || selectedCategory}</b></p>
-                            <p>Địa điểm thi đấu: <b className="text-white">{selectedTour?.venue}</b></p>
+                            <p>Địa điểm thi đấu: <b className="text-white">{selectedTour?.location}</b></p>
                             
                             <div className="border-t border-slate-800/80 my-3 pt-3 space-y-2">
                                 <p>Số tiền thanh toán: <b className="text-cyan-400 text-lg">{result.fee?.toLocaleString()} VNĐ</b></p>
@@ -220,149 +219,153 @@ const RegisterTeam = () => {
                 </h2>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* KHỐI 1: LỰA CHỌN GIẢI & MÔN */}
-                    <div className="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                        <div>
-                            <label className="info-label-tech">1. Giải đấu đang mở (*)</label>
-                            <select className="auth-input w-full" required onChange={handleTourChange} defaultValue="">
-                                <option value="" disabled>-- Chọn giải đấu bạn muốn tham gia --</option>
-                                {upcomingTournaments.map(t => (
-                                    <option key={t._id} value={t._id}>{t.displayName}</option>
-                                ))}
-                            </select>
+    {/* KHỐI 1: LỰA CHỌN GIẢI & MÔN */}
+    <div className="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+        <div>
+            <label className="info-label-tech">1. Giải đấu đang mở (*)</label>
+            <select className="auth-input w-full" required onChange={handleTourChange} defaultValue="">
+                <option value="" disabled>-- Chọn giải đấu bạn muốn tham gia --</option>
+                {upcomingTournaments.map(t => (
+                    <option key={t._id} value={t._id}>{t.name}</option>
+                ))}
+            </select>
+        </div>
+
+        {selectedTour && (
+            <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                <div>
+                    <label className="info-label-tech">Môn thi đấu</label>
+                    <select 
+                        className="auth-input w-full" required 
+                        onChange={(e) => setSelectedSport(selectedTour.sportsConfig?.find(s => s.sport === e.target.value))}
+                        defaultValue=""
+                    >
+                        <option value="" disabled>-- Chọn môn --</option>
+                        {selectedTour.sportsConfig?.map((s, idx) => (
+                            <option key={idx} value={s.sport}>{s.sport}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {selectedSport && (
+                    <div>
+                        <label className="info-label-tech">Nội dung</label>
+                        <select className="auth-input w-full" required onChange={handleCategoryChange} defaultValue="">
+                            <option value="" disabled>-- Hạng mục --</option>
+                            {selectedSport.categories?.map((cat, idx) => (
+                                <option key={idx} value={cat}>
+                                    {CATEGORY_MAPPER[cat] || cat}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
+        )}
+
+        {selectedSport && selectedCategory && (
+            <div className="flex justify-between items-center bg-slate-800 p-3 rounded border border-cyan-900/50 text-sm mt-2 animate-fade-in">
+                <span className="text-gray-400">Lệ phí quy định (100%):</span>
+                <span className="text-cyan-400 font-bold text-lg">
+                    {getCalculatedFee().toLocaleString()} VNĐ
+                </span>
+            </div>
+        )}
+    </div>
+
+    {/* KHỐI 2: HÌNH THỨC LẬP ĐỘI */}
+    {selectedCategory && regMode !== 'solo' && (
+        <div className="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700 animate-fade-in">
+            <label className="info-label-tech">2. Hình thức tham gia</label>
+            <div className="flex gap-2">
+                <button type="button" onClick={() => setRegMode('create')} className={`flex-1 py-2 rounded font-bold text-xs transition-all border ${regMode === 'create' ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.3)]' : 'bg-slate-800 text-gray-400 border-slate-600'}`}>
+                    TẠO ĐỘI & MỜI
+                </button>
+                <button type="button" onClick={() => setRegMode('random')} className={`flex-1 py-2 rounded font-bold text-xs transition-all border ${regMode === 'random' ? 'bg-purple-600 text-white border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.3)]' : 'bg-slate-800 text-gray-400 border-slate-600'}`}>
+                    GHÉP ĐỘI NGẪU NHIÊN
+                </button>
+            </div>
+
+            {regMode === 'random' && (
+                <div className="p-3 bg-purple-950/20 border border-purple-900/50 rounded text-sm text-purple-200">
+                    🤝 Bạn chọn ghép ngẫu nhiên. Hệ thống sẽ tự động quét và ghép bạn với người chơi có cùng <b className="text-purple-400">Skill Level</b> đang chờ.
+                </div>
+            )}
+
+            {regMode === 'create' && (
+                <div className="space-y-4 mt-4 animate-fade-in">
+                    <input 
+                        className="auth-input w-full border-cyan-700 focus:border-cyan-400" 
+                        placeholder="Nhập tên đội của bạn (VD: Vũng Tàu Smashers)..." 
+                        required value={teamName} onChange={e => setTeamName(e.target.value)} 
+                    />
+
+                    {/* THANH TÌM KIẾM */}
+                    <div className="relative">
+                        <div className="flex gap-2">
+                            <input 
+                                className="auth-input flex-1 text-sm bg-slate-800" 
+                                placeholder="🔍 Tìm đồng đội theo Tên hoặc Email..." 
+                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} 
+                                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleSearchUser())}
+                            />
+                            <button type="button" onClick={handleSearchUser} className="px-4 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold text-xs border border-slate-500">
+                                {isSearching ? "..." : "TÌM"}
+                            </button>
                         </div>
 
-                        {selectedTour && (
-                            <div className="grid grid-cols-2 gap-4 animate-fade-in">
-                                <div>
-                                    <label className="info-label-tech">Môn thi đấu</label>
-                                    <select 
-                                        className="auth-input w-full" required 
-                                        onChange={(e) => setSelectedSport(selectedTour.sportsConfig?.find(s => s.sport === e.target.value))}
-                                        defaultValue=""
-                                    >
-                                        <option value="" disabled>-- Chọn môn --</option>
-                                        {selectedTour.sportsConfig?.map((s, idx) => (
-                                            <option key={idx} value={s.sport}>{s.sport}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {selectedSport && (
-                                    <div>
-                                        <label className="info-label-tech">Nội dung</label>
-                                        <select className="auth-input w-full" required onChange={handleCategoryChange} defaultValue="">
-                                            <option value="" disabled>-- Hạng mục --</option>
-                                            {selectedSport.categories?.map((cat, idx) => (
-                                                /* 👉 ĐÃ FIX: Áp dụng CATEGORY_MAPPER để dịch tên nội dung (ví dụ MD -> Đôi Nam) */
-                                                <option key={idx} value={cat}>
-                                                    {CATEGORY_MAPPER[cat] || cat}
-                                                </option>
-                                            ))}
-                                        </select>
+                        {/* KẾT QUẢ TÌM KIẾM */}
+                        {searchResults.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-cyan-800 rounded shadow-xl z-10 max-h-48 overflow-y-auto">
+                                {searchResults.map(user => (
+                                    <div key={user._id} className="flex justify-between items-center p-3 border-b border-slate-700 hover:bg-slate-700/50">
+                                        <div>
+                                            <p className="text-sm font-bold text-white">
+                                                {user.playerInfo?.name || user.username}
+                                            </p>
+                                            <p className="text-[10px] text-gray-400">
+                                                Level: {user.playerInfo?.level || 'N/A'} | Email: {user.email}
+                                            </p>
+                                        </div>
+                                        <button type="button" onClick={() => addMember(user)} className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 rounded text-[10px] font-bold text-white">
+                                            + MỜI
+                                        </button>
                                     </div>
-                                )}
-                            </div>
-                        )}
-
-                        {selectedSport && selectedCategory && (
-                            <div className="flex justify-between items-center bg-slate-800 p-3 rounded border border-cyan-900/50 text-sm mt-2 animate-fade-in">
-                                <span className="text-gray-400">
-                                    {regMode === 'random' ? "Lệ phí ghép đơn lẻ (50%):" : "Lệ phí quy định (100%):"}
-                                </span>
-                                <span className="text-cyan-400 font-bold text-lg">
-                                    {getCalculatedFee().toLocaleString()} VNĐ
-                                </span>
+                                ))}
                             </div>
                         )}
                     </div>
 
-                    {/* KHỐI 2: HÌNH THỨC LẬP ĐỘI */}
-                    {selectedCategory && regMode !== 'solo' && (
-                        <div className="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700 animate-fade-in">
-                            <label className="info-label-tech">2. Hình thức tham gia</label>
-                            <div className="flex gap-2">
-                                <button type="button" onClick={() => setRegMode('create')} className={`flex-1 py-2 rounded font-bold text-xs transition-all border ${regMode === 'create' ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.3)]' : 'bg-slate-800 text-gray-400 border-slate-600'}`}>
-                                    TẠO ĐỘI & MỜI
-                                </button>
-                                <button type="button" onClick={() => setRegMode('random')} className={`flex-1 py-2 rounded font-bold text-xs transition-all border ${regMode === 'random' ? 'bg-purple-600 text-white border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.3)]' : 'bg-slate-800 text-gray-400 border-slate-600'}`}>
-                                    GHÉP ĐỘI NGẪU NHIÊN
-                                </button>
-                            </div>
-
-                            {regMode === 'random' && (
-                                <div className="p-3 bg-purple-950/20 border border-purple-900/50 rounded text-sm text-purple-200">
-                                    🤝 Bạn chọn ghép ngẫu nhiên. Hệ thống sẽ tự động quét và ghép bạn với người chơi có cùng <b className="text-purple-400">Skill Level</b> đang chờ.
+                    {/* DANH SÁCH ĐÃ CHỌN */}
+                    {invitedMembers.length > 0 && (
+                        <div className="bg-slate-800 p-3 rounded border border-slate-600">
+                            <p className="text-xs font-bold text-cyan-500 mb-2 uppercase">Đồng đội chờ xác nhận:</p>
+                            {invitedMembers.map(member => (
+                                <div key={member._id} className="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-700">
+                                    <span className="text-sm text-gray-200">
+                                        👤 {member.playerInfo?.name || member.username}
+                                    </span>
+                                    <button type="button" onClick={() => removeMember(member._id)} className="text-red-400 hover:text-red-300 text-xs font-bold">
+                                        ✕ BỎ
+                                    </button>
                                 </div>
-                            )}
-
-                            {regMode === 'create' && (
-                                <div className="space-y-4 mt-4 animate-fade-in">
-                                    <input 
-                                        className="auth-input w-full border-cyan-700 focus:border-cyan-400" 
-                                        placeholder="Nhập tên đội của bạn (VD: Vũng Tàu Smashers)..." 
-                                        required value={teamName} onChange={e => setTeamName(e.target.value)} 
-                                    />
-
-                                    {/* THANH TÌM KIẾM */}
-                                    <div className="relative">
-                                        <div className="flex gap-2">
-                                            <input 
-                                                className="auth-input flex-1 text-sm bg-slate-800" 
-                                                placeholder="🔍 Tìm đồng đội theo Tên hoặc Số điện thoại..." 
-                                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} 
-                                                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleSearchUser())}
-                                            />
-                                            <button type="button" onClick={handleSearchUser} className="px-4 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold text-xs border border-slate-500">
-                                                {isSearching ? "..." : "TÌM"}
-                                            </button>
-                                        </div>
-
-                                        {/* KẾT QUẢ TÌM KIẾM */}
-                                        {searchResults.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-cyan-800 rounded shadow-xl z-10 max-h-48 overflow-y-auto">
-                                                {searchResults.map(user => (
-                                                    <div key={user._id} className="flex justify-between items-center p-3 border-b border-slate-700 hover:bg-slate-700/50">
-                                                        <div>
-                                                            <p className="text-sm font-bold text-white">{user.displayName}</p>
-                                                            <p className="text-[10px] text-gray-400">Skill: {user.skill || 'N/A'} | SĐT: {user.phoneNumber?.replace(/(\d{4})\d{3}(\d{3})/, '$1***$2')}</p>
-                                                        </div>
-                                                        <button type="button" onClick={() => addMember(user)} className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 rounded text-[10px] font-bold text-white">
-                                                            + MỜI
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* DANH SÁCH ĐÃ CHỌN */}
-                                    {invitedMembers.length > 0 && (
-                                        <div className="bg-slate-800 p-3 rounded border border-slate-600">
-                                            <p className="text-xs font-bold text-cyan-500 mb-2 uppercase">Đồng đội chờ xác nhận:</p>
-                                            {invitedMembers.map(member => (
-                                                <div key={member._id} className="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-700">
-                                                    <span className="text-sm text-gray-200">👤 {member.displayName}</span>
-                                                    <button type="button" onClick={() => removeMember(member._id)} className="text-red-400 hover:text-red-300 text-xs font-bold">
-                                                        ✕ BỎ
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                            ))}
                         </div>
                     )}
+                </div>
+            )}
+        </div>
+    )}
 
-                    <button 
-                        type="submit" 
-                        disabled={isSaving || !selectedCategory} 
-                        className={`auth-button w-full mt-6 py-4 text-sm tracking-widest ${isSaving ? 'opacity-50 cursor-not-allowed' : 'shadow-[0_0_15px_rgba(0,240,255,0.4)]'}`}
-                    >
-                        {isSaving ? "ĐANG XỬ LÝ DỮ LIỆU..." : "🚀 TIẾN HÀNH ĐĂNG KÝ"}
-                    </button>
-                </form>
+    <button 
+        type="submit" 
+        disabled={isSaving || !selectedCategory} 
+        className={`auth-button w-full mt-6 py-4 text-sm tracking-widest ${isSaving ? 'opacity-50 cursor-not-allowed' : 'shadow-[0_0_15px_rgba(0,240,255,0.4)]'}`}
+    >
+        {isSaving ? "ĐANG XỬ LÝ DỮ LIỆU..." : "🚀 TIẾN HÀNH ĐĂNG KÝ"}
+    </button>
+</form>
+                
             </div>
 
             <style>{`

@@ -4,7 +4,7 @@ import User from '../models/users.js';
 import Players from '../models/players.js';
 import Referee from '../models/referees.js';
 import Organization from '../models/Organizations.js';
-
+const players = []; 
 export const authMe = async (req, res) => {
     const user = req.user
     return res.status(200).json({
@@ -14,7 +14,7 @@ export const authMe = async (req, res) => {
 };
 export const getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({}, 'displayName username role');
+        const users = await User.find({}, 'name username role');
         res.json({ data: users });
     } catch (error) {
         res.status(500).json({ message: "Lỗi lấy danh sách user" });
@@ -23,49 +23,37 @@ export const getAllUsers = async (req, res) => {
 
 export const searchUsers = async (req, res) => {
     try {
-        const { email, displayName } = req.query;
-
-        if (!email && !displayName) {
-            return res.status(400).json({
-                success: false,
-                message: "Vui lòng cung cấp email hoặc displayName để tìm kiếm"
-            });
+        const { email, name } = req.query;
+        if (!email && !name) {
+            return res.status(400).json({ success: false, message: "Vui lòng cung cấp email hoặc name" });
         }
-
-        // Tạo query tìm kiếm
-        let searchQuery = { role: 'player' }; // Chỉ tìm các Player
-
-        if (email) {
-            searchQuery.email = { $regex: email, $options: 'i' }; // Case-insensitive search
+        
+        let searchQuery = { role: 'player' };
+        if (email) searchQuery.email = { $regex: email, $options: 'i' };
+        if (name) {
+            searchQuery.$or = [
+                { username: { $regex: name, $options: 'i' } },
+                { email: { $regex: name, $options: 'i' } },
+            ];
         }
-
-        if (displayName) {
-            searchQuery.displayName = { $regex: displayName, $options: 'i' };
-        }
-
-        const users = await User.find(searchQuery, 'displayName email role _id');
-
-        if (users.length === 0) {
-            return res.status(200).json({
-                success: true,
-                data: [],
-                message: "Không tìm thấy người chơi nào"
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            data: users,
-            message: `Tìm thấy ${users.length} người chơi`
-        });
-
+        
+        // Tìm users và populate Player info
+        const users = await User.find(searchQuery, 'username email role _id').lean();
+        
+        // Lấy thêm Player info cho mỗi user
+        const userIds = users.map(u => u._id);
+        const players = await Players.find({ userId: { $in: userIds } }, 'name level userId').lean();
+        const playerMap = {};
+        players.forEach(p => { playerMap[p.userId.toString()] = p; });
+        
+        const result = users.map(u => ({
+            ...u,
+            playerInfo: playerMap[u._id.toString()] || null
+        }));
+        
+        return res.status(200).json({ success: true, data: result });
     } catch (error) {
-        console.error("Lỗi tìm kiếm user:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Lỗi hệ thống khi tìm kiếm",
-            error: error.message
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
