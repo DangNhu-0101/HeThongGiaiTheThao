@@ -1,12 +1,12 @@
 // routes/teamRoutes.js
-import express from 'express';
+import express, { Router } from 'express';
 import {
     createTeam, updateTeam, deleteTeam,
     getUserTeams, getTeamDetail, getTeamsByTournament,
     leaveTeam, kickMember, transferCaptaincy,
     sendInvitation, acceptInvitation, rejectInvitation, getUserInvitations,
     requestToJoinTeam, approveJoinRequest, rejectJoinRequest, getTeamJoinRequests,
-    updatePaymentStatus
+    updatePaymentStatus, registerFlow , getSentInvitations
 } from '../controllers/teamController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
@@ -17,14 +17,17 @@ router.get('/all', getTeamsByTournament);
 router.get('/', getTeamsByTournament);
 
 // ======================== TEAM CRUD ========================
-router.post('/create', protectedRoute('player'), createTeam);
+// THÊM dòng này trước export default router:
+router.post('/register-flow', protectedRoute('player'), registerFlow);
 router.put('/edit/:id', protectedRoute('player'), updateTeam);
 router.delete('/delete/:id', protectedRoute('player'), deleteTeam);
 
 // ======================== USER SPECIFIC (cụ thể trước) ========================
-router.get('/users/invitations', protectedRoute('player'), getUserInvitations);  // ← ĐẶT TRƯỚC /users/:id
+router.get('/users/invitations', protectedRoute('player', 'Organization'), getUserInvitations); 
+router.get('/users/sent-invitations', protectedRoute('player', 'Organization'), getSentInvitations);
 router.get('/users', protectedRoute('player','Organization'), getUserTeams);
 router.get('/users/:id', getTeamDetail);
+
 
 // ======================== TOURNAMENT TEAMS ========================
 router.get('/tournaments/:tournamentId/teams', getTeamsByTournament);

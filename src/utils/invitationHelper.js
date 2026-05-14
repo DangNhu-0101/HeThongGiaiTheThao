@@ -17,13 +17,13 @@ export const handleCreateInvitation = async (senderId, receiverId, teamId, invit
     if (!userB) throw new Error('Người dùng nhận lời mời không tồn tại');
 
 
-    if (invitationType === 'captain_invite' && userB.role !== 'Player') {
+    if (invitationType === 'captain_invite' && userB.role !== 'player') {
         throw new Error('Người dùng này không phải là Cầu thủ, không thể mời vào đội.');
     }
 
     // Kiểm tra thành viên active hoặc pending?
     const existingMember = await Member.findOne({ teamId, userId: receiverId }).session(session);
-    if (existingMember && existingMember.status === 'Active') {
+    if (existingMember && existingMember.status === 'active') {
         throw new Error('Người dùng đã là thành viên chính thức của đội.');
     }
     // Kiểm tra lời mời pending cùng loại (tránh trùng)
