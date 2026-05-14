@@ -73,14 +73,19 @@ export const createTeam = async (req, res) => {
 };
 
 // 2. Cập nhật thông tin đội
+// Sửa updateTeam:
 export const updateTeam = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, logo, sportType, sportCategory, status } = req.body;
         const userId = req.user.id;
+        const userRole = req.user.role;
 
-        const hasPerm = await checkCaptainOrCreator(id, userId);
-        if (!hasPerm) return res.status(403).json({ success: false, message: 'Chỉ đội trưởng hoặc chủ đội mới được cập nhật' });
+        // Organization được quyền sửa mọi đội
+        if (userRole !== 'Organization' && userRole !== 'organization') {
+            const hasPerm = await checkCaptainOrCreator(id, userId);
+            if (!hasPerm) return res.status(403).json({ success: false, message: 'Chỉ đội trưởng hoặc chủ đội mới được cập nhật' });
+        }
 
         const team = await Team.findById(id);
         if (!team) return res.status(404).json({ success: false, message: 'Đội không tồn tại' });
@@ -98,18 +103,23 @@ export const updateTeam = async (req, res) => {
     }
 };
 
-// 3. Xóa đội (soft delete)
+// Sửa deleteTeam:
 export const deleteTeam = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
         const { id } = req.params;
         const userId = req.user.id;
+        const userRole = req.user.role;
 
         const team = await Team.findById(id).session(session);
         if (!team) throw new Error('Đội không tồn tại');
-        const hasPerm = await checkCaptainOrCreator(id, userId, session);
-        if (!hasPerm) throw new Error('Không có quyền xóa đội');
+
+        // Organization được quyền xóa mọi đội
+        if (userRole !== 'Organization' && userRole !== 'organization') {
+            const hasPerm = await checkCaptainOrCreator(id, userId, session);
+            if (!hasPerm) throw new Error('Không có quyền xóa đội');
+        }
 
         team.status = 'eliminated';
         await team.save({ session });
@@ -539,10 +549,15 @@ export const getTeamJoinRequests = async (req, res) => {
 export const updatePaymentStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { isPaid } = req.body;
-        const team = await Team.findByIdAndUpdate(id, { isPaid }, { new: true });
+        const { isPaid, status } = req.body;  // ← thêm status
+        
+        const updateData = {};
+        if (isPaid !== undefined) updateData.isPaid = isPaid;
+        if (status) updateData.status = status;  // ← cập nhật status nếu có
+        
+        const team = await Team.findByIdAndUpdate(id, updateData, { new: true });
         if (!team) return res.status(404).json({ success: false, message: 'Đội không tồn tại' });
-        return res.status(200).json({ success: true, message: `Cập nhật thanh toán thành ${isPaid ? 'đã đóng' : 'chưa đóng'}`, data: team });
+        return res.status(200).json({ success: true, data: team });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -660,6 +675,89 @@ export const registerFlow = async (req, res) => {
     } catch (error) {
         await session.abortTransaction();
         console.error("registerFlow error:", error.message);
+        return res.status(400).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
+export const importTeams = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const { tournamentId, teams } = req.body;
+
+        if (!tournamentId || !teams || !Array.isArray(teams) || teams.length === 0) {
+            return res.status(400).json({ success: false, message: 'Dữ liệu không hợp lệ' });
+        }
+
+        const tournament = await Tournament.findById(tournamentId).session(session);
+        if (!tournament) throw new Error('Giải đấu không tồn tại');
+
+        const results = { success: [], errors: [] };
+
+        for (const teamData of teams) {
+            try {
+                if (!teamData.name || !teamData.sportCategory) {
+                    results.errors.push({ name: teamData.name || 'Không tên', error: 'Thiếu name hoặc sportCategory' });
+                    continue;
+                }
+
+                // Tìm owner qua email
+                let ownerId = null;
+                if (teamData.ownerEmail) {
+                    const owner = await User.findOne({ email: teamData.ownerEmail }).session(session);
+                    if (owner) ownerId = owner._id;
+                }
+
+                // Kiểm tra trùng tên trong giải
+                const existing = await Team.findOne({ name: teamData.name, tournamentId }).session(session);
+                if (existing) {
+                    results.errors.push({ name: teamData.name, error: 'Tên đội đã tồn tại trong giải' });
+                    continue;
+                }
+
+                // Tạo team
+                const [newTeam] = await Team.create([{
+                    name: teamData.name,
+                    tournamentId,
+                    sportCategory: teamData.sportCategory,
+                    ownerId: ownerId || req.user._id,
+                    status: 'confirmed',
+                    group: ''
+                }], { session });
+
+                // Nếu có owner, thêm làm Captain
+                if (ownerId) {
+                    // Kiểm tra member đã tồn tại chưa
+                    const existingMember = await Member.findOne({ teamId: newTeam._id, userId: ownerId }).session(session);
+                    if (!existingMember) {
+                        await Member.create([{
+                            teamId: newTeam._id,
+                            userId: ownerId,
+                            role: 'Captain',
+                            status: 'active',
+                            joinedAt: new Date()
+                        }], { session });
+                    }
+                }
+
+                results.success.push({ name: teamData.name, id: newTeam._id });
+            } catch (err) {
+                results.errors.push({ name: teamData.name || 'Unknown', error: err.message });
+            }
+        }
+
+        await session.commitTransaction();
+
+        return res.status(201).json({
+            success: true,
+            message: `Import: ${results.success.length} thành công, ${results.errors.length} lỗi`,
+            data: results
+        });
+    } catch (error) {
+        await session.abortTransaction();
+        console.error("importTeams error:", error.message);
         return res.status(400).json({ success: false, message: error.message });
     } finally {
         session.endSession();

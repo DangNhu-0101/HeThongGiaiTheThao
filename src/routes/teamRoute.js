@@ -6,21 +6,21 @@ import {
     leaveTeam, kickMember, transferCaptaincy,
     sendInvitation, acceptInvitation, rejectInvitation, getUserInvitations,
     requestToJoinTeam, approveJoinRequest, rejectJoinRequest, getTeamJoinRequests,
-    updatePaymentStatus, registerFlow , getSentInvitations
+    updatePaymentStatus, registerFlow , getSentInvitations, importTeams
 } from '../controllers/teamController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 // ======================== PUBLIC ========================
-router.get('/all', getTeamsByTournament);
+
 router.get('/', getTeamsByTournament);
 
 // ======================== TEAM CRUD ========================
 // THÊM dòng này trước export default router:
 router.post('/register-flow', protectedRoute('player'), registerFlow);
-router.put('/edit/:id', protectedRoute('player'), updateTeam);
-router.delete('/delete/:id', protectedRoute('player'), deleteTeam);
+router.put('/edit/:id', protectedRoute('player', 'Organization'), updateTeam);
+router.delete('/delete/:id', protectedRoute('player', 'Organization'), deleteTeam);
 
 // ======================== USER SPECIFIC (cụ thể trước) ========================
 router.get('/users/invitations', protectedRoute('player', 'Organization'), getUserInvitations); 
@@ -48,7 +48,8 @@ router.post('/:id/leave', protectedRoute('player'), leaveTeam);
 router.delete('/:teamId/members/:memberId', protectedRoute('player'), kickMember);
 router.get('/:teamId/join-requests', protectedRoute('player'), getTeamJoinRequests);
 
-// ======================== PAYMENT ========================
+// ======================== ORGANIZATION ========================
 router.patch('/:id/payment', protectedRoute('Organization'), updatePaymentStatus);
+router.post('/import-teams', protectedRoute('Organization'), importTeams);
 
 export default router;
