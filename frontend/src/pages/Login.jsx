@@ -54,10 +54,8 @@ const Login = () => {
       {/* Thẻ card HUD với border-glass và circuit corners */}
       <div className="auth-card glass-card">
         <div className="mb-6">
-          <h2 className="text-neon-cyan mb-1">USER AUTHENTICATION</h2>
-          <p className="text-[0.7rem] text-cyber-blue tracking-[3px] font-bold uppercase opacity-70">
-            Digital Access Point
-          </p>
+          <h2 className="text-neon-cyan mb-1">ĐĂNG NHẬP</h2>
+          
         </div>
         
         <form onSubmit={handleLogin} className="space-y-4">
@@ -66,7 +64,7 @@ const Login = () => {
               className="auth-input w-full" 
               type="text" 
               name="username"
-              placeholder="USERNAME" 
+              placeholder="Username" 
               required 
               value={formData.username}
               onChange={handleInputChange} 
@@ -78,7 +76,7 @@ const Login = () => {
               className="auth-input w-full" 
               type="password" 
               name="password"
-              placeholder="PASSWORD" 
+              placeholder="Mật khẩu" 
               required 
               value={formData.password}
               onChange={handleInputChange} 
@@ -90,7 +88,7 @@ const Login = () => {
             type="submit"
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'CONNECTING...' : 'INITIALIZE LOGIN'}
+            {isSubmitting ? 'CONNECTING...' : 'vÀO HỆ THỐNG'}
           </button>
         </form>
 
