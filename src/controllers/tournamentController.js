@@ -1,337 +1,239 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import Tournament from '../models/tournament.js';
-import User from '../models/User.js';
-import Organization from '../models/orgnizations.js';
-import { createRuleServices } from '../services/createRuleServices.js';
+import Tournament from '../models/tournaments.js';
+import Organization from '../models/Organizations.js';
+import { createRuleServices } from '../services/createRuleService.js';
+import { initializeSportStructure } from '../services/tournamentInstanceService.js';
 
-// LẤY TẤT CẢ GIẢI ĐẤU
+// 1. LẤY TẤT CẢ GIẢI ĐẤU
 export const getAllTournament = async (req, res) => {
     try {
-        const tournaments = await Tournament.find()
-            // Tạm thời bỏ .populate("rules") để tránh lỗi với các data rác cũ trong DB
-            .populate("organizationId", "orgName logoUrl");
+        const { page = 1, limit = 10, status } = req.query;
+        const filter = status ? { status } : {};
 
-        if (!tournaments || tournaments.length === 0) {
-            return res.status(200).json({
-                success: true,
-                message: "Chưa có giải đấu nào trong hệ thống",
-                data: []
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const [tournaments, total] = await Promise.all([
+            Tournament.find(filter)
+                .populate('organizer', 'name logo') // Sửa: 'organizer' viết thường
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit))
+                .lean(),
+            Tournament.countDocuments(filter)
+        ]);
+
+        const customData = tournaments.map(t => ({
+            _id: t._id,
+            name: t.name,
+            status: t.status,
+            organization: t.organizer?.name || "N/A" // Sửa: t.organizer
+        }));
+
+        return res.status(200).json({ 
+            success: true, 
+            total, 
+            page: parseInt(page),
+            limit: parseInt(limit),
+            data: customData 
+        });
+    } catch (error) {
+        console.error("LỖI GET_ALL:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+};
+
+// 2. TẠO GIẢI ĐẤU MỚI
+export const createTournament = async (req, res) => {
+    try {
+        const { 
+            name, slogan, targetParticipants, location, description, 
+            prizes, organizer, contactPerson, timeLine, galaConfig, sportsConfig 
+        } = req.body;
+
+        // Parse JSON fields
+        const parsedContact = typeof contactPerson === 'string' ? JSON.parse(contactPerson) : contactPerson;
+        const parsedTimeLine = typeof timeLine === 'string' ? JSON.parse(timeLine) : timeLine;
+        const parsedGala = typeof galaConfig === 'string' ? JSON.parse(galaConfig) : galaConfig;
+        const parsedSports = typeof sportsConfig === 'string' ? JSON.parse(sportsConfig) : sportsConfig;
+
+        // Xử lý File từ Multer
+        const logo = req.files?.logo?.[0]?.path || "";
+        const paymentQR = req.files?.paymentQR?.[0]?.path || "";
+        const banners = req.files?.banners ? req.files.banners.map(f => f.path) : [];
+
+        const newTournament = await Tournament.create({
+            name, 
+            slogan, 
+            targetParticipants, 
+            location, 
+            description, 
+            prizes,
+            organizer, // Field này khớp với Model
+            contactPerson: parsedContact,
+            timeLine: parsedTimeLine,
+            galaConfig: parsedGala,
+            sportsConfig: parsedSports,
+            sportType: parsedSports.map(s => s.sport),
+            logo,
+            paymentQR,
+            banners,
+            status: 'upcoming'
+        });
+
+        res.status(201).json({ 
+            success: true, 
+            data: newTournament 
+        });
+    } catch (error) {
+        console.error("LỖI CREATE:", error);
+        res.status(400).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+};
+
+// 3. CHỈNH SỬA GIẢI ĐẤU
+export const editTournament = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user.id || req.user._id;
+
+        const tournament = await Tournament.findById(id);
+        if (!tournament) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Không tìm thấy giải đấu" 
             });
         }
 
-        const customData = tournaments.map(t => {
-            // ĐÃ FIX: Tính toán doanh thu từ mảng sportsConfig xịn sò mới tạo
-            const totalPlannedRevenue = (t.sportsConfig || []).reduce((sum, sport) => {
-                const fee = sport.feeEntry || 0;
-                // Nếu maxTeams bị null (không giới hạn), tạm tính là 0 để không bị lỗi NaN
-                const max = sport.maxTeams || 0; 
-                return sum + (fee * max);
-            }, 0);
+        // Kiểm tra quyền sở hữu
+        const org = await Organization.findById(tournament.organizer); // Sửa: tournament.organizer
+        if (!org || org.ownerId.toString() !== currentUserId.toString()) {
+            return res.status(403).json({ 
+                success: false, 
+                message: "Bạn không có quyền sửa giải này" 
+            });
+        }
 
-            const actualRevenue = (t.budget?.totalEntryFee || 0) + (t.budget?.totalSponsor || 0);
+        // Parse JSON fields nếu là string
+        const updateData = { ...req.body };
+        
+        if (typeof updateData.contactPerson === 'string') {
+            updateData.contactPerson = JSON.parse(updateData.contactPerson);
+        }
+        if (typeof updateData.timeLine === 'string') {
+            updateData.timeLine = JSON.parse(updateData.timeLine);
+        }
+        if (typeof updateData.galaConfig === 'string') {
+            updateData.galaConfig = JSON.parse(updateData.galaConfig);
+        }
+        if (typeof updateData.sportsConfig === 'string') {
+            updateData.sportsConfig = JSON.parse(updateData.sportsConfig);
+            updateData.sportType = updateData.sportsConfig.map(s => s.sport);
+        }
 
-            return {
-                _id: t._id,
-                displayName: t.displayName,
-                year: t.year,
-                status: t.status,
-                organization: t.organizationId,
-                finance: {
-                    plannedEntryFeeRevenue: totalPlannedRevenue,
-                    actualRevenue: actualRevenue,
-                    totalExpense: t.budget?.totalExpense || 0
-                },
-                // ĐÃ FIX: Lấy số lượng môn từ sportsConfig
-                sportsCount: t.sportsConfig?.length || 0 
-            };
+        // Xử lý files mới nếu có
+        if (req.files?.logo) {
+            updateData.logo = req.files.logo[0].path;
+        }
+        if (req.files?.paymentQR) {
+            updateData.paymentQR = req.files.paymentQR[0].path;
+        }
+        if (req.files?.banners) {
+            updateData.banners = req.files.banners.map(f => f.path);
+        }
+
+        const updatedTournament = await Tournament.findByIdAndUpdate(
+            id, 
+            updateData, 
+            { new: true, runValidators: true }
+        );
+
+        return res.status(200).json({ 
+            success: true, 
+            data: updatedTournament 
         });
-
-        return res.status(200).json({
-            success: true,
-            message: "Lấy danh sách các giải đấu thành công",
-            count: tournaments.length,
-            data: customData
-        });
-
     } catch (error) {
-        console.error("🔥 Lỗi trong hàm getAllTournament:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Lỗi hệ thống khi xử lý danh sách giải đấu",
-            error: error.message
-        });
-    }
-}
-export const createTournament = async (req, res) => {
-    try {
-        // ĐÃ SỬA: Hứng đúng tên biến từ Frontend gửi lên
-        const {
-            displayName, timeOpen, timeClose, timeRegister, timeCloseRegister, 
-            venue, contactPerson, slogan, targetAudience, description, prizes
-        } = req.body;
-
-        const currentUserId = req.user.id || req.user._id;
-
-        const org = await Organization.findOne({ userId: currentUserId });
-        if (!org) {
-            throw new Error("Bạn chưa có quyền tổ chức giải đấu. Vui lòng cập nhật hồ sơ Tổ chức!");
-        }
-
-        // Bắt lỗi Parse JSON nếu có
-        let sportsConfigParsed = [];
-        let galaConfigParsed = {};
-        try {
-            if (req.body.sportsConfig) sportsConfigParsed = JSON.parse(req.body.sportsConfig);
-            if (req.body.galaConfig) galaConfigParsed = JSON.parse(req.body.galaConfig);
-        } catch (e) {
-            throw new Error("Dữ liệu cấu hình môn thi hoặc Gala bị lỗi định dạng!");
-        }
-
-        const year = timeOpen ? new Date(timeOpen).getFullYear() : new Date().getFullYear();
-
-        const existingTournament = await Tournament.findOne({ displayName, year });
-        if (existingTournament) {
-            throw new Error(`Giải đấu '${displayName}' đã tồn tại trong năm ${year}`);
-        }
-
-        const newTournament = await Tournament.create({
-            displayName,
-            slogan,
-            targetAudience,
-            description,
-            contactPerson,
-            prizes,
-            venue, // Bắt buộc phải có theo Schema
-            year,
-            banner: req.files?.banner ? req.files.banner[0].path : "",
-            logo: req.files?.logo ? req.files.logo[0].path : "",
-            paymentQR: req.files?.paymentQR ? req.files.paymentQR[0].path : "",
-            status: 'upcoming',
-            sportsConfig: sportsConfigParsed,
-            galaConfig: galaConfigParsed,
-            timeLine: {
-                timeRegiter: timeRegister ? new Date(timeRegister) : null,
-                timeCloseRegister: timeCloseRegister ? new Date(timeCloseRegister) : null,
-                timeOpen: timeOpen ? new Date(timeOpen) : Date.now(),
-                timeClose: timeClose ? new Date(timeClose) : null,
-            },
-            organizationId: org._id,
-            createdBy: currentUserId,
-            rules: [] 
-        });
-
-        await Organization.findByIdAndUpdate(org._id, {
-            $push: { tournaments: newTournament._id }
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: `Khởi tạo giải đấu ${displayName} thành công!`,
-            data: { tournamentId: newTournament._id }
-        });
-
-    } catch (error) {
-        console.error("🔥 Lỗi tại createTournament API:", error.message);
-        return res.status(400).json({
-            success: false,
-            message: error.message || "Tạo giải đấu thất bại"
-        });
-    }
-};
-
-export const editTournament = async (req, res) => {
-    try {
-        const { id } = req.params; 
-        const currentUserId = req.user.id || req.user._id; 
-        
-        const tournament = await Tournament.findById(id);
-        if (!tournament) {
-            return res.status(404).json({ success: false, message: "Không tìm thấy giải đấu trong hệ thống!" });
-        }
-
-        // 1. Bắt lỗi Parse JSON cho Sports và Gala (Giống bên Create)
-        try {
-            if (req.body.sportsConfig) {
-                tournament.sportsConfig = JSON.parse(req.body.sportsConfig);
-            }
-            if (req.body.galaConfig) {
-                tournament.galaConfig = JSON.parse(req.body.galaConfig);
-            }
-        } catch (e) {
-            throw new Error("Dữ liệu cấu hình môn thi hoặc Gala bị lỗi định dạng JSON!");
-        }
-
-        // 2. Cập nhật các trường Text (Bổ sung contactPerson, slogan, targetAudience...)
-        const fieldsToUpdate = [
-            'displayName', 'slogan', 'targetAudience', 
-            'venue', 'description', 'prizes', 'contactPerson' // <--- Đã thêm contactPerson
-        ];
-        
-        fieldsToUpdate.forEach(field => {
-            if (req.body[field] !== undefined) {
-                tournament[field] = req.body[field];
-            }
-        });
-
-        // 3. Cập nhật Thời gian & Tự động tính lại Năm (Year)
-        if (req.body.timeRegister) tournament.timeLine.timeRegiter = new Date(req.body.timeRegister);
-        if (req.body.timeCloseRegister) tournament.timeLine.timeCloseRegister = new Date(req.body.timeCloseRegister);
-        
-        if (req.body.timeOpen) {
-            tournament.timeLine.timeOpen = new Date(req.body.timeOpen);
-            // Đồng bộ năm theo ngày khai mạc mới
-            tournament.year = new Date(req.body.timeOpen).getFullYear();
-        }
-        
-        if (req.body.timeClose) tournament.timeLine.timeClose = new Date(req.body.timeClose);
-
-        // 4. Cập nhật Ảnh mới (Chỉ ghi đè nếu người dùng có upload file mới)
-        if (req.files?.banner) tournament.banner = req.files.banner[0].path;
-        if (req.files?.logo) tournament.logo = req.files.logo[0].path;
-        if (req.files?.paymentQR) tournament.paymentQR = req.files.paymentQR[0].path;
-
-        // 5. Lưu xuống Database
-        const updatedTournament = await tournament.save();
-
-        return res.status(200).json({
-            success: true,
-            message: `Cập nhật giải đấu '${updatedTournament.displayName}' thành công!`,
-            data: updatedTournament
-        });
-
-    } catch (error) {
-        console.error("🔥 Lỗi tại editTournament API:", error.message);
-        return res.status(400).json({ 
+        console.error("LỖI EDIT:", error);
+        return res.status(500).json({ 
             success: false, 
-            message: error.message || "Cập nhật dữ liệu thất bại" 
+            message: error.message 
         });
     }
 };
 
-// LẤY CHI TIẾT MỘT GIẢI ĐẤU
+// 4. CHI TIẾT GIẢI ĐẤU
 export const getTournament = async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(`Đang truy xuất thông tin giải đấu ID: ${id}`);
-
         const tournament = await Tournament.findById(id)
-            .populate("organizationId", "orgName logoUrl")
-            .lean(); // Dùng .lean() để xử lý dữ liệu thô, tránh lỗi ràng buộc Mongoose
+            .populate("organizer", "name logo contactEmail contactPhone") // Sửa: "organizer"
+            .populate("baseRule")
+            .lean();
 
         if (!tournament) {
             return res.status(404).json({ 
                 success: false, 
-                message: "Không tìm thấy giải đấu này" 
+                message: "Giải đấu không tồn tại" 
             });
         }
 
-        // ĐẢM BẢO PHÒNG THỦ: Tránh lỗi undefined nếu sportsConfig trống
-        const safeSportsConfig = Array.isArray(tournament.sportsConfig) ? tournament.sportsConfig : [];
-
-        // ĐÃ SỬA: Tính toán doanh thu dự kiến từ mảng sportsConfig mới thay vì rules cũ
-        const plannedEntryFeeRevenue = safeSportsConfig.reduce((sum, sport) => {
-            const fee = Number(sport?.feeEntry) || 0;
-            const max = Number(sport?.maxTeams) || 0;
-            return sum + (fee * max);
-        }, 0);
-
-        const actualRevenue = (tournament.budget?.totalEntryFee || 0) +
-            (tournament.budget?.totalSponsor || 0);
-
-        // ĐA SỬA: Đóng gói đầy đủ các trường mới để DashboardView và TournamentRulesView không bị "Chưa cập nhật"
-        const customData = {
-            _id: tournament._id,
-            displayName: tournament.displayName || "Giải đấu không tên",
-            slogan: tournament.slogan || "",
-            targetAudience: tournament.targetAudience || "",
-            description: tournament.description || "",
-            venue: tournament.venue || "Chưa cập nhật địa điểm",
-            year: tournament.year || new Date().getFullYear(),
-            status: tournament.status || "upcoming",
-            logo: tournament.logo || "",
-            banner: tournament.banner || "",
-            paymentQR: tournament.paymentQR || "",
-            prizes: tournament.prizes || "",
-            timeLine: {
-                timeRegiter: tournament.timeLine?.timeRegiter || null,
-                timeCloseRegister: tournament.timeLine?.timeCloseRegister || null,
-                timeOpen: tournament.timeLine?.timeOpen || null,
-                timeClose: tournament.timeLine?.timeClose || null
-            },
-            sportsConfig: safeSportsConfig,
-            galaConfig: {
-                hasGala: tournament.galaConfig?.hasGala || false,
-                time: tournament.galaConfig?.time || null,
-                venue: tournament.galaConfig?.venue || "",
-                description: tournament.galaConfig?.description || ""
-            },
-            organization: tournament.organizationId || null,
-            finance: {
-                plannedRevenue: plannedEntryFeeRevenue,
-                actualRevenue: actualRevenue,
-                totalExpense: tournament.budget?.totalExpense || 0,
-                balance: actualRevenue - (tournament.budget?.totalExpense || 0)
-            },
-            budget: tournament.budget || { totalSponsor: 0, totalExpense: 0 }
+        // Tính toán tài chính
+        const finance = {
+            totalSponsor: tournament.budget?.totalSponsor || 0,
+            totalExpense: tournament.budget?.totalExpense || 0,
+            balance: (tournament.budget?.totalSponsor || 0) - (tournament.budget?.totalExpense || 0)
         };
 
         return res.status(200).json({
-            success: true, 
-            message: "Lấy chi tiết giải đấu thành công",
-            data: customData
+            success: true,
+            data: { ...tournament, finance }
         });
-
     } catch (error) {
-        console.error("🔥 Lỗi chi tiết tại getTournament:", error);
+        console.error("LỖI GET ONE:", error);
         return res.status(500).json({ 
             success: false, 
-            message: "Lỗi hệ thống khi tải thông tin giải đấu", 
-            error: error.message 
+            message: error.message 
         });
     }
 };
 
-
-
-// XÓA GIẢI ĐẤU
+// 5. HỦY GIẢI ĐẤU
 export const cancelTournament = async (req, res) => {
     try {
         const { id } = req.params;
-        const currentUserId = req.user?.id;
-
-        const tournament = await Tournament.findById(id)
-            .populate('organizationId', '_id userId');
-
-        if (!tournament) {
-            return res.status(404).json({ success: false, message: "Không tìm thấy giải đấu" });
-        }
-
-        const isCreator = tournament.createdBy.toString() === currentUserId;
+        const tournament = await Tournament.findById(id);
         
-        let isOrgOwner = false;
-        if (tournament.organizationId?.userId) {
-            isOrgOwner = tournament.organizationId.userId.toString() === currentUserId;
-        } else if (tournament.organizationId) {
-            const org = await Organization.findById(tournament.organizationId);
-            isOrgOwner = org?.userId?.toString() === currentUserId;
+        if (!tournament) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Không tìm thấy giải đấu" 
+            });
         }
-
-        if (!isCreator && !isOrgOwner) {
-            return res.status(403).json({ success: false, message: "Bạn không có quyền thực hiện thao tác này" });
+        
+        if (['playing', 'completed', 'cancelled'].includes(tournament.status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Trạng thái hiện tại không cho phép hủy" 
+            });
         }
 
         tournament.status = 'cancelled';
         await tournament.save();
 
-        return res.status(200).json({
-            success: true,
-            message: `Giải đấu ${tournament.displayName} đã được chuyển sang trạng thái Hủy.`,
-            data: tournament
+        return res.status(200).json({ 
+            success: true, 
+            message: "Đã hủy giải đấu thành công" 
         });
-
     } catch (error) {
-        return res.status(500).json({ success: false, message: "Lỗi hệ thống", error: error.message });
+        console.error("LỖI CANCEL:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
     }
 };
-

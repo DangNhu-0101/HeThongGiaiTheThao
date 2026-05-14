@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
-const organizationSchema = new mongoose.Schema({
-    orgName: {
+const OrganizationSchema = new mongoose.Schema({
+    OrganizationName: {
         type: String,
         required: true,
         trim: true
@@ -44,5 +44,5 @@ const organizationSchema = new mongoose.Schema({
     timestamps: true
 });
 
-const Organization = mongoose.model("Organization", organizationSchema);
+const Organization = mongoose.model("Organization", OrganizationSchema);
 export default Organization;

@@ -1,53 +1,36 @@
-import mongoose from 'mongoose';
+import moogoose from 'mongoose';
 
-
-const playerSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    teamId: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team',
-    }],
-
-    userId:{
-        type: mongoose.Schema.Types.ObjectId,
+const playerSchema = new moogoose.Schema({
+    userId: {
+        type: moogoose.Schema.Types.ObjectId,
         ref: 'User',
-        unique: true,
-        required: true, 
+        required: true,
+        unique: true
     },
-
-   
-
-    skill: {
-        type: Number,
-        required:true,
+    name: { 
+        type: String, 
+        required: true },
+    birthDate: { 
+        type: Date, 
+        required:true
     },
-   
-    position: {
-        type: String,
-        comment: "Vị trí sở trường (VD: Tiền đạo, Hậu vệ, Libero...)"
+    gender: { type: String, 
+        enum: ['male', 'female', 'other'], 
+        required: true 
     },
-    isAvailable: {
-        type: Boolean,
-        default: true,
-        comment: "Trạng thái sẵn sàng tìm đội hoặc tham gia giải mới"
-    },
+    sports: [{ 
+        category: {type: String,},
+        level: {type: String,},
+        position: {type: String,}
+    }],
 
     status: {
         type: String,
-        enum: ['active', 'injured', 'suspended', 'retired'],
+        enum: ['active', 'injured', 'unavailable', 'deleted'],
         default: 'active'
     }
-},
+    
+}, { timestamps: true });
 
-    {
-        timestamps: true,
-    }
-
-);
-
-const players = mongoose.model("player", playerSchema);
-export default players;
+const Player = moogoose.model('Player', playerSchema);
+export default Player;

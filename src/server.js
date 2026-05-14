@@ -5,17 +5,18 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 import { connectDB } from './libs/db.js';
+
 import authRoute from './routes/authRoute.js';
 import userRoute from './routes/userRoute.js';
 import ruleRoute from './routes/ruleRoute.js';
 import tournamentRoute from './routes/tournamentRoute.js';
-import teamRoute from './routes/teamRoute.js';
+import stageRoutes from './routes/stageRoutes.js';
 import refereeRoute from './routes/refereeRoute.js';
+import notificationRoute from './routes/notificationRoute.js';
+import teamRoute from './routes/teamRoute.js';
 import courtRoute from './routes/courtRoute.js';
 import matchRoute from './routes/matchRoute.js';
 import sponsorRoute from './routes/sponsorRoute.js';
-// 1. 👉 BỔ SUNG IMPORT NOTIFICATION ROUTE
-import notificationRoute from './routes/notificationRoute.js'; 
 
 dotenv.config();
 
@@ -57,7 +58,8 @@ app.use('/api/rules', ruleRoute);
 app.use('/api/matches', matchRoute);
 app.use('/api/teams', teamRoute);
 // Lưu ý: Đổi tên cho khớp với Frontend đang gọi (/api/tournaments)
-app.use('/api/tournaments', tournamentRoute); 
+app.use('/api/tournaments', tournamentRoute);
+app.use('/api/stages', stageRoutes);
 app.use('/api/referees', refereeRoute);
 app.use('/api/courts', courtRoute);
 app.use('/api/sponsors', sponsorRoute);

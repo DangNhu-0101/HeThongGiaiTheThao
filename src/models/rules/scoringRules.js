@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Tournament from "../tournament.js";
+import Tournament from "../tournaments.js";
 import BaseRule from "./baseRules.js";
 
 // Schema cho Scoring Format
@@ -45,9 +45,10 @@ const scoringRulesSchema = new mongoose.Schema({
         ref: 'Tournament',
         required: false
     },
-    baseRuleId:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'BaseRule'
+    baseRuleId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'BaseRule', 
+        required: true 
     },
     sport: {
         type: String,
@@ -68,15 +69,7 @@ const scoringRulesSchema = new mongoose.Schema({
         type: rallyScoringSchema,
         required: false
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    }
-});
+}, { timestamps: true });
 
 const ScoringRule = mongoose.model("ScoringRule", scoringRulesSchema);
 export default ScoringRule;

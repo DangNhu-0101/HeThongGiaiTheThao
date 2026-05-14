@@ -1,13 +1,11 @@
 import mongoose from "mongoose";
-import ScoringRule from "./scoringRules.js";
+import Tournament from "../tournaments.js";
+import CategoryRule from "./categories.js";
 import StageRule from "./stageRules.js";
-import CategoryRule from "./categoryRules.js";
 import GameRule from "./gameRules.js";
-import TimeManagementRule from "./timeManagementRules.js";
-import ResourceManagementRule from "./resourceManagementRules.js";
+import TimeManagementRule from "./timeManagements.js";
+import ResourceManagementRule from "./resourceManagements.js";
 import FaultsAndPenalties from "./faultsAndPenalties.js";
-import Tournament from "../tournament.js";
-
 // Cấu hình chung cho Discriminator
 
 
@@ -16,7 +14,8 @@ const baseRuleSchema = new mongoose.Schema({
     tournamentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Tournament',
-        required: false
+        required: false,
+        index: true
     },
     // 1. THÔNG TIN ĐỊNH DANH
     ruleName: {
@@ -31,24 +30,31 @@ const baseRuleSchema = new mongoose.Schema({
     sport: {
         type: String,
         required: true,
-        enum: ['Football', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Esports', 'Other']
+        enum: ['Football',  'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball',  'Other']
     },
 
-    feeEntry:{
+    playerEntryFee:{
         type: Number,
         default: 0
     },
 
-    Teamcomposition:{
-        maxteam:{type: Number, default: 1},
-        minTeam:{type: Number, default: 1},
+    teamComposition: { 
+        maxTeams: { type: Number, default: 32 },           // Tổng số đội tối đa
+        minTeams: { type: Number, default: 2 }             // Tổng số đội tối thiểu
+    },
+
+    timeLine: {
+        registrationStart: {type: Date,required: true},
+        registrationEnd: {type: Date,required: true},
+        tournamentStart: {type: Date,required: true},
+        tournamentEnd: {type: Date,required: true},
     },
 
     tournamentStructure:{
         categories:[{
             type:mongoose.Schema.Types.ObjectId,
-            ref: 'CategoryRule',}]
-        },
+            ref: 'CategoryRule',}],
+        
         stages: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'StageRule',}],
@@ -75,9 +81,12 @@ const baseRuleSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'FaultAndPenaltyRule',
         }]
-
     }
+
+    }   
 , { timestamps: true });
+
+baseRuleSchema.index({ sport: 1, ruleName: 1 }, { unique: true });
 
 const BaseRule = mongoose.model("BaseRule", baseRuleSchema);
 export default BaseRule;

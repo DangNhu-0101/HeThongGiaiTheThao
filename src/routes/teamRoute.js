@@ -1,49 +1,51 @@
+// routes/teamRoutes.js
 import express from 'express';
+import {
+    createTeam, updateTeam, deleteTeam,
+    getUserTeams, getTeamDetail, getTeamsByTournament,
+    leaveTeam, kickMember, transferCaptaincy,
+    sendInvitation, acceptInvitation, rejectInvitation, getUserInvitations,
+    requestToJoinTeam, approveJoinRequest, rejectJoinRequest, getTeamJoinRequests,
+    updatePaymentStatus
+} from '../controllers/teamController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
-import { 
-    createTeam,
-    registerFlow,
-    getTeamDetail,
-    getAllTeam,
-    sendInvitation,
-    getReceivedInvitations,
-    respondInvitation,
-    getTeamsByTournament,
-    getSentInvitations,
-    cancelInvitation,
-    updateTeam,
-    deleteTeam,
-    removeMember
- } from '../controllers/teamController.js';
 
-const route = express.Router();
+const router = express.Router();
 
-// ==========================================
-// 1. QUERIES - LẤY THÔNG TIN
-// ==========================================
-route.get('/all', protectedRoute(['Player', 'Organization', 'Referee']), getAllTeam);
-route.get('/detail/:id', protectedRoute(['Player', 'Organization', 'Referee']), getTeamDetail);
-route.get('/tournament/:tournamentId', getTeamsByTournament);
+// ======================== PUBLIC ========================
+router.get('/all', getTeamsByTournament);
+router.get('/', getTeamsByTournament);
 
-// ==========================================
-// 2. TEAM MANAGEMENT - QUẢN LÝ ĐỘI THI ĐẤU
-// ==========================================
-route.post('/register-flow', protectedRoute(['Player']), registerFlow);
-route.post('/create', protectedRoute(['Player']), createTeam);
-route.patch('/update/:id', protectedRoute(['Player']), updateTeam);
-route.delete('/delete/:id', protectedRoute(['Player']), deleteTeam);
-route.delete('/remove-member/:memberRecordId', protectedRoute(['Player']), removeMember);
+// ======================== TEAM CRUD ========================
+router.post('/create', protectedRoute('player'), createTeam);
+router.put('/edit/:id', protectedRoute('player'), updateTeam);
+router.delete('/delete/:id', protectedRoute('player'), deleteTeam);
 
-// ==========================================
-// 3. INVITATIONS - LỜI MỜI GIA NHẬP
-// ==========================================
-// Luồng gửi (Đội trưởng)
-route.post('/invitations/send', protectedRoute(['Player', 'Organization']), sendInvitation);
-route.get('/invitations/sent', protectedRoute(['Player']), getSentInvitations);
-route.delete('/invitations/cancel/:memberRecordId', protectedRoute(['Player']), cancelInvitation);
+// ======================== USER SPECIFIC (cụ thể trước) ========================
+router.get('/users/invitations', protectedRoute('player'), getUserInvitations);  // ← ĐẶT TRƯỚC /users/:id
+router.get('/users', protectedRoute('player','Organization'), getUserTeams);
+router.get('/users/:id', getTeamDetail);
 
-// Luồng nhận (Thành viên)
-route.get('/invitations/my', protectedRoute(['Player', 'Organization']), getReceivedInvitations);
-route.post('/invitations/respond', protectedRoute(['Player', 'Organization']), respondInvitation); // Xử lý cả accept & reject
+// ======================== TOURNAMENT TEAMS ========================
+router.get('/tournaments/:tournamentId/teams', getTeamsByTournament);
 
-export default route;
+// ======================== INVITATIONS ========================
+router.post('/invitations', protectedRoute('player'), sendInvitation);
+router.post('/invitations/:invitationId/accept', protectedRoute('player'), acceptInvitation);
+router.post('/invitations/:invitationId/reject', protectedRoute('player'), rejectInvitation);
+
+// ======================== JOIN REQUESTS (cụ thể trước) ========================
+router.post('/join-requests', protectedRoute('player'), requestToJoinTeam);
+router.post('/join-requests/:requestId/approve', protectedRoute('player'), approveJoinRequest);
+router.post('/join-requests/:requestId/reject', protectedRoute('player'), rejectJoinRequest);
+
+// ======================== MEMBER ACTIONS (động sau) ========================
+router.post('/transfer-captain', protectedRoute('player'), transferCaptaincy);
+router.post('/:id/leave', protectedRoute('player'), leaveTeam);
+router.delete('/:teamId/members/:memberId', protectedRoute('player'), kickMember);
+router.get('/:teamId/join-requests', protectedRoute('player'), getTeamJoinRequests);
+
+// ======================== PAYMENT ========================
+router.patch('/:id/payment', protectedRoute('Organization'), updatePaymentStatus);
+
+export default router;

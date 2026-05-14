@@ -1,26 +1,30 @@
+// routes/ruleRoutes.js
 import express from 'express';
-import { 
-    getAllRules, 
-    getDetailRules, 
-    editRule, 
-    deleteRule, 
-    getRuleSystems,
-    saveTournamentStages // 👈 1. IMPORT HÀM NÀY VÀO
+import {
+    getBaseRules,
+    getAllRules,
+    getDetailRules,
+    editRule,
+    deleteRule
 } from '../controllers/ruleController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
-const route = express.Router();
+const router = express.Router();
 
-// Lấy danh sách Sách giáo khoa (JSON seed)
-route.get('/systems', getRuleSystems); 
 
-// 👉 2. THÊM ĐƯỜNG DẪN LƯU STAGES NÀY VÀO ĐÂY:
-route.post('/save-stages/:tournamentId', protectedRoute(['Organization']), saveTournamentStages);
+// GET /api/rules/systems? (lấy BaseRules theo sport)
+router.get('/systems', getBaseRules);
 
-// Quản lý Rule riêng của từng giải đấu
-route.get('/all', protectedRoute(['Organization']), getAllRules);
-route.get('/getDetailRules/:id', protectedRoute(['Player', 'Referee', 'Organization']), getDetailRules);
-route.patch('/editRule/:id', protectedRoute(['Organization']), editRule);
-route.delete('/deleteRule/:id', protectedRoute(['Organization']), deleteRule);
+// GET /api/rules?tournamentId=... (lấy tất cả rule của giải đấu)
+router.get('/', protectedRoute('Organization'), getAllRules);
 
-export default route;
+// GET /api/rules/:id (lấy chi tiết 1 rule)
+router.get('/:id', protectedRoute('Organization'), getDetailRules);
+
+// PUT /api/rules/:id (chỉnh sửa rule)
+router.put('/:id', protectedRoute('Organization'), editRule);
+
+// DELETE /api/rules/:id (xóa rule)
+router.delete('/:id', protectedRoute('Organization'), deleteRule);
+
+export default router;

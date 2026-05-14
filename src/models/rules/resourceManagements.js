@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import Tournament from "../tournaments.js";
+import BaseRule from "./baseRules.js";
 
 // Schema cho Courts
 const courtsSchema = new mongoose.Schema({
@@ -47,7 +49,8 @@ const resourceManagementRulesSchema = new mongoose.Schema({
     },
         baseRuleId:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'BaseRule'
+        ref: 'BaseRule',
+        required: true
     },
     sport: {
         type: String,

@@ -1,50 +1,50 @@
 import express from 'express';
-import multer from 'multer'; // 1. IMPORT MULTER
 import path from 'path';
-import fs from 'fs';
+import multer from 'multer';
+import { fileURLToPath } from 'url';
 import {
-   getAllTournament,
-   createTournament,
-   getTournament,
-   editTournament,
-   cancelTournament
+    getAllTournament,
+    createTournament,
+    editTournament,
+    getTournament,
+    cancelTournament
 } from '../controllers/tournamentController.js';
+
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
-const route = express.Router();
-
-// 2. CẤU HÌNH MULTER ĐỂ LƯU ẢNH (Lưu vào thư mục uploads/ ở Backend)
-const uploadDir = 'uploads/';
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir); // Tự động tạo thư mục nếu chưa có
-}
+const router = express.Router();
 
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        cb(null, `tour-${Date.now()}${path.extname(file.originalname)}`);
-    }
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); 
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
+
 const upload = multer({ storage: storage });
+// Các route công khai (không cần đăng nhập)
+router.get('/', getAllTournament);               // Lấy danh sách giải đấu (phân trang, lọc)
+router.get('/:id', getTournament);               // Lấy chi tiết giải đấu
 
-// 3. KHAI BÁO CÁC TRƯỜNG ẢNH SẼ NHẬN TỪ FRONTEND
-const cpUpload = upload.fields([
-    { name: 'logo', maxCount: 1 }, 
-    { name: 'banner', maxCount: 1 }, 
-    { name: 'paymentQR', maxCount: 1 }
-]);
 
-// 4. CHÈN cpUpload VÀO GIỮA ROUTE CREATE VÀ EDIT
-route.get('/getAllTournament',  getAllTournament);
 
-route.post('/createTournament', protectedRoute(['Organization']), cpUpload, createTournament);
+// Tạo giải đấu mới (có upload file)
+router.post('/createTournament', 
+    protectedRoute('Organization'), 
+    upload.fields([
+        { name: 'logo', maxCount: 1 },
+        { name: 'paymentQR', maxCount: 1 },
+        { name: 'banners', maxCount: 10 } // Cho phép tối đa 10 ảnh banner
+    ]), 
+    createTournament
+);
 
-route.get('/getTournament/:id',  getTournament);
+// Chỉnh sửa giải đấu (có upload file)
+router.put('/:id', protectedRoute('Organization'), editTournament);
 
-route.patch('/editTournament/:id', protectedRoute(['Organization']), cpUpload, editTournament);
+// Hủy giải đấu (chuyển status thành cancelled)
+router.put('/:id/cancel', protectedRoute('Organization'), cancelTournament);
 
-route.delete('/cancelTournament/:id', protectedRoute(['Organization']), cancelTournament);
-
-export default route;
+export default router;
