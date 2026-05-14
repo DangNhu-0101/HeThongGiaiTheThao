@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axiosConfig';
 import { useNavigate } from 'react-router-dom';
+import PaymentModal from '../components/PaymentModal';
 
 const CATEGORY_MAPPER = {
     'MS': 'Đơn Nam', 'WS': 'Đơn Nữ', 'MD': 'Đôi Nam', 'WD': 'Đôi Nữ', 'XD': 'Đôi Nam Nữ'
@@ -11,33 +12,44 @@ const MyTeams = () => {
     const [activeTab, setActiveTab] = useState('my-teams');
     const [teams, setTeams] = useState([]);
     const [sentInvites, setSentInvites] = useState([]);
-    const [receivedInvites, setReceivedInvites] = useState([]); // ← THÊM
+    const [receivedInvites, setReceivedInvites] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+    const [selectedTeam, setSelectedTeam] = useState(null);
 
-   const fetchAllData = async () => {
-    try {
-        setLoading(true);
-        const [teamsRes, sentRes, receivedRes] = await Promise.all([
-            api.get('/teams/users'),
-            api.get('/teams/users/sent-invitations'),
-            api.get('/teams/users/invitations'),
-        ]);
+    const fetchAllData = async () => {
+        try {
+            setLoading(true);
+            const [teamsRes, sentRes, receivedRes] = await Promise.all([
+                api.get('/teams/users'),
+                api.get('/teams/users/sent-invitations'),
+                api.get('/teams/users/invitations'),
+            ]);
 
-        console.log("Teams:", teamsRes.data);
-        console.log("Sent:", sentRes.data);
-        console.log("Received:", receivedRes.data);  // ← XEM DÒNG NÀY
+            console.log("Teams:", teamsRes.data);
+            console.log("Sent:", sentRes.data);
+            console.log("Received:", receivedRes.data);
 
-        if (teamsRes.data.success) setTeams(teamsRes.data.data);
-        if (sentRes.data.success) setSentInvites(sentRes.data.data);
-        if (receivedRes.data.success) setReceivedInvites(receivedRes.data.data);
-    } catch (err) {
-        console.error("Lỗi tải dữ liệu:", err);
-    } finally {
-        setLoading(false);
-    }
-};
+            if (teamsRes.data.success) setTeams(teamsRes.data.data);
+            if (sentRes.data.success) setSentInvites(sentRes.data.data);
+            if (receivedRes.data.success) setReceivedInvites(receivedRes.data.data);
+        } catch (err) {
+            console.error("Lỗi tải dữ liệu:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => { fetchAllData(); }, []);
+
+    const handleOpenPayment = (team) => {
+        setSelectedTeam(team);
+        setPaymentModalOpen(true);
+    };
+
+    const handlePaymentSuccess = () => {
+        fetchAllData();
+    };
 
     const handleCancelInvite = async (id) => {
         if (!window.confirm("Bạn có chắc chắn muốn thu hồi lời mời này?")) return;
@@ -49,20 +61,18 @@ const MyTeams = () => {
         }
     };
 
-    // ← THÊM: Chấp nhận lời mời
     const handleAcceptInvite = async (id) => {
         try {
             const res = await api.post(`/teams/invitations/${id}/accept`);
             if (res.data.success) {
                 setReceivedInvites(prev => prev.filter(i => i._id !== id));
-                fetchAllData(); // load lại teams
+                fetchAllData();
             }
         } catch (err) {
             alert(err.response?.data?.message || "Lỗi khi chấp nhận");
         }
     };
 
-    // ← THÊM: Từ chối lời mời
     const handleRejectInvite = async (id) => {
         try {
             const res = await api.post(`/teams/invitations/${id}/reject`);
@@ -118,7 +128,7 @@ const MyTeams = () => {
                     className={`px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'my-teams' ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-gray-400 hover:bg-slate-700'}`}>
                     Đội của tôi ({teams.length})
                 </button>
-                <button onClick={() => setActiveTab('received')}  
+                <button onClick={() => setActiveTab('received')}
                     className={`px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'received' ? 'bg-green-500 text-black' : 'bg-slate-800 text-gray-400 hover:bg-slate-700'}`}>
                     Lời mời nhận ({receivedInvites.length})
                 </button>
@@ -148,17 +158,23 @@ const MyTeams = () => {
                                     <p className="text-xs text-gray-400 font-bold uppercase">🏆 Giải: <span className="text-gray-200">{team.tournamentId?.name || 'N/A'}</span></p>
                                     <p className="text-xs text-gray-400 font-bold uppercase">🏅 Môn: <span className="text-cyan-500">{team.sportCategory || 'N/A'}</span></p>
                                 </div>
-                                <button onClick={() => navigate(`/team/detail/${team._id}`)}
-                                    className="w-full py-3 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-700 transition-all">
-                                    Chi tiết đội
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => navigate(`/team/detail/${team._id}`)}
+                                        className="flex-1 py-3 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-700 transition-all">
+                                        Chi tiết đội
+                                    </button>
+                                    <button onClick={() => handleOpenPayment(team)}
+                                        className="flex-1 py-3 bg-cyan-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-cyan-500 transition-all">
+                                        Thanh toán
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
                 </div>
             )}
 
-            {/* TAB: RECEIVED INVITES - LỜI MỜI NHẬN ĐƯỢC */}
+            {/* TAB: RECEIVED INVITES */}
             {activeTab === 'received' && (
                 <div className="space-y-4">
                     {receivedInvites.length === 0 ? (
@@ -174,7 +190,7 @@ const MyTeams = () => {
                                     </div>
                                     <div>
                                         <p className="text-white font-black text-sm uppercase tracking-wide">
-                                            {inv.senderId?.username} {/* Người gửi */}
+                                            {inv.senderId?.username}
                                         </p>
                                         <p className="text-[10px] text-gray-500 font-bold uppercase">
                                             Mời vào: {inv.teamId?.name} | {inv.teamId?.sportCategory}
@@ -227,6 +243,14 @@ const MyTeams = () => {
                     )}
                 </div>
             )}
+
+            {/* PAYMENT MODAL */}
+            <PaymentModal 
+                isOpen={paymentModalOpen}
+                onClose={() => setPaymentModalOpen(false)}
+                team={selectedTeam}
+                onSuccess={handlePaymentSuccess}
+            />
 
             <style>{`
                 .animate-fade-in { animation: fadeIn 0.5s ease-out; }

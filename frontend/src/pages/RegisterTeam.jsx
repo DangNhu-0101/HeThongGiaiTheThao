@@ -2,379 +2,701 @@ import React, { useState, useEffect } from 'react';
 import api from '../api/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 
-// 🎯 BẢN ĐỒ DỊCH NỘI DUNG THI ĐẤU SANG TIẾNG VIỆT
 const CATEGORY_MAPPER = {
-    'MS': 'Đơn Nam (MS)',
-    'WS': 'Đơn Nữ (WS)',
-    'MD': 'Đôi Nam (MD)',
-    'WD': 'Đôi Nữ (WD)',
-    'XD': 'Đôi Nam Nữ (XD)'
+  MS: 'Đơn Nam (MS)',
+  WS: 'Đơn Nữ (WS)',
+  MD: 'Đôi Nam (MD)',
+  WD: 'Đôi Nữ (WD)',
+  XD: 'Đôi Nam Nữ (XD)',
 };
 
+const CSS = `
+  :root {
+    --ocean-deep:    #02457A;
+    --ocean-mid:     #018ABE;
+    --ocean-pale:    #97CADB;
+    --sky-mist:      #D6E7EE;
+    --purple-accent: #A999DC;
+    --logo-red:      #BD0014;
+    --dark-base:     #18181C;
+    --bg-white:      #FFFFFF;
+  }
+
+  .rg-page {
+    min-height: 100vh;
+    background: var(--sky-mist);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 16px 64px;
+    font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+  }
+  .rg-card {
+    background: var(--bg-white);
+    border-radius: 20px;
+    border: 1px solid rgba(2,69,122,0.1);
+    box-shadow: 0 8px 32px rgba(2,69,122,0.10);
+    width: 100%; max-width: 560px;
+    overflow: visible;
+  }
+
+  /* CARD HEADER */
+  .rg-card-header {
+    background: var(--ocean-deep);
+    padding: 28px 32px;
+    position: relative;
+    overflow: visible;
+  }
+  .rg-card-header::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(1,138,190,0.18);
+  }
+  .rg-card-header-tag {
+    font-size: 10px; font-weight: 700;
+    color: var(--ocean-pale);
+    text-transform: uppercase; letter-spacing: 2.5px;
+    margin-bottom: 6px;
+    position: relative; z-index: 1;
+  }
+  .rg-card-header-title {
+    font-size: 20px; font-weight: 700;
+    color: #fff; margin: 0;
+    position: relative; z-index: 1;
+  }
+
+  /* CARD BODY */
+  .rg-card-body { padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; overflow: visible; }
+
+  /* SECTION */
+  .rg-section {
+    border: 1px solid rgba(2,69,122,0.1);
+    border-radius: 14px;
+    overflow: visible;
+    animation: rgFadeIn 0.25s ease;
+  }
+  @keyframes rgFadeIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }
+  .rg-section-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 16px;
+    background: rgba(214,231,238,0.5);
+    border-bottom: 1px solid rgba(2,69,122,0.07);
+  }
+  .rg-section-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--ocean-mid);
+    color: #fff;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .rg-section-label {
+    font-size: 11px; font-weight: 700;
+    color: var(--ocean-deep);
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .rg-section-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: visible; }
+
+  /* FIELD */
+  .rg-field { display: flex; flex-direction: column; gap: 5px; }
+  .rg-label {
+    font-size: 10px; font-weight: 700;
+    color: var(--ocean-mid);
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .rg-input, .rg-select {
+    width: 100%; box-sizing: border-box;
+    padding: 10px 13px;
+    border: 1px solid rgba(1,138,190,0.22);
+    background: var(--sky-mist);
+    color: var(--dark-base);
+    border-radius: 9px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  }
+  .rg-input:focus, .rg-select:focus {
+    border-color: var(--ocean-mid);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(1,138,190,0.10);
+  }
+  .rg-select option { background: #fff; color: var(--dark-base); }
+
+  /* TWO COL */
+  .rg-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .rg-grid-2 { grid-template-columns: 1fr; } }
+
+  /* FEE STRIP */
+  .rg-fee-strip {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(1,138,190,0.07);
+    border: 1px solid rgba(1,138,190,0.18);
+    border-radius: 9px;
+    padding: 10px 14px;
+  }
+  .rg-fee-label { font-size: 12px; color: #7a8fa0; font-weight: 500; }
+  .rg-fee-amount { font-size: 16px; font-weight: 700; color: var(--ocean-mid); }
+
+  /* SEARCH */
+  .rg-search-row { display: flex; gap: 8px; }
+  .rg-search-btn {
+    padding: 10px 18px;
+    background: var(--ocean-mid);
+    color: #fff;
+    border: none; border-radius: 9px;
+    font-size: 12px; font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .rg-search-btn:hover { background: #019fd8; }
+  .rg-search-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* DROPDOWN */
+  .rg-dropdown-wrap { position: relative; }
+  .rg-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: #fff;
+    border: 1px solid rgba(2,69,122,0.14);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(2,69,122,0.12);
+    z-index: 20;
+    overflow: visible;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .rg-dropdown::-webkit-scrollbar { width: 3px; }
+  .rg-dropdown::-webkit-scrollbar-thumb { background: var(--ocean-pale); border-radius: 3px; }
+  .rg-dropdown-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(214,231,238,0.8);
+    transition: background 0.12s;
+  }
+  .rg-dropdown-item:last-child { border-bottom: none; }
+  .rg-dropdown-item:hover { background: var(--sky-mist); }
+  .rg-dropdown-name { font-size: 13px; font-weight: 600; color: var(--ocean-deep); }
+  .rg-dropdown-sub  { font-size: 11px; color: #9aadba; margin-top: 2px; }
+  .rg-invite-btn {
+    padding: 5px 12px;
+    background: var(--ocean-mid);
+    color: #fff;
+    border: none; border-radius: 6px;
+    font-size: 11px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: background 0.12s;
+    flex-shrink: 0;
+  }
+  .rg-invite-btn:hover { background: #019fd8; }
+
+  /* MEMBER LIST */
+  .rg-member-box {
+    background: var(--sky-mist);
+    border: 1px solid rgba(2,69,122,0.1);
+    border-radius: 10px;
+    overflow: visible;
+  }
+  .rg-member-head {
+    padding: 8px 13px;
+    font-size: 10px; font-weight: 700;
+    color: var(--ocean-mid);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    border-bottom: 1px solid rgba(2,69,122,0.08);
+  }
+  .rg-member-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 13px;
+    border-bottom: 1px solid rgba(2,69,122,0.06);
+    background: #fff;
+  }
+  .rg-member-row:last-child { border-bottom: none; }
+  .rg-member-name { font-size: 13px; font-weight: 600; color: var(--ocean-deep); }
+  .rg-remove-btn {
+    font-size: 11px; font-weight: 600;
+    color: var(--logo-red);
+    background: rgba(189,0,20,0.07);
+    border: 1px solid rgba(189,0,20,0.18);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer; font-family: inherit;
+    transition: background 0.12s;
+  }
+  .rg-remove-btn:hover { background: rgba(189,0,20,0.14); }
+
+  /* SUBMIT */
+  .rg-submit-btn {
+    width: 100%; padding: 14px;
+    border-radius: 10px; border: none;
+    background: var(--ocean-mid);
+    color: #fff;
+    font-size: 14px; font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.12s;
+  }
+  .rg-submit-btn:hover:not(:disabled) { background: #019fd8; transform: translateY(-1px); }
+  .rg-submit-btn:disabled { background: #a0b8c8; cursor: not-allowed; }
+
+  /* ── RESULT SCREEN ── */
+  .rg-result-page {
+    min-height: 100vh;
+    background: var(--sky-mist);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 48px 16px 64px;
+    font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+  }
+  .rg-result-card {
+    background: var(--bg-white);
+    border-radius: 20px;
+    border: 1px solid rgba(2,69,122,0.1);
+    box-shadow: 0 8px 32px rgba(2,69,122,0.10);
+    width: 100%; max-width: 480px;
+    overflow: visible;
+  }
+  .rg-result-header {
+    background: var(--ocean-deep);
+    padding: 28px 32px;
+    text-align: center;
+    position: relative; overflow: visible;
+  }
+  .rg-result-header::before {
+    content: '';
+    position: absolute; top: -40px; right: -40px;
+    width: 140px; height: 140px; border-radius: 50%;
+    background: rgba(1,138,190,0.2);
+  }
+  .rg-result-tag {
+    font-size: 10px; font-weight: 700;
+    color: var(--ocean-pale);
+    text-transform: uppercase; letter-spacing: 2.5px;
+    margin-bottom: 6px;
+    position: relative; z-index: 1;
+  }
+  .rg-result-title {
+    font-size: 20px; font-weight: 700; color: #fff; margin: 0;
+    position: relative; z-index: 1;
+  }
+  .rg-result-body { padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; }
+
+  .rg-notice {
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px; line-height: 1.6;
+  }
+  .rg-notice.warn {
+    background: rgba(234,88,12,0.08);
+    border: 1px solid rgba(234,88,12,0.2);
+    color: #9a3412;
+  }
+  .rg-notice-title { font-weight: 700; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .rg-payment-box {
+    border: 1px solid rgba(2,69,122,0.12);
+    border-radius: 14px;
+    overflow: visible;
+  }
+  .rg-payment-head {
+    padding: 11px 16px;
+    background: rgba(214,231,238,0.5);
+    border-bottom: 1px solid rgba(2,69,122,0.08);
+    font-size: 11px; font-weight: 700;
+    color: var(--ocean-deep);
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .rg-payment-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .rg-qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .rg-qr-img {
+    width: 160px; height: 160px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 1px solid rgba(2,69,122,0.15);
+    padding: 4px;
+    background: #fff;
+  }
+  .rg-qr-hint { font-size: 10px; color: #9aadba; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+  .rg-qr-empty {
+    text-align: center;
+    padding: 14px;
+    border: 1px dashed rgba(2,69,122,0.15);
+    border-radius: 10px;
+    font-size: 12px; color: #9aadba;
+    font-style: italic;
+  }
+  .rg-info-rows { display: flex; flex-direction: column; gap: 8px; }
+  .rg-info-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; }
+  .rg-info-key { color: #7a8fa0; flex-shrink: 0; }
+  .rg-info-val { font-weight: 600; color: var(--ocean-deep); text-align: right; }
+  .rg-info-val.highlight { color: var(--ocean-mid); font-size: 17px; }
+  .rg-transfer-code {
+    display: inline-block;
+    background: var(--sky-mist);
+    border: 1px solid rgba(2,69,122,0.15);
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ocean-deep);
+  }
+  .rg-info-divider { height: 1px; background: rgba(2,69,122,0.08); }
+  .rg-footnote { font-size: 11px; color: #9aadba; text-align: center; font-style: italic; }
+
+  .rg-home-btn {
+    width: 100%; padding: 13px;
+    border-radius: 10px; border: none;
+    background: var(--ocean-deep);
+    color: #fff;
+    font-size: 14px; font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .rg-home-btn:hover { background: #02376b; }
+`;
+
+/* ════════════════════════════════════════════════
+   COMPONENT
+════════════════════════════════════════════════ */
 const RegisterTeam = () => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
-    // --- 1. STATE DỮ LIỆU TỪ BACKEND ---
-    const [upcomingTournaments, setUpcomingTournaments] = useState([]);
-    
-    // --- 2. STATE FORM ĐĂNG KÝ ---
-    const [selectedTour, setSelectedTour] = useState(null);
-    const [selectedSport, setSelectedSport] = useState(null);
-    const [selectedCategory, setSelectedCategory] = useState(null); // Ví dụ: 'MD'
-    const [regMode, setRegMode] = useState("create"); // 'solo' | 'create' | 'random'
-    
-    // State cho lập đội
-    const [teamName, setTeamName] = useState("");
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
-    const [invitedMembers, setInvitedMembers] = useState([]); // Mảng chứa VĐV được mời
+  const [upcomingTournaments, setUpcomingTournaments] = useState([]);
+  const [selectedTour,        setSelectedTour]        = useState(null);
+  const [selectedSport,       setSelectedSport]       = useState(null);
+  const [selectedCategory,    setSelectedCategory]    = useState(null);
+  const [isSolo,              setIsSolo]              = useState(false);
 
-    // --- 3. STATE UI & KẾT QUẢ ---
-    const [isSearching, setIsSearching] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [result, setResult] = useState(null);
+  const [teamName,        setTeamName]        = useState('');
+  const [searchQuery,     setSearchQuery]     = useState('');
+  const [searchResults,   setSearchResults]   = useState([]);
+  const [invitedMembers,  setInvitedMembers]  = useState([]);
 
-    // BƯỚC 1: Fetch Giải đấu đang mở
-    useEffect(() => {
-        const fetchTours = async () => {
-            try {
-                const res = await api.get('/tournaments');
-                if (res.data?.data) {
-                    const upcomingTours = res.data.data.filter(t => t.status === 'upcoming');
-                    setUpcomingTournaments(upcomingTours);
-                }
-            } catch (err) {
-                console.error("Lỗi lấy giải đấu:", err);
-            }
-        };
-        fetchTours();
-    }, []);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSaving,    setIsSaving]    = useState(false);
+  const [result,      setResult]      = useState(null);
 
-    // RESET logic khi đổi lựa chọn
-    const handleTourChange = (e) => {
-        const tourId = e.target.value;
-        const fetchTourDetail = async () => {
-            try {
-                const res = await api.get(`/tournaments/${tourId}`);
-                if (res.data?.success && res.data?.data) {
-                    setSelectedTour(res.data.data);
-                }
-            } catch (error) {
-                console.error("Lỗi lấy chi tiết giải đấu:", error);
-            }
-        };
-        fetchTourDetail();
-        setSelectedSport(null);
-        setSelectedCategory(null);
-        setInvitedMembers([]);
-    };
+  /* ── FETCH TOURNAMENTS ── */
+  useEffect(() => {
+    api.get('/tournaments')
+      .then(res => {
+        if (res.data?.data)
+          setUpcomingTournaments(res.data.data.filter(t => t.status === 'upcoming'));
+      })
+      .catch(err => console.error(err));
+  }, []);
 
-    const handleCategoryChange = (e) => {
-        const catValue = e.target.value;
-        setSelectedCategory(catValue);
-        // Tự động chuyển sang chế độ đánh đơn (Solo) nếu nội dung chứa chữ 'S' (MS, WS)
-        if (catValue.includes('S')) { 
-            setRegMode('solo');
-        } else {
-            setRegMode('create');
-        }
-        setInvitedMembers([]);
-    };
+  /* ── HANDLERS ── */
+  const handleTourChange = async e => {
+    const tourId = e.target.value;
+    setSelectedSport(null); setSelectedCategory(null); setInvitedMembers([]);
+    try {
+      const res = await api.get(`/tournaments/${tourId}`);
+      if (res.data?.success) setSelectedTour(res.data.data);
+    } catch (err) { console.error(err); }
+  };
 
-    // TÌM KIẾM THÀNH VIÊN
-    const handleSearchUser = async () => {
+  const handleCategoryChange = e => {
+    const cat = e.target.value;
+    setSelectedCategory(cat);
+    setIsSolo(cat.includes('S'));
+    setInvitedMembers([]);
+  };
+
+  const handleSearchUser = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     try {
-        // Backend searchUsers dùng query 'name', không phải 'keyword'
-        const res = await api.get(`/users/search?name=${searchQuery}`);
-        setSearchResults(res.data?.data || []);
-    } catch (error) {
-        console.error("Lỗi tìm kiếm:", error);
-        setSearchResults([]);
-    } finally {
-        setIsSearching(false);
-    }
-};
+      const res = await api.get(`/users/search?name=${searchQuery}`);
+      setSearchResults(res.data?.data || []);
+    } catch (err) {
+      console.error(err); setSearchResults([]);
+    } finally { setIsSearching(false); }
+  };
 
-    const addMember = (user) => {
-        if (invitedMembers.find(m => m._id === user._id)) return;
-        if (invitedMembers.length >= 1) {
-            alert("Nội dung Đôi chỉ cho phép mời thêm 1 đồng đội!");
-            return;
-        }
-        setInvitedMembers([...invitedMembers, user]);
-        setSearchResults([]);
-        setSearchQuery("");
-    };
+  const addMember = user => {
+    if (invitedMembers.find(m => m._id === user._id)) return;
+    if (invitedMembers.length >= 1) { alert('Nội dung Đôi chỉ cho phép mời thêm 1 đồng đội!'); return; }
+    setInvitedMembers([...invitedMembers, user]);
+    setSearchResults([]); setSearchQuery('');
+  };
 
-    const removeMember = (userId) => {
-        setInvitedMembers(invitedMembers.filter(m => m._id !== userId));
-    };
+  const removeMember = userId => setInvitedMembers(invitedMembers.filter(m => m._id !== userId));
 
-    const getCalculatedFee = () => {
-        if (!selectedSport) return 0;
-        const baseFee = selectedSport.feePerAthlete || 0;
-        
-        return baseFee;
-    };
+  const getFee = () => selectedSport?.feePerAthlete || 0;
 
-    // SUBMIT ĐĂNG KÝ
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        try {
-            const payload = {
-                tournamentId: selectedTour._id,
-                sport: selectedSport.sport,
-                categoryId: selectedCategory,
-                regMode: regMode,
-                teamName: regMode === 'create' ? teamName : null,
-                invitedUserIds: invitedMembers.map(m => m._id) 
-            };
+  const handleSubmit = async e => {
+    e.preventDefault(); setIsSaving(true);
+    try {
+      const payload = {
+        tournamentId: selectedTour._id,
+        sport:        selectedSport.sport,
+        categoryId:   selectedCategory,
+        regMode:      isSolo ? 'solo' : 'create',
+        teamName:     isSolo ? null : teamName,
+        invitedUserIds: invitedMembers.map(m => m._id),
+      };
+      const res = await api.post('/teams/register-flow', payload);
+      setResult({ ...res.data, fee: getFee() });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Lỗi quá trình đăng ký, vui lòng thử lại!');
+    } finally { setIsSaving(false); }
+  };
 
-            const res = await api.post('/teams/register-flow', payload);
-            setResult({ 
-                ...res.data, 
-                fee: getCalculatedFee()
-            });
-        } catch (error) {
-            alert(error.response?.data?.message || "Lỗi quá trình đăng ký, vui lòng thử lại!");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    // ==========================================
-    // MÀN HÌNH 2: KẾT QUẢ THÀNH CÔNG & THANH TOÁN ĐỘNG
-    // ==========================================
-    if (result) {
-        return (
-            <div className="auth-container custom-scrollbar">
-                <div className="auth-card text-center shadow-2xl max-w-lg mx-auto border border-cyan-500">
-                    <h2 className="text-neon-cyan font-black uppercase tracking-widest text-2xl mb-2">
-                        {regMode === 'random' ? "⏳ ĐÃ ĐƯA VÀO HÀNG ĐỢI" : "🎉 ĐĂNG KÝ THÀNH CÔNG"}
-                    </h2>
-                    
-                    {regMode === 'create' && invitedMembers.length > 0 && (
-                        <div className="p-4 bg-orange-950/30 border border-orange-500/50 rounded-lg mb-6 mt-4 text-orange-200 text-sm">
-                            <span className="block font-bold text-orange-400 mb-1">⚠️ ĐỘI CHƯA HỢP LỆ</span>
-                            Hệ thống đã gửi lời mời đến đồng đội của bạn. Đội chỉ đủ điều kiện thi đấu sau khi họ xác nhận tham gia.
-                        </div>
-                    )}
-
-                    {regMode === 'random' && (
-                        <div className="p-4 bg-purple-950/30 border border-purple-500/50 rounded-lg mb-6 mt-4 text-purple-200 text-sm">
-                            Hệ thống đang rà soát các VĐV có cùng trình độ (Skill Level). Bạn sẽ nhận được thông báo ngay khi ghép đội thành công!
-                        </div>
-                    )}
-
-                    <div className="text-left p-6 bg-slate-900 border border-cyan-800 rounded-2xl mb-6 shadow-inner">
-                        <h4 className="font-black border-b border-cyan-800 pb-2 mb-4 text-cyan-400 flex justify-between uppercase text-xs tracking-widest">
-                            💳 THÔNG TIN LỆ PHÍ: {selectedTour?.name}
-                        </h4>
-                        
-                        {selectedTour?.paymentQR ? (
-                            <div className="flex flex-col items-center mb-4">
-                                <img 
-                                    src={selectedTour.paymentQR} 
-                                    alt="Mã QR Thanh toán Giải" 
-                                    className="h-44 w-44 object-cover rounded-lg border-2 border-cyan-500 p-1 bg-white" 
-                                />
-                                <span className="text-[10px] text-cyan-500 font-bold tracking-widest mt-2 uppercase">Quét mã để thanh toán nhanh</span>
-                            </div>
-                        ) : (
-                            <div className="text-center p-3 border border-slate-700 rounded-lg mb-4 text-gray-500 text-xs italic">
-                                * Ban tổ chức chưa cập nhật ảnh QR cho giải đấu này.
-                            </div>
-                        )}
-
-                        <div className="space-y-2 text-sm text-gray-300">
-                            <p>Đơn vị tổ chức: <b className="text-white uppercase">{selectedTour?.Organization?.name || "Ban tổ chức"}</b></p>
-                            {/* 👉 ĐÃ FIX: Dịch nội dung thi đấu sang Tiếng Việt đầy đủ */}
-                            <p>Hạng mục thi đấu: <b className="text-cyan-400">{selectedSport?.sport} - {CATEGORY_MAPPER[selectedCategory] || selectedCategory}</b></p>
-                            <p>Địa điểm thi đấu: <b className="text-white">{selectedTour?.location}</b></p>
-                            
-                            <div className="border-t border-slate-800/80 my-3 pt-3 space-y-2">
-                                <p>Số tiền thanh toán: <b className="text-cyan-400 text-lg">{result.fee?.toLocaleString()} VNĐ</b></p>
-                                <p>Nội dung chuyển khoản: <b className="text-white bg-slate-800 px-2 py-1 rounded">DK {result.teamId?.slice(-6).toUpperCase() || "CODE"}</b></p>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-4 italic text-center">* Bạn có thể nộp ảnh biên lai chuyển tiền trong phần Quản lý Đội sau.</p>
-                    </div>
-
-                    <button onClick={() => navigate('/')} className="auth-button w-full shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-                        VỀ TRANG CHỦ
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
+  /* ════════════════════════════════════════════════
+     RESULT SCREEN
+  ════════════════════════════════════════════════ */
+  if (result) {
+    const hasPending = !isSolo && invitedMembers.length > 0;
     return (
-        <div className="auth-container p-4 custom-scrollbar">
-            <div className="auth-card shadow-2xl max-w-xl mx-auto">
-                <h2 className="text-neon-cyan text-center font-black uppercase tracking-widest text-xl mb-6 border-b border-cyan-900 pb-4">
-                    🚀 CỔNG ĐĂNG KÝ VẬN ĐỘNG VIÊN
-                </h2>
-                
-                <form onSubmit={handleSubmit} className="space-y-6">
-    {/* KHỐI 1: LỰA CHỌN GIẢI & MÔN */}
-    <div className="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-        <div>
-            <label className="info-label-tech">1. Giải đấu đang mở (*)</label>
-            <select className="auth-input w-full" required onChange={handleTourChange} defaultValue="">
-                <option value="" disabled>-- Chọn giải đấu bạn muốn tham gia --</option>
-                {upcomingTournaments.map(t => (
-                    <option key={t._id} value={t._id}>{t.name}</option>
-                ))}
-            </select>
-        </div>
+      <>
+        <style>{CSS}</style>
+        <div className="rg-result-page">
+          <div className="rg-result-card">
 
-        {selectedTour && (
-            <div className="grid grid-cols-2 gap-4 animate-fade-in">
-                <div>
-                    <label className="info-label-tech">Môn thi đấu</label>
-                    <select 
-                        className="auth-input w-full" required 
-                        onChange={(e) => setSelectedSport(selectedTour.sportsConfig?.find(s => s.sport === e.target.value))}
-                        defaultValue=""
-                    >
-                        <option value="" disabled>-- Chọn môn --</option>
-                        {selectedTour.sportsConfig?.map((s, idx) => (
-                            <option key={idx} value={s.sport}>{s.sport}</option>
-                        ))}
-                    </select>
+            <div className="rg-result-header">
+              <div className="rg-result-tag">{hasPending ? 'Chờ xác nhận' : 'Hoàn tất'}</div>
+              <h2 className="rg-result-title">
+                {hasPending ? 'Đăng ký thành công — chờ đồng đội' : 'Đăng ký thành công'}
+              </h2>
+            </div>
+
+            <div className="rg-result-body">
+
+              {hasPending && (
+                <div className="rg-notice warn">
+                  <div className="rg-notice-title">Đội chưa hợp lệ</div>
+                  Lời mời đã được gửi đến đồng đội. Đội chỉ đủ điều kiện thi đấu sau khi họ xác nhận tham gia.
                 </div>
+              )}
 
-                {selectedSport && (
-                    <div>
-                        <label className="info-label-tech">Nội dung</label>
-                        <select className="auth-input w-full" required onChange={handleCategoryChange} defaultValue="">
-                            <option value="" disabled>-- Hạng mục --</option>
-                            {selectedSport.categories?.map((cat, idx) => (
-                                <option key={idx} value={cat}>
-                                    {CATEGORY_MAPPER[cat] || cat}
-                                </option>
-                            ))}
-                        </select>
+              <div className="rg-payment-box">
+                <div className="rg-payment-head">Thông tin thanh toán lệ phí</div>
+                <div className="rg-payment-body">
+
+                  {selectedTour?.paymentQR ? (
+                    <div className="rg-qr-wrap">
+                      <img src={selectedTour.paymentQR} alt="QR thanh toán" className="rg-qr-img" />
+                      <span className="rg-qr-hint">Quét mã để thanh toán</span>
                     </div>
-                )}
-            </div>
-        )}
+                  ) : (
+                    <div className="rg-qr-empty">Ban tổ chức chưa cập nhật mã QR cho giải đấu này.</div>
+                  )}
 
-        {selectedSport && selectedCategory && (
-            <div className="flex justify-between items-center bg-slate-800 p-3 rounded border border-cyan-900/50 text-sm mt-2 animate-fade-in">
-                <span className="text-gray-400">Lệ phí quy định (100%):</span>
-                <span className="text-cyan-400 font-bold text-lg">
-                    {getCalculatedFee().toLocaleString()} VNĐ
-                </span>
-            </div>
-        )}
-    </div>
-
-    {/* KHỐI 2: HÌNH THỨC LẬP ĐỘI */}
-    {selectedCategory && regMode !== 'solo' && (
-        <div className="space-y-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700 animate-fade-in">
-            <label className="info-label-tech">2. Hình thức tham gia</label>
-            <div className="flex gap-2">
-                <button type="button" onClick={() => setRegMode('create')} className={`flex-1 py-2 rounded font-bold text-xs transition-all border ${regMode === 'create' ? 'bg-cyan-600 text-white border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.3)]' : 'bg-slate-800 text-gray-400 border-slate-600'}`}>
-                    TẠO ĐỘI & MỜI
-                </button>
-                <button type="button" onClick={() => setRegMode('random')} className={`flex-1 py-2 rounded font-bold text-xs transition-all border ${regMode === 'random' ? 'bg-purple-600 text-white border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.3)]' : 'bg-slate-800 text-gray-400 border-slate-600'}`}>
-                    GHÉP ĐỘI NGẪU NHIÊN
-                </button>
-            </div>
-
-            {regMode === 'random' && (
-                <div className="p-3 bg-purple-950/20 border border-purple-900/50 rounded text-sm text-purple-200">
-                    🤝 Bạn chọn ghép ngẫu nhiên. Hệ thống sẽ tự động quét và ghép bạn với người chơi có cùng <b className="text-purple-400">Skill Level</b> đang chờ.
-                </div>
-            )}
-
-            {regMode === 'create' && (
-                <div className="space-y-4 mt-4 animate-fade-in">
-                    <input 
-                        className="auth-input w-full border-cyan-700 focus:border-cyan-400" 
-                        placeholder="Nhập tên đội của bạn (VD: Vũng Tàu Smashers)..." 
-                        required value={teamName} onChange={e => setTeamName(e.target.value)} 
-                    />
-
-                    {/* THANH TÌM KIẾM */}
-                    <div className="relative">
-                        <div className="flex gap-2">
-                            <input 
-                                className="auth-input flex-1 text-sm bg-slate-800" 
-                                placeholder="🔍 Tìm đồng đội theo Tên hoặc Email..." 
-                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} 
-                                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleSearchUser())}
-                            />
-                            <button type="button" onClick={handleSearchUser} className="px-4 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold text-xs border border-slate-500">
-                                {isSearching ? "..." : "TÌM"}
-                            </button>
-                        </div>
-
-                        {/* KẾT QUẢ TÌM KIẾM */}
-                        {searchResults.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-cyan-800 rounded shadow-xl z-10 max-h-48 overflow-y-auto">
-                                {searchResults.map(user => (
-                                    <div key={user._id} className="flex justify-between items-center p-3 border-b border-slate-700 hover:bg-slate-700/50">
-                                        <div>
-                                            <p className="text-sm font-bold text-white">
-                                                {user.playerInfo?.name || user.username}
-                                            </p>
-                                            <p className="text-[10px] text-gray-400">
-                                                Level: {user.playerInfo?.level || 'N/A'} | Email: {user.email}
-                                            </p>
-                                        </div>
-                                        <button type="button" onClick={() => addMember(user)} className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 rounded text-[10px] font-bold text-white">
-                                            + MỜI
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                  <div className="rg-info-rows">
+                    <div className="rg-info-row">
+                      <span className="rg-info-key">Đơn vị tổ chức</span>
+                      <span className="rg-info-val">{selectedTour?.Organization?.name || 'Ban tổ chức'}</span>
                     </div>
+                    <div className="rg-info-row">
+                      <span className="rg-info-key">Hạng mục</span>
+                      <span className="rg-info-val">{selectedSport?.sport} — {CATEGORY_MAPPER[selectedCategory] || selectedCategory}</span>
+                    </div>
+                    <div className="rg-info-row">
+                      <span className="rg-info-key">Địa điểm</span>
+                      <span className="rg-info-val">{selectedTour?.location || '—'}</span>
+                    </div>
+                    <div className="rg-info-divider" />
+                    <div className="rg-info-row">
+                      <span className="rg-info-key">Số tiền</span>
+                      <span className="rg-info-val highlight">{result.fee?.toLocaleString()} VNĐ</span>
+                    </div>
+                    <div className="rg-info-row">
+                      <span className="rg-info-key">Nội dung chuyển khoản</span>
+                      <span className="rg-transfer-code">DK {result.teamId?.slice(-6).toUpperCase() || 'CODE'}</span>
+                    </div>
+                  </div>
 
-                    {/* DANH SÁCH ĐÃ CHỌN */}
-                    {invitedMembers.length > 0 && (
-                        <div className="bg-slate-800 p-3 rounded border border-slate-600">
-                            <p className="text-xs font-bold text-cyan-500 mb-2 uppercase">Đồng đội chờ xác nhận:</p>
-                            {invitedMembers.map(member => (
-                                <div key={member._id} className="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-700">
-                                    <span className="text-sm text-gray-200">
-                                        👤 {member.playerInfo?.name || member.username}
-                                    </span>
-                                    <button type="button" onClick={() => removeMember(member._id)} className="text-red-400 hover:text-red-300 text-xs font-bold">
-                                        ✕ BỎ
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                  <p className="rg-footnote">Bạn có thể nộp ảnh biên lai trong phần Quản lý Đội sau.</p>
                 </div>
-            )}
-        </div>
-    )}
+              </div>
 
-    <button 
-        type="submit" 
-        disabled={isSaving || !selectedCategory} 
-        className={`auth-button w-full mt-6 py-4 text-sm tracking-widest ${isSaving ? 'opacity-50 cursor-not-allowed' : 'shadow-[0_0_15px_rgba(0,240,255,0.4)]'}`}
-    >
-        {isSaving ? "ĐANG XỬ LÝ DỮ LIỆU..." : "🚀 TIẾN HÀNH ĐĂNG KÝ"}
-    </button>
-</form>
-                
+              <button className="rg-home-btn" onClick={() => navigate('/')}>
+                Về trang chủ
+              </button>
+
             </div>
-
-            <style>{`
-                .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-                .info-label-tech { color: #00F0FF; font-size: 0.75rem; text-transform: uppercase; font-weight: 900; margin-bottom: 6px; display: block; letter-spacing: 1px;}
-            `}</style>
+          </div>
         </div>
+      </>
     );
+  }
+
+  /* ════════════════════════════════════════════════
+     REGISTRATION FORM
+  ════════════════════════════════════════════════ */
+  return (
+    <>
+      <style>{CSS}</style>
+      <div className="rg-page">
+        <div className="rg-card">
+
+          {/* HEADER */}
+          <div className="rg-card-header">
+            <div className="rg-card-header-tag">Đăng ký tham gia</div>
+            <h1 className="rg-card-header-title">Cổng đăng ký vận động viên</h1>
+          </div>
+
+          {/* BODY */}
+          <div className="rg-card-body">
+            <form onSubmit={handleSubmit} style={{display:'flex', flexDirection:'column', gap:20}}>
+
+              {/* ── SECTION 1: GIẢI & MÔN ── */}
+              <div className="rg-section">
+                <div className="rg-section-head">
+                  <div className="rg-section-num">1</div>
+                  <span className="rg-section-label">Chọn giải đấu & hạng mục</span>
+                </div>
+                <div className="rg-section-body">
+
+                  <div className="rg-field">
+                    <label className="rg-label">Giải đấu đang mở *</label>
+                    <select className="rg-select" required defaultValue="" onChange={handleTourChange}>
+                      <option value="" disabled>Chọn giải đấu bạn muốn tham gia...</option>
+                      {upcomingTournaments.map(t => (
+                        <option key={t._id} value={t._id}>{t.displayName || t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedTour && (
+                    <div className="rg-grid-2">
+                      <div className="rg-field">
+                        <label className="rg-label">Môn thi đấu *</label>
+                        <select className="rg-select" required defaultValue=""
+                          onChange={e => {
+                            setSelectedSport(selectedTour.sportsConfig?.find(s => s.sport === e.target.value));
+                            setSelectedCategory(null); setInvitedMembers([]);
+                          }}>
+                          <option value="" disabled>Chọn môn...</option>
+                          {selectedTour.sportsConfig?.map((s, i) => (
+                            <option key={i} value={s.sport}>{s.sport}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {selectedSport && (
+                        <div className="rg-field">
+                          <label className="rg-label">Nội dung *</label>
+                          <select className="rg-select" required defaultValue="" onChange={handleCategoryChange}>
+                            <option value="" disabled>Chọn hạng mục...</option>
+                            {selectedSport.categories?.map((cat, i) => (
+                              <option key={i} value={cat}>{CATEGORY_MAPPER[cat] || cat}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedSport && selectedCategory && (
+                    <div className="rg-fee-strip">
+                      <span className="rg-fee-label">Lệ phí tham dự</span>
+                      <span className="rg-fee-amount">{getFee().toLocaleString()} VNĐ</span>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+              {/* ── SECTION 2: LẬP ĐỘI (chỉ khi Đôi) ── */}
+              {selectedCategory && !isSolo && (
+                <div className="rg-section">
+                  <div className="rg-section-head">
+                    <div className="rg-section-num">2</div>
+                    <span className="rg-section-label">Thông tin đội & đồng đội</span>
+                  </div>
+                  <div className="rg-section-body">
+
+                    {/* TÊN ĐỘI */}
+                    <div className="rg-field">
+                      <label className="rg-label">Tên đội *</label>
+                      <input className="rg-input" required
+                        placeholder="Ví dụ: Vũng Tàu Smashers..."
+                        value={teamName} onChange={e => setTeamName(e.target.value)} />
+                    </div>
+
+                    {/* TÌM ĐỒNG ĐỘI */}
+                    <div className="rg-field">
+                      <label className="rg-label">Mời đồng đội</label>
+                      <div className="rg-dropdown-wrap">
+                        <div className="rg-search-row">
+                          <input className="rg-input" style={{flex:1}}
+                            placeholder="Tìm theo tên hoặc email..."
+                            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSearchUser(); } }} />
+                          <button type="button" className="rg-search-btn"
+                            onClick={handleSearchUser} disabled={isSearching}>
+                            {isSearching ? 'Đang tìm...' : 'Tìm kiếm'}
+                          </button>
+                        </div>
+
+                        {searchResults.length > 0 && (
+                          <div className="rg-dropdown">
+                            {searchResults.map(user => (
+                              <div key={user._id} className="rg-dropdown-item">
+                                <div>
+                                  <div className="rg-dropdown-name">
+                                    {user.playerInfo?.name || user.username}
+                                  </div>
+                                  <div className="rg-dropdown-sub">
+                                    Level: {user.playerInfo?.level || 'N/A'} &nbsp;·&nbsp; {user.email}
+                                  </div>
+                                </div>
+                                <button type="button" className="rg-invite-btn" onClick={() => addMember(user)}>
+                                  Mời
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* DANH SÁCH ĐÃ MỜI */}
+                    {invitedMembers.length > 0 && (
+                      <div className="rg-member-box">
+                        <div className="rg-member-head">Đồng đội chờ xác nhận</div>
+                        {invitedMembers.map(member => (
+                          <div key={member._id} className="rg-member-row">
+                            <span className="rg-member-name">
+                              {member.playerInfo?.name || member.username}
+                            </span>
+                            <button type="button" className="rg-remove-btn"
+                              onClick={() => removeMember(member._id)}>
+                              Xóa
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              )}
+
+              {/* ── SUBMIT ── */}
+              {selectedCategory && (
+                <button type="submit" className="rg-submit-btn"
+                  disabled={isSaving || !selectedCategory}>
+                  {isSaving ? 'Đang xử lý...' : 'Tiến hành đăng ký'}
+                </button>
+              )}
+
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </>
+  );
 };
 
 export default RegisterTeam;

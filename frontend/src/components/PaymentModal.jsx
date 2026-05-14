@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// import api from '../../api/axiosConfig'; // Bỏ comment khi bạn ghép API thật
+import api from '../api/axiosConfig';
 
 const PaymentModal = ({ isOpen, onClose, team, onSuccess }) => {
     const [transactionCode, setTransactionCode] = useState('');
@@ -75,14 +75,11 @@ const PaymentModal = ({ isOpen, onClose, team, onSuccess }) => {
             // ==========================================
             // GỌI API THẬT Ở ĐÂY
             // ==========================================
-            // await api.post(
-            //     `/teams/submit-payment/${team._id}`,
-            //     formData
-            // );
+            await api.post(
+                `/teams/submit-payment/${team._id}`,
+                formData
+            );
 
-            // ==========================================
-            // DEMO SUCCESS
-            // ==========================================
             setTimeout(() => {
                 alert(
                     "Đã gửi minh chứng thanh toán thành công! Vui lòng chờ BTC duyệt."
