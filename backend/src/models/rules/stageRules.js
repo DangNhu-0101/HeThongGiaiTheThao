@@ -61,6 +61,16 @@ const stageRulesSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Bracket',
     }],
+    timeLine:{
+        dateStart:{
+            type: Date,
+            required: true
+        },
+        dateEnd:{
+            type:Date,
+            required: true
+        }
+    }
 }, { timestamps: true });
 
 const StageRule = mongoose.model("StageRule", stageRulesSchema);
