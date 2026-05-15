@@ -13,6 +13,7 @@ const teamSchema = new mongoose.Schema({
         required: true
     },
 
+
     tournamentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Tournament',

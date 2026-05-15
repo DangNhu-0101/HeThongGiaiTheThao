@@ -5,6 +5,8 @@ import Member from '../models/membersOfTeam.js';
 import Invitation from '../models/invitations.js';
 import Tournament from '../models/tournaments.js';
 import User from '../models/users.js';
+import BaseRule from "../models/rules/baseRules.js"
+import CategoryRule from '../models/rules/categories.js';
 import { handleCreateInvitation } from '../utils/invitationHelper.js';
 
 // ======================== HELPERS ========================
@@ -17,10 +19,16 @@ const checkCaptainOrCreator = async (teamId, userId, session = null) => {
 };
 
 const checkTeamLimit = async (teamId, session) => {
-    const activeCount = await Member.countDocuments({ teamId, status: 'Active' }).session(session);
-    // Giới hạn mặc định 20, có thể lấy từ tournament rule
-    if (activeCount >= 20) throw new Error('Đội đã đạt giới hạn số lượng thành viên');
-    return activeCount;
+    const team = await Team.findById(teamId).session(session);
+    if (!team) {
+        return res.status(404).json({ success: false, message: 'Đội không tồn tại' });
+    }
+    const required = await getRequiredPlayersByCategory(team.tournamentId, team.sportType, team.categoryId);
+    const current = await Member.countDocuments({ teamId, status: 'active' }).session(session);
+    if (current >= required) {
+        throw new Error(`Đội đã đủ ${required} thành viên (category ${team.categoryId})`);
+    }
+    return { current, required };
 };
 
 // ======================== TEAM CRUD ========================
@@ -296,11 +304,17 @@ export const acceptInvitation = async (req, res) => {
         const userId = req.user.id;
 
         const invitation = await Invitation.findById(invitationId).session(session);
-        if (!invitation || invitation.status !== 'pending') throw new Error('Lời mời không hợp lệ');
-        if (invitation.receiverId.toString() !== userId) throw new Error('Bạn không có quyền chấp nhận lời mời này');
+        if (!invitation || invitation.status !== 'pending') {
+            return res.status(400).json({ success: false, message: 'Lời mời không hợp lệ' });
+        }
+        if (invitation.receiverId.toString() !== userId) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền chấp nhận lời mời này' });
+        }
 
         const member = await Member.findOne({ teamId: invitation.teamId, userId }).session(session);
-        if (!member || member.status !== 'Invited') throw new Error('Không tìm thấy thành viên tương ứng');
+        if (!member || member.status !== 'Invited') {
+            return res.status(400).json({ success: false, message: 'Không tìm thấy thành viên tương ứng' });
+        }
 
         await checkTeamLimit(invitation.teamId, session);
 
@@ -330,8 +344,12 @@ export const rejectInvitation = async (req, res) => {
         const userId = req.user.id;
 
         const invitation = await Invitation.findById(invitationId).session(session);
-        if (!invitation || invitation.status !== 'pending') throw new Error('Lời mời không hợp lệ');
-        if (invitation.receiverId.toString() !== userId) throw new Error('Bạn không có quyền từ chối');
+        if (!invitation || invitation.status !== 'pending') {
+            return res.status(400).json({ success: false, message: 'Lời mời không hợp lệ' });
+        }
+        if (invitation.receiverId.toString() !== userId) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền từ chối' });
+        }
 
         await Member.deleteOne({ teamId: invitation.teamId, userId, status: 'Invited' }).session(session);
         invitation.status = 'rejected';
@@ -381,9 +399,7 @@ export const requestToJoinTeam = async (req, res) => {
         await checkTeamLimit(teamId, session);
 
         const invitation = await handleCreateInvitation(userId, null, teamId, 'player_request', session);
-        // handleCreateInvitation hiện tại cần receiverId, nhưng player_request người nhận là captain.
-        // Cần sửa helper để truyền captainId làm receiver. Nhưng tạm thời ta tự tạo logic riêng đơn giản sau.
-        // Để code hoàn chỉnh, tôi viết inline:
+
         const captainMember = await Member.findOne({ teamId, role: 'Captain', status: 'Active' }).session(session);
         if (!captainMember) throw new Error('Đội chưa có đội trưởng');
 
@@ -632,3 +648,104 @@ export const registerFlow = async (req, res) => {
     }
 };
 
+export const mergeTeam = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const { baseRuleId } = req.params;
+        const baseRule = await BaseRule.findById(baseRuleId).populate('tournamentStructure.categories').session(session);
+        if (!baseRule) throw new Error('BaseRule not found');
+        const tournamentId = baseRule.tournamentId;
+        const sportType = baseRule.sport;
+        const categoryRule = baseRule.tournamentStructure.categories[0];
+        if (!categoryRule?.categories.length) throw new Error('No categories');
+
+        const allMergedTeams = [];
+
+        for (const category of categoryRule.categories) {
+            const categoryId = category.id;
+            const requiredPlayers = category.minPlayers;
+
+            // Lấy các team thuộc giải, cùng sport và category, chưa bị xóa (status active hoặc pending)
+            const teams = await Team.find({
+                tournamentId,
+                sportCategory: `${sportType} - ${categoryId}`,
+                status: { $in: ['pending', 'confirmed'] }
+            }).session(session);
+
+            // Lọc ra các team có số lượng member < requiredPlayers
+            const incompleteTeams = [];
+            for (const team of teams) {
+                const memberCount = await Member.countDocuments({ teamId: team._id, status: 'active' }).session(session);
+                if (memberCount < requiredPlayers) {
+                    incompleteTeams.push({ team, memberCount, needed: requiredPlayers - memberCount });
+                }
+            }
+
+            if (incompleteTeams.length < 2) continue; // cần ít nhất 2 team để ghép
+
+            // Xáo trộn
+            for (let i = incompleteTeams.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [incompleteTeams[i], incompleteTeams[j]] = [incompleteTeams[j], incompleteTeams[i]];
+            }
+
+            // Tiến hành ghép cặp
+            let i = 0;
+            while (i < incompleteTeams.length - 1) {
+                const teamA = incompleteTeams[i].team;
+                const teamB = incompleteTeams[i + 1].team;
+                const totalMembers = incompleteTeams[i].memberCount + incompleteTeams[i + 1].memberCount;
+                if (totalMembers <= requiredPlayers) {
+                    // Gộp teamB vào teamA
+                    const membersOfB = await Member.find({ teamId: teamB._id, status: 'active' }).session(session);
+                    for (const member of membersOfB) {
+                        // Cập nhật member sang teamA
+                        member.teamId = teamA._id;
+                        member.joinedAt = new Date();
+                        await member.save({ session });
+                    }
+                    // Xóa teamB
+                    await Team.findByIdAndDelete(teamB._id).session(session);
+                    // Cập nhật lại memberCount của teamA sau khi gộp
+                    const newCount = await Member.countDocuments({ teamId: teamA._id, status: 'active' }).session(session);
+                    if (newCount === requiredPlayers) {
+                        teamA.status = 'confirmed';
+                        await teamA.save({ session });
+                    }
+                    allMergedTeams.push({ team: teamA, fromTeams: [teamA._id, teamB._id] });
+                } else {
+                    // Nếu tổng số lượng vượt quá yêu cầu, ta chỉ lấy một phần member từ teamB
+                    const needFromB = requiredPlayers - incompleteTeams[i].memberCount;
+                    if (needFromB > 0) {
+                        const membersOfB = await Member.find({ teamId: teamB._id, status: 'active' }).session(session).limit(needFromB);
+                        for (const member of membersOfB) {
+                            member.teamId = teamA._id;
+                            member.joinedAt = new Date();
+                            await member.save({ session });
+                        }
+                        const remaining = await Member.countDocuments({ teamId: teamB._id, status: 'active' }).session(session);
+                        if (remaining === 0) {
+                            await Team.findByIdAndDelete(teamB._id).session(session);
+                        }
+                        const newCount = await Member.countDocuments({ teamId: teamA._id, status: 'active' }).session(session);
+                        if (newCount === requiredPlayers) {
+                            teamA.status = 'confirmed';
+                            await teamA.save({ session });
+                        }
+                        allMergedTeams.push({ team: teamA, fromTeams: [teamA._id, teamB._id] });
+                    }
+                }
+                i += 2;
+            }
+        }
+
+        await session.commitTransaction();
+        return res.status(200).json({ success: true, data: allMergedTeams });
+    } catch (error) {
+        await session.abortTransaction();
+        return res.status(500).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
+    }
+};

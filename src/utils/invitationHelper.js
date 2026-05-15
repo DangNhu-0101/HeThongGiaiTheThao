@@ -2,15 +2,7 @@ import Invitation from '../models/Invitations.js';
 import User from '../models/users.js';
 import Member from '../models/membersOfTeam.js';
 
-/**
- * Tạo lời mời và upsert member (dùng cho captain mời)
- * @param {ObjectId} senderId - Người gửi (captain/creator)
- * @param {ObjectId} receiverId - Người được mời
- * @param {ObjectId} teamId - Đội bóng
- * @param {string} invitationType - 'captain_invite' (mặc định) hoặc 'player_request'
- * @param {ClientSession} session - Mongoose session (tùy chọn)
- * @returns {Promise<Object>} invitation document
- */
+
 export const handleCreateInvitation = async (senderId, receiverId, teamId, invitationType = 'captain_invite', session = null) => {
     // Kiểm tra receiver tồn tại
     const userB = await User.findById(receiverId).session(session);

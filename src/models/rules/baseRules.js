@@ -33,13 +33,18 @@ const baseRuleSchema = new mongoose.Schema({
         enum: ['Soccer', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Esports', 'Other']
     },
 
+    slotPlayerOfSport:{
+            type:Number,
+            default:1
+    },
+
     feeEntry:{
         type: Number,
         default: 0
     },
 
     teamComposition: { // Số cầu thủ tối thiểu
-        maxTeams: { type: Number, default: 32 },           // Tổng số đội tối đa
+        maxTeams: { type: Number, default: 4 },           // Tổng số đội tối đa
         minTeams: { type: Number, default: 2 }             // Tổng số đội tối thiểu
     },
 
