@@ -41,6 +41,14 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
   return (
     <>
       <style>{`
+        /* ─── CSS VARIABLES (THÊM VÀO ĐÂY) ─── */
+        :root {
+          --ocean-deep: #02457A;
+          --ocean-mid: #018ABE;
+          --ocean-pale: #97CADB;
+          --neutral-cream: #f5f5f0;
+        }
+
         /* ─── SIDEBAR SHELL - RESPONSIVE ─── */
         .sb-wrap {
           width: 260px;
@@ -54,6 +62,13 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           overflow: hidden;
           border-right: 1px solid rgba(151,202,219,0.12);
           transition: all 0.3s ease;
+        }
+
+        /* Desktop: đảm bảo Sidebar luôn hiển thị */
+        @media (min-width: 769px) {
+          .sb-wrap {
+            display: flex !important;
+          }
         }
 
         /* Mobile: Sidebar chuyển thành top bar + drawer */
@@ -406,7 +421,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
         }
       `}</style>
 
-      {/* Thêm class mobile-open khi click vào logo trên mobile */}
       <div className="sb-wrap" id="sidebar-wrap">
         {/* LOGO - có thể click để toggle trên mobile */}
         <div className="sb-logo" onClick={(e) => {
@@ -430,7 +444,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
             className={`sb-btn ${isActive('global-users') ? 'active' : ''}`}
             onClick={() => {
               navigate('/admin/users');
-              // Đóng sidebar trên mobile sau khi chọn
               if (window.innerWidth <= 768) {
                 document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
               }
@@ -490,7 +503,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
                 {activeTour && (
                   <div className="sb-tour-active">
                     <div className="sb-tour-active-label">Đang quản lý</div>
-                    <div className="sb-tour-active-name">{activeTour.displayName}</div>
+                    <div className="sb-tour-active-name">{activeTour.displayName || activeTour.name}</div>
                   </div>
                 )}
 
@@ -519,7 +532,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
             );
           })()}
 
-        </div>{/* end sb-scroll */}
+        </div>
 
         {/* FOOTER */}
         <div className="sb-footer">

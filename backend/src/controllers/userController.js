@@ -90,50 +90,43 @@ export const changePassword = async (req, res) => {
 export const getProfile = async (req, res) => {
     try {
         const currentId = req.user._id;
-
         const user = await User.findById(currentId).select("-hashedPassword");
 
         if (!user) {
             return res.status(401).json({ message: "Người dùng không tồn tại" });
         }
+        
         let organizations = [];
         let profileDetails = null;
+        
         if (user.role === "player") {
-            profileDetails = await players.findOne({ userId: currentId });
+            profileDetails = await Players.findOne({ userId: currentId }).lean();
         } else if (user.role === "referee") {
-            profileDetails = await Referee.findOne({ userId: currentId });
+            profileDetails = await Referee.findOne({ userId: currentId }).lean();
         } else if (user.role === "Organization") {
-             organizations = await Organization.find({ ownerId: user._id });
+            organizations = await Organization.find({ ownerId: user._id }).lean();
         }
 
-        const userObject = user.toObject();
-        const profileObject = profileDetails ? profileDetails.toObject() : {};
-
-        const customData = {
-            username: userObject.username,
-            avatarUrl: userObject.avatarUrl,
-            email: userObject.email,
-            role: userObject.role,
-            ...profileObject,
+        // Merge user + profileDetails
+        const result = {
+            ...user.toObject(),
+            ...(profileDetails || {}),  // ← Spread profileDetails TRỰC TIẾP
+            organizations
         };
 
-   res.status(200).json({
+        res.status(200).json({
             success: true,
             message: 'Lấy thông tin profile thành công',
-            data: {
-                ...user.toObject(),
-                organizations: organizations  // Trả về array organizations
-            }
+            data: result
         });
     } catch (error) {
         console.error("Lỗi trong hàm getProfile:", error);
         return res.status(500).json({
-      
-      message: "Lỗi hệ thống trong quá trình lấy thông tin",
+            message: "Lỗi hệ thống trong quá trình lấy thông tin",
             error: error.message
         });
     }
-}
+};
 
 export const editProfile = async (req, res) => {
     try {

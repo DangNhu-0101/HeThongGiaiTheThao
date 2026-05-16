@@ -14,7 +14,7 @@ const sortTeams = (teams) => {
 const Bracket = () => {
     const [bracketData, setBracketData] = useState({ quarters: [], semis: [], final: null });
     const [isLoading, setIsLoading] = useState(true);
-    const tournamentId = "64a1f8c9e1b2c8b5f0d1234"; // FIX: Thay bằng ID giải đấu thực tế từ DB
+    const tournamentId = "64a1f8c9e1b2c8b5f0d1234";
 
     useEffect(() => {
         const fetchBracketData = async () => {
@@ -28,7 +28,6 @@ const Bracket = () => {
                 const teams = teamRes.data.data || [];
                 const publishedMatches = matchRes.data.data || [];
 
-                // 1. LẤY ĐỘI NHẤT/NHÌ CÁC BẢNG ĐÃ XONG
                 const groups = [...new Set(teams.map(t => t.group).filter(Boolean))].sort();
                 const groupWinners = {}; const groupRunnersUp = {};
                 
@@ -47,10 +46,8 @@ const Bracket = () => {
                 const dbKnockouts = publishedMatches.filter(m => m.stage === 'knockout');
                 const getDbMatch = (name) => dbKnockouts.find(m => m.matchName?.toLowerCase() === name.toLowerCase());
 
-                // Lọc bỏ Placeholder từ DB
                 const isPlaceholder = (name) => !name || name.includes("Thắng") || name.includes("Nhất") || name.includes("Nhì") || name.includes("Đang chờ");
 
-                // HÀM XÂY DỰNG NODE ĐƠN LẺ
                 const buildNode = (dbMatch, defaultName, defaultT1, defaultT2) => {
                     const isFinished = dbMatch?.matchStatus === 'finished';
                     const s1 = dbMatch?.result?.team1Score ?? 0;
@@ -70,36 +67,30 @@ const Bracket = () => {
                     };
                 };
 
-                // Hàm nội bộ lấy tên Đội thắng của Node trước đó
                 const getWinner = (node, fallbackText) => {
                     if (!node || !node.isFinished) return fallbackText;
                     return node.winner === 1 ? node.team1 : node.team2;
                 };
 
-                // 2. CHUỖI TÍNH TOÁN "THÁC NƯỚC" (CASCADE LOGIC)
                 let quarters = []; let semis = []; let final = null;
                 const hasQuarters = groups.length >= 3;
 
                 if (hasQuarters) {
-                    // Tầng 1: Tứ Kết (Lấy data từ Bảng)
                     const q1 = buildNode(getDbMatch("Tứ Kết 1"), "Tứ Kết 1", groupWinners['A'] || "Nhất Bảng A", groupRunnersUp['B'] || "Nhì Bảng B");
                     const q2 = buildNode(getDbMatch("Tứ Kết 2"), "Tứ Kết 2", groupWinners['C'] || "Nhất Bảng C", groupRunnersUp['D'] || "Nhì Bảng D");
                     const q3 = buildNode(getDbMatch("Tứ Kết 3"), "Tứ Kết 3", groupWinners['B'] || "Nhất Bảng B", groupRunnersUp['A'] || "Nhì Bảng A");
                     const q4 = buildNode(getDbMatch("Tứ Kết 4"), "Tứ Kết 4", groupWinners['D'] || "Nhất Bảng D", groupRunnersUp['C'] || "Nhì Bảng C");
                     quarters = [q1, q2, q3, q4];
 
-                    // Tầng 2: Bán Kết (Lấy data từ Tứ Kết)
                     const s1 = buildNode(getDbMatch("Bán Kết 1"), "Bán Kết 1", getWinner(q1, "Thắng Tứ Kết 1"), getWinner(q2, "Thắng Tứ Kết 2"));
                     const s2 = buildNode(getDbMatch("Bán Kết 2"), "Bán Kết 2", getWinner(q3, "Thắng Tứ Kết 3"), getWinner(q4, "Thắng Tứ Kết 4"));
                     semis = [s1, s2];
                 } else {
-                    // Tầng 2: Bán Kết (Nếu giải nhỏ chỉ có 2 bảng, lấy thẳng data từ Bảng)
                     const s1 = buildNode(getDbMatch("Bán Kết 1"), "Bán Kết 1", groupWinners['A'] || "Nhất Bảng A", groupRunnersUp['B'] || "Nhì Bảng B");
                     const s2 = buildNode(getDbMatch("Bán Kết 2"), "Bán Kết 2", groupWinners['B'] || "Nhất Bảng B", groupRunnersUp['A'] || "Nhì Bảng A");
                     semis = [s1, s2];
                 }
 
-                // Tầng 3: Chung Kết (Lấy data từ Bán Kết)
                 final = buildNode(getDbMatch("Chung Kết"), "Chung Kết", getWinner(semis[0], "Thắng Bán Kết 1"), getWinner(semis[1], "Thắng Bán Kết 2"));
 
                 setBracketData({ quarters, semis, final });
@@ -141,45 +132,229 @@ const Bracket = () => {
     if (isLoading) return <div className="page-wrapper flex-center" style={{minHeight: '80vh'}}><h2 className="text-muted">Đang tải sơ đồ...</h2></div>;
 
     return (
-        <div className="page-wrapper" style={{ overflowX: 'auto', padding: '40px 20px', background: '#f8fafc', minHeight: '100vh' }}>
-            <h1 className="text-center text-red" style={{ marginBottom: '50px', color: 'var(--brick-red)' }}>SƠ ĐỒ VÒNG KNOCKOUT</h1>
-            
-            <div className="flex-center" style={{ gap: '50px', minWidth: '800px', alignItems: 'stretch', display: 'flex', justifyContent: 'center' }}>
+        <>
+            <style>{`
+                .bracket-container {
+                    overflow-x: auto;
+                    padding: 40px 20px;
+                    background: #f8fafc;
+                    min-height: 100vh;
+                }
+
+                @media (max-width: 768px) {
+                    .bracket-container {
+                        padding: 20px 12px;
+                    }
+                }
+
+                .bracket-title {
+                    text-align: center;
+                    color: var(--brick-red, #BD0014);
+                    margin-bottom: 50px;
+                    font-size: 2rem;
+                }
+
+                @media (max-width: 768px) {
+                    .bracket-title {
+                        font-size: 1.5rem;
+                        margin-bottom: 30px;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    .bracket-title {
+                        font-size: 1.25rem;
+                    }
+                }
+
+                .bracket-grid {
+                    display: flex;
+                    gap: 50px;
+                    min-width: 800px;
+                    align-items: stretch;
+                    justify-content: center;
+                }
+
+                @media (max-width: 900px) {
+                    .bracket-grid {
+                        min-width: 700px;
+                        gap: 30px;
+                    }
+                }
+
+                @media (max-width: 768px) {
+                    .bracket-grid {
+                        min-width: 600px;
+                        gap: 20px;
+                    }
+                }
+
+                .bracket-column {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-around;
+                    position: relative;
+                }
+
+                .bracket-quarter-col {
+                    gap: 30px;
+                }
+
+                .bracket-semi-col {
+                    gap: 80px;
+                }
+
+                @media (max-width: 768px) {
+                    .bracket-quarter-col {
+                        gap: 20px;
+                    }
+                    .bracket-semi-col {
+                        gap: 50px;
+                    }
+                }
+
+                .bracket-final-col {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    position: relative;
+                }
+
+                .bracket-match-wrapper {
+                    position: relative;
+                }
+
+                .bracket-match-node {
+                    background: #fff;
+                    border: 2px solid var(--teal-accent, #14b8a6);
+                    border-radius: 12px;
+                    width: 240px;
+                    box-shadow: 0 8px 6px rgba(0,0,0,0.05);
+                    position: relative;
+                    z-index: 1;
+                }
+
+                @media (max-width: 768px) {
+                    .bracket-match-node {
+                        width: 200px;
+                    }
+                }
+
+                .bracket-match-node-final {
+                    border-color: var(--brick-red, #BD0014);
+                }
+
+                .bracket-match-header {
+                    background: var(--teal-accent, #14b8a6);
+                    color: #fff;
+                    padding: 6px 12px;
+                    border-top-left-radius: 8px;
+                    border-top-right-radius: 8px;
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 0.75rem;
+                    font-weight: bold;
+                }
+
+                .bracket-match-header-final {
+                    background: var(--brick-red, #BD0014);
+                }
+
+                .bracket-connector-right {
+                    position: absolute;
+                    right: -25px;
+                    top: 50%;
+                    width: 25px;
+                    height: 2px;
+                    background: var(--teal-accent, #14b8a6);
+                }
+
+                .bracket-connector-vertical {
+                    position: absolute;
+                    right: -25px;
+                    top: 50%;
+                    width: 2px;
+                    background: var(--teal-accent, #14b8a6);
+                }
+
+                .bracket-connector-left {
+                    position: absolute;
+                    left: -25px;
+                    top: 50%;
+                    width: 25px;
+                    height: 2px;
+                    background: var(--teal-accent, #14b8a6);
+                }
+
+                .bracket-connector-final-left {
+                    position: absolute;
+                    left: -25px;
+                    top: 50%;
+                    width: 25px;
+                    height: 2px;
+                    background: var(--brick-red, #BD0014);
+                }
+
+                .bracket-final-label {
+                    text-align: center;
+                    color: var(--brick-red, #BD0014);
+                    font-weight: 900;
+                    letter-spacing: 1px;
+                    margin-bottom: 10px;
+                    font-size: 1.5rem;
+                }
+
+                @media (max-width: 768px) {
+                    .bracket-final-label {
+                        font-size: 1rem;
+                    }
+                }
+            `}</style>
+
+            <div className="bracket-container">
+                <h1 className="bracket-title">SƠ ĐỒ VÒNG KNOCKOUT</h1>
                 
-                {bracketData.quarters.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '30px', position: 'relative' }}>
-                        {bracketData.quarters.map((m, index) => (
-                            <div key={m.id} style={{ position: 'relative' }}>
-                                <MatchNode match={m} isFinal={false} />
-                                <div style={{ position: 'absolute', right: '-25px', top: '50%', width: '25px', height: '2px', background: 'var(--teal-accent)' }}></div>
-                                {index % 2 === 0 && <div style={{ position: 'absolute', right: '-25px', top: '50%', width: '2px', height: 'calc(100% + 30px)', background: 'var(--teal-accent)' }}></div>}
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <div className="bracket-grid">
+                    
+                    {bracketData.quarters.length > 0 && (
+                        <div className="bracket-column bracket-quarter-col">
+                            {bracketData.quarters.map((m, index) => (
+                                <div key={m.id} className="bracket-match-wrapper">
+                                    <MatchNode match={m} isFinal={false} />
+                                    <div className="bracket-connector-right"></div>
+                                    {index % 2 === 0 && (
+                                        <div className="bracket-connector-vertical" style={{ height: 'calc(100% + 30px)' }}></div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
-                {bracketData.semis.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '80px', position: 'relative' }}>
-                        {bracketData.semis.map((m, index) => (
-                            <div key={m.id} style={{ position: 'relative' }}>
-                                {bracketData.quarters.length > 0 && <div style={{ position: 'absolute', left: '-25px', top: '50%', width: '25px', height: '2px', background: 'var(--teal-accent)' }}></div>}
-                                <MatchNode match={m} isFinal={false} />
-                                <div style={{ position: 'absolute', right: '-25px', top: '50%', width: '25px', height: '2px', background: 'var(--teal-accent)' }}></div>
-                                {index === 0 && <div style={{ position: 'absolute', right: '-25px', top: '50%', width: '2px', height: 'calc(100% + 80px)', background: 'var(--teal-accent)' }}></div>}
-                            </div>
-                        ))}
-                    </div>
-                )}
+                    {bracketData.semis.length > 0 && (
+                        <div className="bracket-column bracket-semi-col">
+                            {bracketData.semis.map((m, index) => (
+                                <div key={m.id} className="bracket-match-wrapper">
+                                    {bracketData.quarters.length > 0 && <div className="bracket-connector-left"></div>}
+                                    <MatchNode match={m} isFinal={false} />
+                                    <div className="bracket-connector-right"></div>
+                                    {index === 0 && (
+                                        <div className="bracket-connector-vertical" style={{ height: 'calc(100% + 80px)' }}></div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
-                {bracketData.final && (
-                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
-                        <div style={{ position: 'absolute', left: '-25px', top: '50%', width: '25px', height: '2px', background: 'var(--brick-red)' }}></div>
-                        <div style={{ textAlign: 'center', color: 'var(--brick-red)', fontWeight: '900', letterSpacing: '1px', marginBottom: '10px', fontSize: '1.5rem', fontFamily: 'var(--font-title)' }}>CHUNG KẾT</div>
-                        <MatchNode match={bracketData.final} isFinal={true} />
-                    </div>
-                )}
+                    {bracketData.final && (
+                        <div className="bracket-final-col">
+                            <div className="bracket-connector-final-left"></div>
+                            <div className="bracket-final-label">CHUNG KẾT</div>
+                            <MatchNode match={bracketData.final} isFinal={true} />
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 

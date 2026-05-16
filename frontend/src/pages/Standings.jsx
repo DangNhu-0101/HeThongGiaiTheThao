@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../api/axiosConfig";
 
-// Hàm hỗ trợ sắp xếp đội bóng theo luật: Điểm -> Hiệu số -> Skill
 const sortTeams = (teams) => {
     return [...teams].sort((a, b) => {
         const ptsA = a.start?.points || 0;
@@ -93,72 +92,343 @@ const Standings = () => {
     if (isLoading) return <h2 style={{textAlign: 'center', marginTop: '50px', color: '#64748b'}}>Đang cập nhật Bảng xếp hạng... ⏳</h2>;
 
     return (
-        <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "40px 20px", fontFamily: '"Inter", sans-serif' }}>
-            <h1 style={{ textAlign: "center", marginBottom: "40px", fontSize: '2.2rem', color: '#0f172a' }}>🏆 BẢNG VÀNG THÀNH TÍCH</h1>
+        <>
+            <style>{`
+                .standings-container {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 40px 20px;
+                    font-family: 'Inter', sans-serif;
+                }
 
-            {Object.keys(standingsData).length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '100px', background: '#f8fafc', borderRadius: '15px', border: '2px dashed #cbd5e1' }}>
-                    <h2 style={{ color: '#64748b' }}>HỆ THỐNG ĐANG CHUẨN BỊ...</h2>
-                    <p style={{ color: '#94a3b8' }}>Lịch thi đấu và bảng xếp hạng vòng bảng sẽ hiển thị sau khi Ban tổ chức phê duyệt.</p>
-                </div>
-            ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))", gap: "30px" }}>
-                    {Object.keys(standingsData).sort().map((groupName) => (
-                        <div key={groupName} style={{ borderTop: "5px solid #84cc16", background: '#fff', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
-                            <div onClick={() => toggleGroup(groupName)} style={{ padding: "15px 20px", background: "#f8fafc", borderBottom: "1px solid #e5e7eb", display: 'flex', justifyContent: 'space-between', cursor: "pointer" }}>
-                                <h2 style={{ margin: 0, color: '#166534', fontSize: '1.2rem' }}>BẢNG {groupName}</h2>
-                                <span style={{color: '#16a34a', fontWeight: 'bold'}}>{expandedGroups[groupName] ? '▲ Ẩn Lịch' : '▼ Xem Lịch'}</span>
-                            </div>
+                @media (max-width: 768px) {
+                    .standings-container {
+                        padding: 30px 16px;
+                    }
+                }
 
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                                <thead style={{ background: '#f1f5f9', fontWeight: 'bold', color: '#475569' }}>
-                                    <tr>
-                                        <th style={{ padding: '12px 10px' }}>#</th>
-                                        <th style={{ textAlign: 'left' }}>TÊN ĐỘI</th>
-                                        <th>Trận</th><th>T</th><th>B</th><th>HS</th><th>Điểm</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {standingsData[groupName].map((item, idx) => (
-                                        <tr key={item._id} style={{ borderBottom: '1px solid #eee', background: idx === 0 ? '#f0fdf4' : '#fff' }}>
-                                            <td style={{ padding: '12px 10px', fontWeight: 'bold', color: idx === 0 ? '#16a34a' : '#64748b' }}>{idx + 1}</td>
-                                            <td style={{ textAlign: 'left', fontWeight: 'bold', color: '#0f172a' }}>
-                                                {item.teamName || item.teamname} {idx === 0 && <span style={{fontSize: '0.7rem', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '10px', marginLeft: '5px'}}>TOP</span>}
-                                            </td>
-                                            <td>{item.start?.matches || 0}</td>
-                                            <td style={{color: '#16a34a'}}>{item.start?.won || 0}</td>
-                                            <td style={{color: '#ef4444'}}>{item.start?.lost || 0}</td>
-                                            <td style={{ color: (item.start?.scoreDiff || 0) > 0 ? '#16a34a' : '#ef4444', fontWeight: '500' }}>
-                                                {(item.start?.scoreDiff || 0) > 0 ? `+${item.start?.scoreDiff}` : item.start?.scoreDiff || 0}
-                                            </td>
-                                            <td style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#166534' }}>{item.start?.points || 0}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                @media (max-width: 640px) {
+                    .standings-container {
+                        padding: 20px 12px;
+                    }
+                }
 
-                            {expandedGroups[groupName] && (
-                                <div style={{ padding: "15px", background: "#f8fafc" }}>
-                                    <h4 style={{ color: '#047857', marginBottom: '15px', borderBottom: '1px solid #cbd5e1', paddingBottom: '5px' }}>Lịch Thi Đấu Bảng {groupName}</h4>
-                                    {matchesData[groupName]?.map((match) => (
-                                        <div key={match.id} style={{ display: 'flex', justifyContent: 'space-between', background: '#fff', padding: '12px', marginBottom: '8px', borderRadius: '5px', border: '1px solid #e2e8f0', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.8rem', color: '#64748b', width: '100px', lineHeight: '1.4' }}>{match.time}<br/><b style={{color: '#0f172a'}}>{match.court}</b></span>
-                                            <span style={{ fontWeight: match.status === 'finished' && match.result.t1 > match.result.t2 ? '900' : '500', flex: 1, textAlign: 'right', paddingRight: '15px', color: '#0f172a' }}>{match.team1}</span>
-                                            
-                                            <span style={{ background: match.status === 'finished' ? '#1e293b' : '#f1f5f9', color: match.status === 'finished' ? '#84cc16' : '#94a3b8', padding: '4px 12px', borderRadius: '15px', fontWeight: 'bold', minWidth: '65px', textAlign: 'center', fontSize: '0.9rem' }}>
-                                                {match.status === 'pending' ? 'VS' : `${match.result.t1} - ${match.result.t2}`}
-                                            </span>
+                .standings-title {
+                    text-align: center;
+                    margin-bottom: 40px;
+                    font-size: 2rem;
+                    color: #0f172a;
+                }
 
-                                            <span style={{ fontWeight: match.status === 'finished' && match.result.t2 > match.result.t1 ? '900' : '500', flex: 1, textAlign: 'left', paddingLeft: '15px', color: '#0f172a' }}>{match.team2}</span>
-                                        </div>
-                                    ))}
+                @media (max-width: 768px) {
+                    .standings-title {
+                        font-size: 1.5rem;
+                        margin-bottom: 30px;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    .standings-title {
+                        font-size: 1.25rem;
+                    }
+                }
+
+                .standings-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+                    gap: 30px;
+                }
+
+                @media (max-width: 768px) {
+                    .standings-grid {
+                        grid-template-columns: 1fr;
+                        gap: 24px;
+                    }
+                }
+
+                .standings-card {
+                    border-top: 5px solid #84cc16;
+                    background: #fff;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+
+                .standings-card-header {
+                    padding: 15px 20px;
+                    background: #f8fafc;
+                    border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    cursor: pointer;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                }
+
+                .standings-group-name {
+                    margin: 0;
+                    color: #166534;
+                    font-size: 1.2rem;
+                }
+
+                .standings-toggle {
+                    color: #16a34a;
+                    font-weight: bold;
+                    font-size: 0.8rem;
+                }
+
+                .standings-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    text-align: center;
+                }
+
+                .standings-table thead {
+                    background: #f1f5f9;
+                    font-weight: bold;
+                    color: #475569;
+                }
+
+                .standings-table th {
+                    padding: 12px 8px;
+                    font-size: 0.7rem;
+                }
+
+                .standings-table td {
+                    padding: 12px 8px;
+                    border-bottom: 1px solid #eee;
+                    font-size: 0.8rem;
+                }
+
+                @media (max-width: 640px) {
+                    .standings-table th, .standings-table td {
+                        padding: 8px 4px;
+                        font-size: 0.7rem;
+                    }
+                }
+
+                .standings-rank {
+                    font-weight: bold;
+                }
+
+                .standings-rank-first {
+                    color: #16a34a;
+                }
+
+                .standings-rank-other {
+                    color: #64748b;
+                }
+
+                .standings-team-name {
+                    text-align: left;
+                    font-weight: bold;
+                    color: #0f172a;
+                }
+
+                .standings-top-badge {
+                    font-size: 0.6rem;
+                    background: #dcfce7;
+                    color: #16a34a;
+                    padding: 2px 6px;
+                    border-radius: 10px;
+                    margin-left: 5px;
+                }
+
+                .standings-points {
+                    font-weight: bold;
+                    font-size: 1rem;
+                    color: #166534;
+                }
+
+                .standings-score-diff-positive {
+                    color: #16a34a;
+                }
+
+                .standings-score-diff-negative {
+                    color: #ef4444;
+                }
+
+                .standings-matches-section {
+                    padding: 15px;
+                    background: #f8fafc;
+                }
+
+                .standings-matches-title {
+                    color: #047857;
+                    margin-bottom: 15px;
+                    border-bottom: 1px solid #cbd5e1;
+                    padding-bottom: 5px;
+                    font-size: 0.9rem;
+                }
+
+                .standings-match-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: #fff;
+                    padding: 12px;
+                    margin-bottom: 8px;
+                    border-radius: 5px;
+                    border: 1px solid #e2e8f0;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                }
+
+                @media (max-width: 640px) {
+                    .standings-match-item {
+                        flex-direction: column;
+                        text-align: center;
+                    }
+                }
+
+                .standings-match-time {
+                    font-size: 0.7rem;
+                    color: #64748b;
+                    min-width: 100px;
+                }
+
+                .standings-match-court {
+                    font-weight: bold;
+                    color: #0f172a;
+                }
+
+                .standings-match-team {
+                    flex: 1;
+                    text-align: right;
+                    padding-right: 15px;
+                    font-weight: 500;
+                    color: #0f172a;
+                }
+
+                .standings-match-team-left {
+                    text-align: right;
+                }
+
+                .standings-match-team-right {
+                    text-align: left;
+                    padding-left: 15px;
+                }
+
+                .standings-match-score {
+                    background: #f1f5f9;
+                    padding: 4px 12px;
+                    border-radius: 15px;
+                    font-weight: bold;
+                    min-width: 65px;
+                    text-align: center;
+                    font-size: 0.8rem;
+                }
+
+                .standings-match-score-finished {
+                    background: #1e293b;
+                    color: #84cc16;
+                }
+
+                .standings-match-score-pending {
+                    background: #f1f5f9;
+                    color: #94a3b8;
+                }
+
+                .standings-empty {
+                    text-align: center;
+                    padding: 100px 20px;
+                    background: #f8fafc;
+                    border-radius: 15px;
+                    border: 2px dashed #cbd5e1;
+                }
+
+                .standings-empty-title {
+                    color: #64748b;
+                    font-size: 1.2rem;
+                }
+
+                .standings-empty-text {
+                    color: #94a3b8;
+                    margin-top: 8px;
+                }
+            `}</style>
+
+            <div className="standings-container">
+                <h1 className="standings-title">🏆 BẢNG VÀNG THÀNH TÍCH</h1>
+
+                {Object.keys(standingsData).length === 0 ? (
+                    <div className="standings-empty">
+                        <h2 className="standings-empty-title">HỆ THỐNG ĐANG CHUẨN BỊ...</h2>
+                        <p className="standings-empty-text">Lịch thi đấu và bảng xếp hạng vòng bảng sẽ hiển thị sau khi Ban tổ chức phê duyệt.</p>
+                    </div>
+                ) : (
+                    <div className="standings-grid">
+                        {Object.keys(standingsData).sort().map((groupName) => (
+                            <div key={groupName} className="standings-card">
+                                <div onClick={() => toggleGroup(groupName)} className="standings-card-header">
+                                    <h2 className="standings-group-name">BẢNG {groupName}</h2>
+                                    <span className="standings-toggle">
+                                        {expandedGroups[groupName] ? '▲ Ẩn Lịch' : '▼ Xem Lịch'}
+                                    </span>
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+
+                                <table className="standings-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th style={{ textAlign: 'left' }}>TÊN ĐỘI</th>
+                                            <th>Trận</th><th>T</th><th>B</th><th>HS</th><th>Điểm</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {standingsData[groupName].map((item, idx) => (
+                                            <tr key={item._id} style={{ background: idx === 0 ? '#f0fdf4' : '#fff' }}>
+                                                <td className={`standings-rank ${idx === 0 ? 'standings-rank-first' : 'standings-rank-other'}`}>
+                                                    {idx + 1}
+                                                </td>
+                                                <td className="standings-team-name">
+                                                    {item.teamName || item.teamname} 
+                                                    {idx === 0 && <span className="standings-top-badge">TOP</span>}
+                                                </td>
+                                                <td>{item.start?.matches || 0}</td>
+                                                <td style={{ color: '#16a34a' }}>{item.start?.won || 0}</td>
+                                                <td style={{ color: '#ef4444' }}>{item.start?.lost || 0}</td>
+                                                <td className={(item.start?.scoreDiff || 0) > 0 ? 'standings-score-diff-positive' : 'standings-score-diff-negative'}>
+                                                    {(item.start?.scoreDiff || 0) > 0 ? `+${item.start?.scoreDiff}` : item.start?.scoreDiff || 0}
+                                                </td>
+                                                <td className="standings-points">{item.start?.points || 0}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+
+                                {expandedGroups[groupName] && (
+                                    <div className="standings-matches-section">
+                                        <h4 className="standings-matches-title">Lịch Thi Đấu Bảng {groupName}</h4>
+                                        {matchesData[groupName]?.map((match) => (
+                                            <div key={match.id} className="standings-match-item">
+                                                <div className="standings-match-time">
+                                                    {match.time}<br/>
+                                                    <b className="standings-match-court">{match.court}</b>
+                                                </div>
+                                                
+                                                <span className="standings-match-team standings-match-team-left">
+                                                    {match.team1}
+                                                </span>
+                                                
+                                                <span className={`standings-match-score ${match.status === 'finished' ? 'standings-match-score-finished' : 'standings-match-score-pending'}`}>
+                                                    {match.status === 'pending' ? 'VS' : `${match.result.t1} - ${match.result.t2}`}
+                                                </span>
+
+                                                <span className="standings-match-team standings-match-team-right">
+                                                    {match.team2}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </>
     );
 };
 

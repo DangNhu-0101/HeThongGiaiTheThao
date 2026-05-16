@@ -6,23 +6,19 @@ const ScheduleDrafts = () => {
     const location = useLocation();
     const navigate = useNavigate();
     
-    // Kiểm tra xem có phải đang nhận data nháp từ AI bốc thăm truyền sang không
     const hasIncomingData = !!location.state?.draftMatches;
     
     const [drafts, setDrafts] = useState(location.state?.draftMatches || []);
-    
-    // NẾU KHÔNG CÓ DATA TRUYỀN SANG -> BẮT BUỘC BẬT LOADING LÊN TRUE NGAY LẬP TỨC
     const [isLoading, setIsLoading] = useState(!hasIncomingData);
 
     useEffect(() => {
-        // Chỉ gọi API nếu người dùng tự bấm nút "Sửa Lịch Đấu" (không có data truyền sang)
         if (!hasIncomingData) {
             api.get('/api/matches/editable-list')
                 .then(res => {
                     setDrafts(res.data.data || []);
                 })
                 .catch(err => console.error("Lỗi lấy lịch sửa:", err))
-                .finally(() => setIsLoading(false)); // Kéo data xong mới tắt Loading
+                .finally(() => setIsLoading(false));
         }
     }, [hasIncomingData]);
 
@@ -48,8 +44,11 @@ const ScheduleDrafts = () => {
         }
     };
 
-    // UI LOADING & EMPTY STATE
-    if (isLoading) return <div className="page-wrapper flex-center"><h2 className="text-muted">🔄 Đang tải dữ liệu lịch đấu...</h2></div>;
+    if (isLoading) return (
+        <div className="page-wrapper flex-center">
+            <h2 className="text-muted">🔄 Đang tải dữ liệu lịch đấu...</h2>
+        </div>
+    );
 
     if (drafts.length === 0) {
         return (
@@ -63,8 +62,6 @@ const ScheduleDrafts = () => {
         );
     }
 
-
-    // GOM NHÓM THEO BẢNG HOẶC KNOCKOUT
     const groupedDrafts = drafts.reduce((acc, match) => {
         const groupName = match.stage === 'knockout' ? 'KNOCKOUT' : (match.group || "KHÁC");
         if (!acc[groupName]) acc[groupName] = [];
@@ -77,69 +74,289 @@ const ScheduleDrafts = () => {
     });
 
     return (
-        <div className="page-wrapper">
-            <div className="page-container" style={{ maxWidth: '1200px' }}>
-                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                    <h1 className="text-forest" style={{ fontSize: '2.5rem', margin: 0 }}>🛠 XÁC NHẬN & SỬA LỊCH ĐẤU</h1>
-                    <p className="text-teal fw-bold">Kiểm tra và điều chỉnh thông tin trước khi công bố cho Khán giả</p>
-                </div>
+        <>
+            <style>{`
+                .sd-container {
+                    padding: 40px 20px;
+                    min-height: 100vh;
+                    background: #f8fafc;
+                }
 
-                <div className="card" style={{ borderTop: '6px solid var(--brick-red)' }}>
-                    <div className="flex-between" style={{ borderBottom: '2px solid var(--neutral-cream)', paddingBottom: '10px', marginBottom: '20px' }}>
-                        <h2 className="text-red" style={{ margin: 0, fontSize: '1.5rem' }}>✍️ ĐIỀU CHỈNH SÂN VÀ GIỜ</h2>
+                @media (max-width: 768px) {
+                    .sd-container {
+                        padding: 30px 16px;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    .sd-container {
+                        padding: 20px 12px;
+                    }
+                }
+
+                .sd-inner {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }
+
+                .sd-header {
+                    text-align: center;
+                    margin-bottom: 40px;
+                }
+
+                .sd-title {
+                    font-size: 2rem;
+                    color: #0f172a;
+                    margin: 0;
+                }
+
+                @media (max-width: 768px) {
+                    .sd-title {
+                        font-size: 1.5rem;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    .sd-title {
+                        font-size: 1.25rem;
+                    }
+                }
+
+                .sd-subtitle {
+                    color: #14b8a6;
+                    font-weight: 700;
+                    margin-top: 8px;
+                }
+
+                .sd-card {
+                    background: #fff;
+                    border-radius: 16px;
+                    border-top: 6px solid #BD0014;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+                    overflow: hidden;
+                }
+
+                .sd-card-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 16px 20px;
+                    border-bottom: 2px solid #f1f5f9;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                }
+
+                @media (max-width: 640px) {
+                    .sd-card-header {
+                        flex-direction: column;
+                        text-align: center;
+                    }
+                }
+
+                .sd-card-title {
+                    color: #BD0014;
+                    margin: 0;
+                    font-size: 1.25rem;
+                }
+
+                .sd-match-list {
+                    padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }
+
+                .sd-match-item {
+                    display: flex;
+                    gap: 20px;
+                    align-items: center;
+                    background: #f8fafc;
+                    padding: 15px 20px;
+                    border-radius: 12px;
+                    border-left: 5px solid #14b8a6;
+                    flex-wrap: wrap;
+                }
+
+                .sd-match-item-knockout {
+                    border-left-color: #BD0014;
+                }
+
+                @media (max-width: 768px) {
+                    .sd-match-item {
+                        flex-direction: column;
+                        align-items: stretch;
+                    }
+                }
+
+                .sd-match-info {
+                    flex: 1;
+                }
+
+                .sd-match-badge {
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    padding: 4px 10px;
+                    border-radius: 20px;
+                    display: inline-block;
+                    text-transform: uppercase;
+                }
+
+                .sd-match-badge-group {
+                    background: #e6f4ea;
+                    color: #14b8a6;
+                }
+
+                .sd-match-badge-knockout {
+                    background: #fce8e8;
+                    color: #BD0014;
+                }
+
+                .sd-match-teams {
+                    margin-top: 8px;
+                    font-weight: 900;
+                    color: #0f172a;
+                    font-size: 1rem;
+                }
+
+                @media (max-width: 640px) {
+                    .sd-match-teams {
+                        font-size: 0.9rem;
+                    }
+                }
+
+                .sd-match-field {
+                    min-width: 150px;
+                }
+
+                .sd-match-field-time {
+                    min-width: 220px;
+                }
+
+                @media (max-width: 768px) {
+                    .sd-match-field, .sd-match-field-time {
+                        width: 100%;
+                    }
+                }
+
+                .sd-field-label {
+                    display: block;
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    color: #64748b;
+                    margin-bottom: 5px;
+                }
+
+                .sd-input {
+                    width: 100%;
+                    padding: 10px;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                    outline: none;
+                }
+
+                @media (max-width: 640px) {
+                    .sd-input {
+                        padding: 10px;
+                        font-size: 16px;
+                    }
+                }
+
+                .sd-input:focus {
+                    border-color: #14b8a6;
+                }
+
+                .sd-publish-btn {
+                    margin: 20px;
+                    padding: 14px;
+                    background: #14b8a6;
+                    color: #fff;
+                    font-weight: 900;
+                    font-size: 0.9rem;
+                    text-transform: uppercase;
+                    border: none;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                @media (max-width: 640px) {
+                    .sd-publish-btn {
+                        margin: 16px;
+                        padding: 12px;
+                        font-size: 0.8rem;
+                    }
+                }
+
+                .sd-publish-btn:hover {
+                    background: #0d9488;
+                }
+            `}</style>
+
+            <div className="sd-container">
+                <div className="sd-inner">
+                    <div className="sd-header">
+                        <h1 className="sd-title">🛠 XÁC NHẬN & SỬA LỊCH ĐẤU</h1>
+                        <p className="sd-subtitle">Kiểm tra và điều chỉnh thông tin trước khi công bố cho Khán giả</p>
                     </div>
-                    
-                    <div style={{ display: 'grid', gap: '15px' }}>
-                        {drafts.map((match, i) => {
-                            const isKnockout = match.stage === 'knockout';
-                            return (
-                                <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: 'var(--neutral-cream)', padding: '15px 20px', borderRadius: '12px', borderLeft: `5px solid ${isKnockout ? 'var(--brick-red)' : 'var(--teal-accent)'}` }}>
-                                    
-                                    <div style={{ flex: 1 }}>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: isKnockout ? 'var(--brick-red)' : 'var(--teal-accent)', background: isKnockout ? '#fce8e8' : '#e6f4ea', padding: '4px 10px', borderRadius: '20px', textTransform: 'uppercase' }}>
-                                            {isKnockout ? match.matchName : `Bảng ${match.group}`}
-                                        </span>
-                                        <div className="text-forest fw-black" style={{ marginTop: '8px', fontSize: '1.1rem' }}>
-                                            {match.team1Name || match.team1?.teamName} <span className="text-muted fw-bold" style={{fontSize: '0.9rem', margin: '0 5px'}}>vs</span> {match.team2Name || match.team2?.teamName}
+
+                    <div className="sd-card">
+                        <div className="sd-card-header">
+                            <h2 className="sd-card-title">✍️ ĐIỀU CHỈNH SÂN VÀ GIỜ</h2>
+                        </div>
+                        
+                        <div className="sd-match-list">
+                            {drafts.map((match, i) => {
+                                const isKnockout = match.stage === 'knockout';
+                                return (
+                                    <div key={i} className={`sd-match-item ${isKnockout ? 'sd-match-item-knockout' : ''}`}>
+                                        
+                                        <div className="sd-match-info">
+                                            <span className={`sd-match-badge ${isKnockout ? 'sd-match-badge-knockout' : 'sd-match-badge-group'}`}>
+                                                {isKnockout ? match.matchName : `Bảng ${match.group}`}
+                                            </span>
+                                            <div className="sd-match-teams">
+                                                {match.team1Name || match.team1?.teamName} 
+                                                <span style={{ color: '#94a3b8', margin: '0 5px' }}>vs</span> 
+                                                {match.team2Name || match.team2?.teamName}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="sd-match-field">
+                                            <label className="sd-field-label">SÂN THI ĐẤU</label>
+                                            <input 
+                                                type="text" 
+                                                className="sd-input"
+                                                value={match.court || ""} 
+                                                onChange={(e) => handleCourtChange(i, e.target.value)} 
+                                            />
+                                        </div>
+
+                                        <div className="sd-match-field-time">
+                                            <label className="sd-field-label">THỜI GIAN</label>
+                                            <input 
+                                                type="datetime-local" 
+                                                className="sd-input"
+                                                value={
+                                                    match.timestart && !isNaN(new Date(match.timestart)) 
+                                                    ? new Date(new Date(match.timestart).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+                                                    : "" 
+                                                } 
+                                                onChange={(e) => handleTimeChange(i, e.target.value)}
+                                            />
                                         </div>
                                     </div>
-                                    
-                                    <div style={{ width: '150px' }}>
-                                        <label className="text-muted fw-bold" style={{ display: 'block', fontSize: '0.75rem', marginBottom: '5px' }}>SÂN THI ĐẤU</label>
-                                        <input 
-                                            type="text" 
-                                            className="auth-input"
-                                            value={match.court || ""} 
-                                            onChange={(e) => handleCourtChange(i, e.target.value)} 
-                                            style={{ padding: '10px', margin: 0, fontSize: '0.9rem' }}
-                                        />
-                                    </div>
+                                )
+                            })}
+                        </div>
 
-                                    <div style={{ width: '220px' }}>
-                                        <label className="text-muted fw-bold" style={{ display: 'block', fontSize: '0.75rem', marginBottom: '5px' }}>THỜI GIAN</label>
-                                        <input 
-                                            type="datetime-local" 
-                                            className="auth-input"
-                                            value={
-                                                match.timestart && !isNaN(new Date(match.timestart)) 
-                                                ? new Date(new Date(match.timestart).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-                                                : "" 
-                                            } 
-                                            onChange={(e) => handleTimeChange(i, e.target.value)}
-                                            style={{ padding: '10px', margin: 0, fontSize: '0.9rem' }}
-                                        />
-                                    </div>
-                                </div>
-                            )
-                        })}
+                        <button onClick={handlePublish} className="sd-publish-btn">
+                            🚀 XÁC NHẬN LƯU & CÔNG KHAI LỊCH ĐẤU
+                        </button>
                     </div>
-
-                    <button onClick={handlePublish} className="auth-button" style={{ marginTop: '40px' }}>
-                        🚀 XÁC NHẬN LƯU & CÔNG KHAI LỊCH ĐẤU
-                    </button>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 

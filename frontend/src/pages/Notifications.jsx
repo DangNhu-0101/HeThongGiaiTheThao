@@ -8,7 +8,6 @@ const Notifications = () => {
     const [loading, setLoading] = useState(true);
     const [activeQR, setActiveQR] = useState(null);
 
-    // 1. LẤY DANH SÁCH THÔNG BÁO
     const fetchNotifications = async () => {
         try {
             setLoading(true);
@@ -27,7 +26,6 @@ const Notifications = () => {
         fetchNotifications();
     }, []);
 
-    // 2. XỬ LÝ PHẢN HỒI LỜI MỜI (CHẤP NHẬN/TỪ CHỐI)
     const handleInviteAction = async (notifId, teamId, action) => {
         try {
             const res = await api.post('/teams/invitations/respond', {
@@ -38,7 +36,6 @@ const Notifications = () => {
 
             if (res.data.success) {
                 alert(action === 'accept' ? '🎉 Gia nhập đội thành công!' : 'Đã từ chối lời mời.');
-                // Xóa thông báo đã xử lý khỏi danh sách hiển thị
                 setNotifications(prev => prev.filter(n => n._id !== notifId));
                 if (action === 'accept') navigate('/my-teams');
             }
@@ -47,7 +44,6 @@ const Notifications = () => {
         }
     };
 
-    // 3. ĐỊNH DẠNG THỜI GIAN
     const formatDate = (dateStr) => {
         return new Date(dateStr).toLocaleString('vi-VN', {
             hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit'
@@ -61,130 +57,392 @@ const Notifications = () => {
     );
 
     return (
-        <div className="page-wrapper" style={{ maxWidth: '800px', margin: '40px auto', padding: '0 20px' }}>
-            <div className="flex justify-between items-center mb-10">
-                <h1 className="text-forest" style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-1px' }}>
-                    THÔNG BÁO
-                </h1>
-                <button 
-                    onClick={() => navigate('/my-teams')}
-                    className="bg-slate-100 hover:bg-white text-dark-forest px-4 py-2 rounded-xl text-xs font-black shadow-sm transition-all"
-                >
-                    🛡️ QUẢN LÝ ĐỘI
-                </button>
-            </div>
+        <>
+            <style>{`
+                .notify-container {
+                    max-width: 800px;
+                    margin: 40px auto;
+                    padding: 0 20px;
+                }
 
-            <div style={{ display: 'grid', gap: '20px' }}>
-                {notifications.length === 0 ? (
-                    <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-                        <p className="text-gray-400 font-bold uppercase tracking-widest">Hộp thư của bạn đang trống</p>
-                    </div>
-                ) : (
-                    notifications.map((notif) => (
-                        <div 
-                            key={notif._id} 
-                            className="card animate-fade-in" 
-                            style={{ 
-                                padding: '25px', 
-                                borderLeft: notif.type === 'PAYMENT' ? '6px solid #e11d48' : '6px solid var(--teal-accent)',
-                                borderRadius: '20px',
-                                background: 'white',
-                                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)'
-                            }}
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 style={{ color: 'var(--dark-forest)', margin: 0, fontWeight: 800 }}>{notif.title}</h3>
-                                <span className="text-[10px] text-gray-400 font-bold uppercase">{formatDate(notif.createdAt)}</span>
-                            </div>
-                            
-                            <p style={{ color: '#444', lineHeight: '1.6', fontSize: '0.95rem' }}>{notif.message}</p>
-                          
-                            <button 
-                                onClick={async () => {
-                                    if (window.confirm('Bạn có chắc muốn xóa thông báo này?')) {
-                                        try {
-                                            const res = await api.delete(`/notifications/${notif._id}`);
-                                            if (res.data.success) {
-                                                setNotifications(notifications.filter(n => n._id !== notif._id));
-                                            }
-                                        } catch (error) {
-                                            console.error("Lỗi xóa thông báo:", error);
-                                        }
-                                    }
-                                }}
-                                className="text-red-500 hover:text-red-700 text-sm font-bold"
+                @media (max-width: 768px) {
+                    .notify-container {
+                        margin: 24px auto;
+                        padding: 0 16px;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    .notify-container {
+                        margin: 16px auto;
+                        padding: 0 12px;
+                    }
+                }
+
+                .notify-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 16px;
+                    margin-bottom: 40px;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-header {
+                        flex-direction: column;
+                        text-align: center;
+                        margin-bottom: 24px;
+                    }
+                }
+
+                .notify-title {
+                    font-size: 2.5rem;
+                    font-weight: 900;
+                    letter-spacing: -1px;
+                    color: var(--dark-forest, #02457A);
+                }
+
+                @media (max-width: 768px) {
+                    .notify-title {
+                        font-size: 2rem;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    .notify-title {
+                        font-size: 1.5rem;
+                    }
+                }
+
+                .notify-btn-manage {
+                    background: #f1f5f9;
+                    padding: 8px 16px;
+                    border-radius: 12px;
+                    font-size: 0.7rem;
+                    font-weight: 900;
+                    border: none;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .notify-btn-manage:hover {
+                    background: #fff;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+
+                .notify-grid {
+                    display: grid;
+                    gap: 20px;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-grid {
+                        gap: 16px;
+                    }
+                }
+
+                .notify-card {
+                    padding: 25px;
+                    border-radius: 20px;
+                    background: white;
+                    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+                    animation: fadeIn 0.4s ease-out;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-card {
+                        padding: 18px;
+                    }
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                .notify-card-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                    margin-bottom: 8px;
+                }
+
+                .notify-card-title {
+                    color: var(--dark-forest, #02457A);
+                    font-weight: 800;
+                    font-size: 1.1rem;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-card-title {
+                        font-size: 1rem;
+                    }
+                }
+
+                .notify-date {
+                    font-size: 0.6rem;
+                    color: #94a3b8;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                }
+
+                .notify-message {
+                    color: #444;
+                    line-height: 1.6;
+                    font-size: 0.9rem;
+                    margin-bottom: 12px;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-message {
+                        font-size: 0.85rem;
+                    }
+                }
+
+                .notify-delete-btn {
+                    background: none;
+                    border: none;
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    cursor: pointer;
+                    padding: 0;
+                }
+
+                .notify-actions {
+                    display: flex;
+                    gap: 12px;
+                    margin-top: 20px;
+                    flex-wrap: wrap;
+                }
+
+                .notify-btn-accept {
+                    background: #14b8a6;
+                    color: #fff;
+                    padding: 8px 24px;
+                    border-radius: 8px;
+                    font-size: 0.65rem;
+                    font-weight: 900;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    border: none;
+                    cursor: pointer;
+                }
+
+                .notify-btn-reject {
+                    background: #f1f5f9;
+                    color: #64748b;
+                    padding: 8px 24px;
+                    border-radius: 8px;
+                    font-size: 0.65rem;
+                    font-weight: 900;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    border: none;
+                    cursor: pointer;
+                }
+
+                .notify-payment-box {
+                    background: #fff1f2;
+                    padding: 20px;
+                    border-radius: 15px;
+                    margin-top: 15px;
+                    border: 1px solid #fecdd3;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-payment-box {
+                        padding: 16px;
+                    }
+                }
+
+                .notify-payment-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                }
+
+                .notify-payment-amount {
+                    color: #e11d48;
+                    font-weight: 900;
+                }
+
+                .notify-btn-qr {
+                    background: #e11d48;
+                    color: #fff;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    font-size: 0.6rem;
+                    font-weight: 900;
+                    text-transform: uppercase;
+                    border: none;
+                    cursor: pointer;
+                }
+
+                .notify-qr-container {
+                    text-align: center;
+                    margin-top: 20px;
+                    padding-top: 20px;
+                    border-top: 1px solid #fecdd3;
+                }
+
+                .notify-qr-img {
+                    width: 200px;
+                    height: 200px;
+                    object-fit: contain;
+                    background: #fff;
+                    padding: 12px;
+                    border-radius: 16px;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-qr-img {
+                        width: 160px;
+                        height: 160px;
+                    }
+                }
+
+                .notify-payment-content {
+                    margin-top: 12px;
+                    font-size: 0.65rem;
+                    color: #be123c;
+                    font-weight: 700;
+                }
+
+                .notify-empty {
+                    text-align: center;
+                    padding: 80px 20px;
+                    background: #f8fafc;
+                    border-radius: 24px;
+                    border: 2px dashed #e2e8f0;
+                    color: #94a3b8;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                }
+
+                @media (max-width: 640px) {
+                    .notify-empty {
+                        padding: 60px 16px;
+                    }
+                }
+            `}</style>
+
+            <div className="notify-container">
+                <div className="notify-header">
+                    <h1 className="notify-title">THÔNG BÁO</h1>
+                    <button 
+                        onClick={() => navigate('/my-teams')}
+                        className="notify-btn-manage"
+                    >
+                        🛡️ QUẢN LÝ ĐỘI
+                    </button>
+                </div>
+
+                <div className="notify-grid">
+                    {notifications.length === 0 ? (
+                        <div className="notify-empty">
+                            <p>Hộp thư của bạn đang trống</p>
+                        </div>
+                    ) : (
+                        notifications.map((notif) => (
+                            <div 
+                                key={notif._id} 
+                                className="notify-card"
+                                style={{ borderLeft: notif.type === 'PAYMENT' ? '6px solid #e11d48' : '6px solid #14b8a6' }}
                             >
-                                Xóa thông báo
-                            </button>
-                            {/* CASE 1: THÔNG BÁO LỜI MỜI (INVITATION) */}
-                            {notif.type === 'INVITATION' && (
-                                <div className="mt-5 flex gap-3">
-                                    <button 
-                                        onClick={() => handleInviteAction(notif._id, notif.metadata?.teamId, 'accept')} 
-                                        className="bg-teal-500 text-white px-6 py-2 rounded-lg font-black text-[11px] uppercase tracking-widest hover:bg-teal-600 transition-all"
-                                    >
-                                        CHẤP NHẬN
-                                    </button>
-                                    <button 
-                                        onClick={() => handleInviteAction(notif._id, notif.metadata?.teamId, 'reject')} 
-                                        className="bg-gray-100 text-gray-500 px-6 py-2 rounded-lg font-black text-[11px] uppercase tracking-widest hover:bg-gray-200 transition-all"
-                                    >
-                                        TỪ CHỐI
-                                    </button>
+                                <div className="notify-card-header">
+                                    <h3 className="notify-card-title">{notif.title}</h3>
+                                    <span className="notify-date">{formatDate(notif.createdAt)}</span>
                                 </div>
-                            )}
+                                
+                                <p className="notify-message">{notif.message}</p>
+                              
+                                <button 
+                                    onClick={async () => {
+                                        if (window.confirm('Bạn có chắc muốn xóa thông báo này?')) {
+                                            try {
+                                                const res = await api.delete(`/notifications/${notif._id}`);
+                                                if (res.data.success) {
+                                                    setNotifications(notifications.filter(n => n._id !== notif._id));
+                                                }
+                                            } catch (error) {
+                                                console.error("Lỗi xóa thông báo:", error);
+                                            }
+                                        }
+                                    }}
+                                    className="notify-delete-btn"
+                                >
+                                    Xóa thông báo
+                                </button>
 
-                            {/* CASE 2: THÔNG BÁO THANH TOÁN (PAYMENT) */}
-                            {notif.type === 'PAYMENT' && (
-                                <div style={{ background: '#fff1f2', padding: '20px', borderRadius: '15px', marginTop: '15px', border: '1px solid #fecdd3' }}>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-red-600 font-black">SỐ TIỀN: {notif.metadata?.amount?.toLocaleString()} VNĐ</span>
+                                {notif.type === 'INVITATION' && (
+                                    <div className="notify-actions">
                                         <button 
-                                            onClick={() => setActiveQR(activeQR === notif._id ? null : notif._id)}
-                                            className="bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-tighter"
+                                            onClick={() => handleInviteAction(notif._id, notif.metadata?.teamId, 'accept')} 
+                                            className="notify-btn-accept"
                                         >
-                                            {activeQR === notif._id ? 'ĐÓNG MÃ' : 'QUÉT MÃ QR'}
+                                            CHẤP NHẬN
+                                        </button>
+                                        <button 
+                                            onClick={() => handleInviteAction(notif._id, notif.metadata?.teamId, 'reject')} 
+                                            className="notify-btn-reject"
+                                        >
+                                            TỪ CHỐI
                                         </button>
                                     </div>
+                                )}
 
-                                    {activeQR === notif._id && (
-                                        <div className="text-center mt-5 pt-5 border-t border-red-200">
-                                            <div className="inline-block bg-white p-3 rounded-2xl shadow-inner">
+                                {notif.type === 'PAYMENT' && (
+                                    <div className="notify-payment-box">
+                                        <div className="notify-payment-header">
+                                            <span className="notify-payment-amount">
+                                                SỐ TIỀN: {notif.metadata?.amount?.toLocaleString()} VNĐ
+                                            </span>
+                                            <button 
+                                                onClick={() => setActiveQR(activeQR === notif._id ? null : notif._id)}
+                                                className="notify-btn-qr"
+                                            >
+                                                {activeQR === notif._id ? 'ĐÓNG MÃ' : 'QUÉT MÃ QR'}
+                                            </button>
+                                        </div>
+
+                                        {activeQR === notif._id && (
+                                            <div className="notify-qr-container">
                                                 <img 
                                                     src={notif.metadata?.paymentQR || `https://img.vietqr.io/image/mbbank-0901234567-compact.png?amount=${notif.metadata?.amount}&addInfo=${notif.metadata?.paymentContent}`} 
                                                     alt="QR Thanh Toán" 
-                                                    style={{ width: '200px', height: '200px', objectFit: 'contain' }}
+                                                    className="notify-qr-img"
                                                 />
+                                                <p className="notify-payment-content">
+                                                    NỘI DUNG: <span style={{ background: '#fff', padding: '4px 8px', borderRadius: '6px', border: '1px solid #fecdd3' }}>{notif.metadata?.paymentContent || 'DK GIAI DAU'}</span>
+                                                </p>
                                             </div>
-                                            <p className="mt-3 text-[11px] text-red-800 font-bold">
-                                                NỘI DUNG: <span className="bg-white px-2 py-1 rounded border border-red-200">{notif.metadata?.paymentContent || 'DK GIAI DAU'}</span>
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                        )}
+                                    </div>
+                                )}
 
-                            {/* CASE 3: THÔNG BÁO HỆ THỐNG (SYSTEM) */}
-                            {(notif.type === 'SYSTEM' || notif.type === 'MATCH') && (
-                                <div className="mt-4">
-                                    <button 
-                                        onClick={() => navigate('/my-teams')}
-                                        className="text-teal-accent text-[11px] font-black uppercase tracking-widest flex items-center gap-1 hover:underline"
-                                    >
-                                        TRUY CẬP QUẢN LÝ ĐỘI 🛡️ →
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    ))
-                )}
+                                {(notif.type === 'SYSTEM' || notif.type === 'MATCH') && (
+                                    <div className="notify-actions">
+                                        <button 
+                                            onClick={() => navigate('/my-teams')}
+                                            className="notify-btn-accept"
+                                            style={{ background: '#0891b2' }}
+                                        >
+                                            TRUY CẬP QUẢN LÝ ĐỘI 🛡️ →
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
+                </div>
             </div>
-            
-            <style>{`
-                .animate-fade-in { animation: fadeIn 0.4s ease-out; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-            `}</style>
-        </div>
+        </>
     );
 };
 
