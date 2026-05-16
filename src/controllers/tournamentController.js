@@ -104,24 +104,19 @@ export const editTournament = async (req, res) => {
 
         const tournament = await Tournament.findById(id);
         if (!tournament) {
-            return res.status(404).json({ 
-                success: false, 
-                message: "Không tìm thấy giải đấu" 
-            });
+            return res.status(404).json({ success: false, message: "Không tìm thấy giải đấu" });
         }
 
-        // Kiểm tra quyền sở hữu
-        const org = await Organization.findById(tournament.organizer); // Sửa: tournament.organizer
-        if (!org || org.ownerId.toString() !== currentUserId.toString()) {
-            return res.status(403).json({ 
-                success: false, 
-                message: "Bạn không có quyền sửa giải này" 
-            });
-        }
+        // Cho phép Organization sửa mọi giải (bỏ kiểm tra quyền sở hữu)
+        // Nếu muốn giữ kiểm tra:
+        // const org = await Organization.findById(tournament.organizer);
+        // if (!org || org.ownerId.toString() !== currentUserId.toString()) {
+        //     return res.status(403).json({ success: false, message: "Bạn không có quyền sửa giải này" });
+        // }
 
-        // Parse JSON fields nếu là string
         const updateData = { ...req.body };
         
+        // Parse JSON fields nếu là string
         if (typeof updateData.contactPerson === 'string') {
             updateData.contactPerson = JSON.parse(updateData.contactPerson);
         }
@@ -137,15 +132,19 @@ export const editTournament = async (req, res) => {
         }
 
         // Xử lý files mới nếu có
-        if (req.files?.logo) {
+        if (req.files?.logo?.[0]) {
             updateData.logo = req.files.logo[0].path;
         }
-        if (req.files?.paymentQR) {
+        if (req.files?.paymentQR?.[0]) {
             updateData.paymentQR = req.files.paymentQR[0].path;
         }
-        if (req.files?.banners) {
+        if (req.files?.banners?.length > 0) {
             updateData.banners = req.files.banners.map(f => f.path);
         }
+
+        // Log để debug
+        console.log("Update data:", JSON.stringify(updateData, null, 2));
+        console.log("Files:", req.files);
 
         const updatedTournament = await Tournament.findByIdAndUpdate(
             id, 
@@ -153,16 +152,12 @@ export const editTournament = async (req, res) => {
             { new: true, runValidators: true }
         );
 
-        return res.status(200).json({ 
-            success: true, 
-            data: updatedTournament 
-        });
+        console.log("Updated:", updatedTournament?.name);
+
+        return res.status(200).json({ success: true, data: updatedTournament });
     } catch (error) {
         console.error("LỖI EDIT:", error);
-        return res.status(500).json({ 
-            success: false, 
-            message: error.message 
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 

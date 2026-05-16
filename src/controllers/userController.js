@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import User from '../models/users.js';
-import Players from '../models/players.js';
+import Player from '../models/players.js';
 import Referee from '../models/referees.js';
 import Organization from '../models/Organizations.js';
 const players = []; 
@@ -14,13 +14,46 @@ export const authMe = async (req, res) => {
 };
 export const getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({}, 'name username role');
-        res.json({ data: users });
+        console.log("=== getAllUsers CALLED ===");
+        
+        const users = await User.find({}, 'username email phoneNumber role').lean();
+        console.log("Users found:", users.length);
+        
+        const userIds = users.map(u => u._id);
+        console.log("User IDs:", userIds.length);
+        
+        const players = await Players.find({ userId: { $in: userIds } }, 'userId name gender birthDate status sports').lean();
+        console.log("Players found:", players.length);
+        
+        const playerMap = {};
+        players.forEach(p => { playerMap[p.userId.toString()] = p; });
+        
+        const result = users.map(u => {
+            const player = playerMap[u._id.toString()];
+            return {
+                _id: u._id,
+                username: u.username,
+                email: u.email,
+                phoneNumber: u.phoneNumber,
+                role: u.role,
+                name: player?.name || u.username,
+                gender: player?.gender || '',
+                birthDate: player?.birthDate || null,
+                playerStatus: player?.status || '',
+                level: player?.sports?.[0]?.level || '',
+                sports: player?.sports || []
+            };
+        });
+        
+        console.log("Result count:", result.length);
+        
+        res.json({ success: true, data: result });
     } catch (error) {
-        res.status(500).json({ message: "Lỗi lấy danh sách user" });
+        console.error("❌ getAllUsers ERROR:", error.message);
+        console.error("Stack:", error.stack);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
-
 export const searchUsers = async (req, res) => {
     try {
         const { email, name } = req.query;
