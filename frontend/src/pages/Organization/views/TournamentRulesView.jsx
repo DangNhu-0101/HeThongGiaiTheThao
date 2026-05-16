@@ -406,6 +406,40 @@ const CSS = `
     font-size: 16px; font-weight: 600;
     color: var(--ocean-mid);
   }
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 1024px) {
+    .rv-inner { max-width: 95%; }
+    .rv-stage { margin-left: 0 !important; }
+    .rv-stage.depth-1 { margin-left: 16px !important; }
+    .rv-stage.depth-2 { margin-left: 24px !important; }
+    .rv-stage.depth-3 { margin-left: 32px !important; }
+  }
+
+  @media (max-width: 768px) {
+    .rv-wrap { padding: 20px 12px; }
+    .rv-meta-row { flex-direction: column; align-items: stretch; }
+    .rv-match-grid { grid-template-columns: 1fr; }
+    .rv-ko-summary { grid-template-columns: 1fr; gap: 8px; }
+    .rv-branch-list { gap: 12px; }
+    .rv-branch { padding: 12px; }
+    .rv-branch-header { flex-wrap: wrap; }
+    .rv-stage-body { padding: 12px; }
+    .rv-stage-header { flex-wrap: wrap; gap: 8px; }
+    .rv-panel-body { padding: 12px; }
+    .rv-badge-row { order: 3; width: 100%; justify-content: flex-start; }
+  }
+
+  @media (max-width: 640px) {
+    .rv-page-title { font-size: 18px; }
+    .rv-stage-name { font-size: 12px; }
+    .rv-sport-tab { padding: 6px 14px; font-size: 11px; }
+    .rv-input, .rv-select { font-size: 14px; }
+    .rv-chip { padding: 6px 12px; font-size: 11px; }
+    .rv-priority-row { flex-wrap: wrap; }
+    .rv-ko-box-val { font-size: 22px; }
+    .rv-branch-stats { flex-direction: column; gap: 4px; }
+    .rv-branch-name-input { font-size: 13px; }
+  }
 `;
 
 const generateId = () => crypto.randomUUID();

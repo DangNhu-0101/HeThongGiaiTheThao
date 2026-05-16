@@ -14,17 +14,16 @@ const IMAGE_BASE_URL = "http://localhost:5001/";
 
 const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  const [organizations, setOrganizations] = useState([]); // Đã đổi từ orgs sang Organization
+  const [organizations, setOrganizations] = useState([]);
 
-  // 1. STATE THÔNG TIN CHUNG
   const [formData, setFormData] = useState({
     name: '',
     slogan: '',
-    targetParticipants: '', // Đã để dạng String theo yêu cầu mới
+    targetParticipants: '',
     location: '',
     description: '',
     prizes: '',
-    organizer: '' // Chứa ObjectId của Organization
+    organizer: ''
   });
 
   const [contactPerson, setContactPerson] = useState({ name: '', phone: '' });
@@ -36,7 +35,6 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
     tournamentEnd: ''
   });
 
-  // 2. STATE CẤU HÌNH MÔN THI ĐẤU
   const [sportsConfig, setSportsConfig] = useState(
     SPORTS_LIST.reduce((acc, sport) => {
       acc[sport] = { selected: false, feePerAthlete: '', maxTeams: '', categories: [] };
@@ -44,7 +42,6 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
     }, {})
   );
 
-  // 3. STATE GALA DINNER
   const [galaConfig, setGalaConfig] = useState({
     hasGala: false,
     time: '',
@@ -52,25 +49,13 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
     description: ''
   });
 
-  // 4. STATE FILES (Banner cho phép nhiều ảnh)
   const [files, setFiles] = useState({ logo: null, paymentQR: null, banners: [] });
   const [previews, setPreviews] = useState({ logo: null, paymentQR: null, banners: [] });
 
-  /* ── LOAD DATA ── */
-useEffect(() => {
-    // Lấy TẤT CẢ organizations trong hệ thống
-    api.get('/users/organizations')  // Gọi API get all organizations
-           .then(res => {
-        console.log("Full response:", res); // Xem toàn bộ response
-        console.log("Response data:", res.data); // Xem res.data
-        
-        // Thử các cách lấy data khác nhau
-        const orgList = res.data?.data?.data || // Trường hợp { data: { data: [...] } }
-                       res.data?.data ||         // Trường hợp { data: [...] }
-                       res.data?.organizations || // Trường hợp { organizations: [...] }
-                       [];
-        
-        console.log("Processed orgList:", orgList);
+  useEffect(() => {
+    api.get('/users/organizations')
+      .then(res => {
+        const orgList = res.data?.data?.data || res.data?.data || res.data?.organizations || [];
         setOrganizations(orgList);
       })
       .catch(err => {
@@ -78,7 +63,6 @@ useEffect(() => {
         setOrganizations([]);
       });
 
- 
     if (mode === 'edit' && tourId) {
       setLoading(true);
       api.get(`/tournaments/getTournament/${tourId}`)
@@ -102,7 +86,6 @@ useEffect(() => {
             tournamentEnd: d.timeLine?.tournamentEnd?.slice(0, 16) || '',
           });
 
-          // Load sports config
           const newSports = { ...sportsConfig };
           d.sportsConfig?.forEach(item => {
             if (newSports[item.sport]) {
@@ -129,7 +112,6 @@ useEffect(() => {
     }
   }, [mode, tourId]);
 
-  /* ── HANDLERS ── */
   const handleTextChange = e => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
   const handleContactChange = e => setContactPerson(p => ({ ...p, [e.target.name]: e.target.value }));
   const handleTimeChange = e => setTimeLine(p => ({ ...p, [e.target.name]: e.target.value }));
@@ -162,19 +144,16 @@ useEffect(() => {
     return { ...p, [sport]: { ...p[sport], categories: newCats } };
   });
 
-  /* ── SUBMIT ── */
   const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
     const payload = new FormData();
 
-    // Data texts
     Object.keys(formData).forEach(k => payload.append(k, formData[k]));
     payload.append('contactPerson', JSON.stringify(contactPerson));
     payload.append('timeLine', JSON.stringify(timeLine));
     payload.append('galaConfig', JSON.stringify(galaConfig));
 
-    // Sports config
     const activeSports = Object.keys(sportsConfig)
       .filter(k => sportsConfig[k].selected)
       .map(k => ({
@@ -188,10 +167,9 @@ useEffect(() => {
     payload.append('sportsConfig', JSON.stringify(activeSports));
     payload.append('sportType', JSON.stringify(activeSports.map(s => s.sport)));
 
-    // Files
     if (files.logo) payload.append('logo', files.logo);
     if (files.paymentQR) payload.append('paymentQR', files.paymentQR);
-    files.banners.forEach(b => payload.append('banners', b)); // Gửi mảng file banner
+    files.banners.forEach(b => payload.append('banners', b));
 
     try {
       const ep = mode === 'create' ? '/tournaments/createTournament' : `/tournaments/editTournament/${tourId}`;
@@ -206,28 +184,302 @@ useEffect(() => {
   return (
     <>
       <style>{`
-        .tm-overlay { position: fixed; inset: 0; background: rgba(2,30,55,0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 20px; }
-        .tm-dialog { background: #fff; border-radius: 24px; width: 100%; max-width: 850px; max-height: 95vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.3); font-family: 'Be Vietnam Pro', sans-serif; }
-        .tm-header { padding: 20px 30px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
-        .tm-body { flex: 1; overflow-y: auto; padding: 30px; display: flex; flex-direction: column; gap: 24px; background: #fcfcfc; }
-        .tm-section { border: 1px solid rgba(1,138,190,0.1); border-radius: 20px; padding: 20px; background: #fff; }
-        .tm-label-sec { font-size: 11px; font-weight: 800; color: #018ABE; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-        .tm-label-sec::before { content: ""; width: 4px; height: 14px; background: #018ABE; border-radius: 4px; }
-        .tm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .tm-full { grid-column: 1 / -1; }
-        .tm-input, .tm-select, .tm-textarea { width: 100%; padding: 12px; border: 1.5px solid #E2E8F0; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s; }
-        .tm-input:focus { border-color: #018ABE; box-shadow: 0 0 0 4px rgba(1,138,190,0.08); }
-        .tm-sport-tag { padding: 8px 18px; border-radius: 12px; border: 1.5px solid #E2E8F0; cursor: pointer; font-size: 13px; font-weight: 600; background: #fff; color: #64748b; }
-        .tm-sport-tag.sel { background: #018ABE; color: #fff; border-color: #018ABE; }
-        .tm-cat-card { border: 1px solid #EEF6FB; border-radius: 16px; padding: 18px; background: #F8FAFC; margin-bottom: 10px; }
-        .tm-upload-box { border: 2px dashed #CBD5E1; border-radius: 16px; height: 110px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #F1F5F9; }
-        .tm-upload-box img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
-        .tm-banner-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-top: 10px; }
-        .tm-banner-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid #ddd; }
-        .tm-remove { position: absolute; top: 2px; right: 2px; background: rgba(220,38,38,0.9); color: #fff; border: none; width: 18px; height: 18px; border-radius: 50%; font-size: 10px; cursor: pointer; }
-        .tm-footer { padding: 20px 30px; border-top: 1px solid #f0f0f0; display: flex; gap: 12px; background: #fff; }
-        .tm-btn-submit { flex: 1; background: #018ABE; color: #fff; border: none; padding: 14px; border-radius: 14px; font-weight: 700; cursor: pointer; transition: 0.2s; }
-        .tm-btn-submit:hover { background: #02457A; }
+        .tm-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(2,30,55,0.85);
+          backdrop-filter: blur(8px);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 2000;
+          padding: 20px;
+        }
+
+        .tm-dialog {
+          background: #fff;
+          border-radius: 24px;
+          width: 100%;
+          max-width: 850px;
+          max-height: 95vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+          font-family: 'Be Vietnam Pro', sans-serif;
+        }
+
+        @media (max-width: 640px) {
+          .tm-dialog {
+            max-width: 95%;
+            border-radius: 16px;
+          }
+        }
+
+        .tm-header {
+          padding: 20px 30px;
+          border-bottom: 1px solid #f0f0f0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        @media (max-width: 640px) {
+          .tm-header {
+            padding: 16px 20px;
+          }
+          
+          .tm-header h2 {
+            font-size: 18px;
+          }
+        }
+
+        .tm-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 30px;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          background: #fcfcfc;
+        }
+
+        @media (max-width: 640px) {
+          .tm-body {
+            padding: 16px;
+            gap: 16px;
+          }
+        }
+
+        .tm-section {
+          border: 1px solid rgba(1,138,190,0.1);
+          border-radius: 20px;
+          padding: 20px;
+          background: #fff;
+        }
+
+        @media (max-width: 640px) {
+          .tm-section {
+            padding: 14px;
+            border-radius: 16px;
+          }
+        }
+
+        .tm-label-sec {
+          font-size: 11px;
+          font-weight: 800;
+          color: #018ABE;
+          text-transform: uppercase;
+          letter-spacing: 1.5px;
+          margin-bottom: 15px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .tm-label-sec::before {
+          content: "";
+          width: 4px;
+          height: 14px;
+          background: #018ABE;
+          border-radius: 4px;
+        }
+
+        .tm-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+          .tm-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+        }
+
+        .tm-full {
+          grid-column: 1 / -1;
+        }
+
+        .tm-input, .tm-select, .tm-textarea {
+          width: 100%;
+          padding: 12px;
+          border: 1.5px solid #E2E8F0;
+          border-radius: 12px;
+          font-size: 14px;
+          outline: none;
+          transition: 0.2s;
+          font-family: inherit;
+        }
+
+        @media (max-width: 640px) {
+          .tm-input, .tm-select, .tm-textarea {
+            padding: 10px;
+            font-size: 16px;
+          }
+        }
+
+        .tm-input:focus, .tm-select:focus, .tm-textarea:focus {
+          border-color: #018ABE;
+          box-shadow: 0 0 0 4px rgba(1,138,190,0.08);
+        }
+
+        .tm-sport-tag {
+          padding: 8px 18px;
+          border-radius: 12px;
+          border: 1.5px solid #E2E8F0;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 600;
+          background: #fff;
+          color: #64748b;
+          transition: all 0.2s;
+        }
+
+        @media (max-width: 640px) {
+          .tm-sport-tag {
+            padding: 10px 16px;
+            font-size: 14px;
+          }
+        }
+
+        .tm-sport-tag.sel {
+          background: #018ABE;
+          color: #fff;
+          border-color: #018ABE;
+        }
+
+        .tm-cat-card {
+          border: 1px solid #EEF6FB;
+          border-radius: 16px;
+          padding: 18px;
+          background: #F8FAFC;
+          margin-bottom: 10px;
+        }
+
+        @media (max-width: 640px) {
+          .tm-cat-card {
+            padding: 12px;
+          }
+        }
+
+        .tm-upload-box {
+          border: 2px dashed #CBD5E1;
+          border-radius: 16px;
+          height: 110px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          overflow: hidden;
+          cursor: pointer;
+          background: #F1F5F9;
+        }
+
+        @media (max-width: 640px) {
+          .tm-upload-box {
+            height: 90px;
+          }
+        }
+
+        .tm-upload-box img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          position: absolute;
+        }
+
+        .tm-banner-wrap {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+          gap: 10px;
+          margin-top: 10px;
+        }
+
+        @media (max-width: 640px) {
+          .tm-banner-wrap {
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 8px;
+          }
+        }
+
+        .tm-banner-item {
+          position: relative;
+          aspect-ratio: 1;
+          border-radius: 10px;
+          overflow: hidden;
+          border: 1px solid #ddd;
+        }
+
+        .tm-remove {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          background: rgba(220,38,38,0.9);
+          color: #fff;
+          border: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          font-size: 10px;
+          cursor: pointer;
+        }
+
+        .tm-footer {
+          padding: 20px 30px;
+          border-top: 1px solid #f0f0f0;
+          display: flex;
+          gap: 12px;
+          background: #fff;
+        }
+
+        @media (max-width: 640px) {
+          .tm-footer {
+            padding: 16px 20px;
+            flex-direction: column;
+          }
+        }
+
+        .tm-btn-submit {
+          flex: 1;
+          background: #018ABE;
+          color: #fff;
+          border: none;
+          padding: 14px;
+          border-radius: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        @media (max-width: 640px) {
+          .tm-btn-submit {
+            padding: 12px;
+          }
+        }
+
+        .tm-btn-submit:hover {
+          background: #02457A;
+        }
+
+        .tm-cancel-btn {
+          padding: 12px 25px;
+          border-radius: 14px;
+          border: 1.5px solid #E2E8F0;
+          background: #fff;
+          cursor: pointer;
+          font-weight: 600;
+          color: #64748b;
+        }
+
+        @media (max-width: 640px) {
+          .tm-cancel-btn {
+            padding: 12px;
+          }
+        }
       `}</style>
 
       <div className="tm-overlay">
@@ -242,7 +494,6 @@ useEffect(() => {
           <div className="tm-body">
             <form id="tour-form" onSubmit={handleSubmit}>
 
-              {/* SECTION: THÔNG TIN CƠ BẢN */}
               <div className="tm-section">
                 <div className="tm-label-sec">Thông tin định danh</div>
                 <div className="tm-grid">
@@ -270,7 +521,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* SECTION: LIÊN HỆ & LỊCH TRÌNH */}
               <div className="tm-section">
                 <div className="tm-label-sec">Lịch trình & Liên hệ</div>
                 <div className="tm-grid">
@@ -283,7 +533,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* SECTION: MÔN THI ĐẤU */}
               <div className="tm-section">
                 <div className="tm-label-sec">Môn thi đấu & Nội dung</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 15 }}>
@@ -316,10 +565,9 @@ useEffect(() => {
                 ))}
               </div>
 
-              {/* SECTION: GALA DINNER */}
               <div className="tm-section">
                 <div className="tm-label-sec">Sự kiện Gala Dinner</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 15, cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 15, cursor: 'pointer', flexWrap: 'wrap' }}>
                   <input type="checkbox" name="hasGala" checked={galaConfig.hasGala} onChange={handleGalaChange} />
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#02457A' }}>Có tổ chức Gala Dinner tổng kết & trao giải</span>
                 </label>
@@ -332,7 +580,6 @@ useEffect(() => {
                 )}
               </div>
 
-              {/* SECTION: MEDIA & THANH TOÁN */}
               <div className="tm-section">
                 <div className="tm-label-sec">Hình ảnh & Giải thưởng</div>
                 <div className="tm-grid">
@@ -378,7 +625,7 @@ useEffect(() => {
           </div>
 
           <div className="tm-footer">
-            <button type="button" onClick={onClose} style={{ padding: '12px 25px', borderRadius: 14, border: '1.5px solid #E2E8F0', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}>Hủy bỏ</button>
+            <button type="button" onClick={onClose} className="tm-cancel-btn">Hủy bỏ</button>
             <button type="submit" form="tour-form" className="tm-btn-submit" disabled={loading}>
               {loading ? 'Đang xử lý dữ liệu...' : mode === 'create' ? '🚀 KHỞI TẠO GIẢI ĐẤU' : '🔧 LƯU THAY ĐỔI'}
             </button>

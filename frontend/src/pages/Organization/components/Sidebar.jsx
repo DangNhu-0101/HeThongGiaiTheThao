@@ -41,7 +41,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
   return (
     <>
       <style>{`
-        /* ─── SIDEBAR SHELL ─── */
+        /* ─── SIDEBAR SHELL - RESPONSIVE ─── */
         .sb-wrap {
           width: 260px;
           min-width: 260px;
@@ -53,6 +53,97 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           flex-direction: column;
           overflow: hidden;
           border-right: 1px solid rgba(151,202,219,0.12);
+          transition: all 0.3s ease;
+        }
+
+        /* Mobile: Sidebar chuyển thành top bar + drawer */
+        @media (max-width: 768px) {
+          .sb-wrap {
+            width: 100%;
+            min-width: 100%;
+            height: auto;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            max-height: 70px;
+            transition: max-height 0.3s ease;
+          }
+          
+          .sb-wrap.mobile-open {
+            max-height: 100vh;
+            overflow-y: auto;
+          }
+          
+          .sb-logo {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+          }
+          
+          .sb-logo::after {
+            content: '☰';
+            font-size: 24px;
+            color: white;
+            opacity: 0.8;
+          }
+          
+          .sb-scroll {
+            max-height: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+          }
+          
+          .sb-wrap.mobile-open .sb-scroll {
+            max-height: calc(100vh - 70px);
+            opacity: 1;
+            visibility: visible;
+          }
+          
+          .sb-footer {
+            display: none;
+          }
+          
+          .sb-wrap.mobile-open .sb-footer {
+            display: block;
+          }
+        }
+
+        /* Tablet: Sidebar thu nhỏ */
+        @media (max-width: 1024px) and (min-width: 769px) {
+          .sb-wrap {
+            width: 220px;
+            min-width: 220px;
+          }
+          
+          .sb-logo-title {
+            font-size: 18px;
+          }
+          
+          .sb-btn {
+            padding: 8px 16px;
+            font-size: 12px;
+          }
+          
+          .sb-btn-sub {
+            padding-left: 32px;
+          }
+        }
+
+        /* Mobile nhỏ */
+        @media (max-width: 480px) {
+          .sb-logo {
+            padding: 20px 20px;
+          }
+          
+          .sb-logo-title {
+            font-size: 18px;
+          }
+          
+          .sb-logo-sub {
+            font-size: 9px;
+          }
         }
 
         /* ─── LOGO ─── */
@@ -84,9 +175,18 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           overflow-y: auto;
           overflow-x: hidden;
           padding: 8px 0 16px;
-          scrollbar-width: none;
+          scrollbar-width: thin;
         }
-        .sb-scroll::-webkit-scrollbar { display: none; }
+        .sb-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .sb-scroll::-webkit-scrollbar-track {
+          background: rgba(151,202,219,0.1);
+        }
+        .sb-scroll::-webkit-scrollbar-thumb {
+          background: rgba(151,202,219,0.3);
+          border-radius: 4px;
+        }
 
         /* ─── SECTION LABEL ─── */
         .sb-section-label {
@@ -96,6 +196,13 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           text-transform: uppercase;
           letter-spacing: 2.5px;
           padding: 16px 24px 6px;
+        }
+
+        /* Tablet điều chỉnh section label */
+        @media (max-width: 1024px) {
+          .sb-section-label {
+            padding: 12px 16px 4px;
+          }
         }
 
         /* ─── NAV BUTTON ─── */
@@ -109,7 +216,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           background: transparent;
           color: rgba(255,255,255,0.55);
           cursor: pointer;
-          transition: color 0.15s, background 0.15s;
+          transition: all 0.15s;
           font-size: 13px;
           font-weight: 500;
           font-family: 'Be Vietnam Pro', sans-serif;
@@ -117,6 +224,19 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           position: relative;
           border-left: 3px solid transparent;
         }
+        
+        /* Mobile: nút to hơn để dễ chạm */
+        @media (max-width: 768px) {
+          .sb-btn {
+            padding: 12px 24px;
+            gap: 12px;
+          }
+          
+          .sb-btn-icon {
+            font-size: 18px;
+          }
+        }
+        
         .sb-btn:hover {
           color: rgba(255,255,255,0.9);
           background: rgba(151,202,219,0.07);
@@ -140,6 +260,18 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           padding-left: 40px;
           font-size: 12.5px;
         }
+        
+        @media (max-width: 1024px) {
+          .sb-btn-sub {
+            padding-left: 32px;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .sb-btn-sub {
+            padding-left: 48px;
+          }
+        }
 
         /* ─── DIVIDER ─── */
         .sb-divider {
@@ -152,6 +284,13 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
         .sb-selector-wrap {
           padding: 8px 16px 12px;
         }
+        
+        @media (max-width: 768px) {
+          .sb-selector-wrap {
+            padding: 12px 20px;
+          }
+        }
+        
         .sb-select {
           width: 100%;
           padding: 9px 12px;
@@ -165,12 +304,21 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           cursor: pointer;
           appearance: none;
           -webkit-appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.Organization/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2397CADB' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2397CADB' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
           background-repeat: no-repeat;
           background-position: right 10px center;
           padding-right: 28px;
           transition: border-color 0.15s;
         }
+        
+        /* Mobile: select to hơn */
+        @media (max-width: 768px) {
+          .sb-select {
+            padding: 12px 12px;
+            font-size: 14px;
+          }
+        }
+        
         .sb-select:focus { border-color: var(--ocean-pale, #97CADB); }
         .sb-select option { background: #02457A; color: #fff; }
 
@@ -190,6 +338,16 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           transition: background 0.15s, border-color 0.15s, color 0.15s;
           letter-spacing: 0.5px;
         }
+        
+        /* Mobile: create button to hơn */
+        @media (max-width: 768px) {
+          .sb-create-btn {
+            padding: 12px 12px;
+            font-size: 14px;
+            margin-top: 12px;
+          }
+        }
+        
         .sb-create-btn:hover {
           background: rgba(1,138,190,0.4);
           border-color: var(--ocean-pale, #97CADB);
@@ -204,6 +362,14 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           border-radius: 8px;
           padding: 8px 12px;
         }
+        
+        @media (max-width: 768px) {
+          .sb-tour-active {
+            margin: 8px 20px;
+            padding: 10px 14px;
+          }
+        }
+        
         .sb-tour-active-label {
           font-size: 9px;
           font-weight: 700;
@@ -220,6 +386,12 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        
+        @media (max-width: 768px) {
+          .sb-tour-active-name {
+            font-size: 14px;
+          }
+        }
 
         /* ─── FOOTER ─── */
         .sb-footer {
@@ -234,12 +406,19 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
         }
       `}</style>
 
-      <div className="sb-wrap">
-
-        {/* LOGO */}
-        <div className="sb-logo">
-          <div className="sb-logo-title">ITVTG <span>HUB</span></div>
-          <div className="sb-logo-sub">Admin Dashboard</div>
+      {/* Thêm class mobile-open khi click vào logo trên mobile */}
+      <div className="sb-wrap" id="sidebar-wrap">
+        {/* LOGO - có thể click để toggle trên mobile */}
+        <div className="sb-logo" onClick={(e) => {
+          if (window.innerWidth <= 768) {
+            const wrap = document.getElementById('sidebar-wrap');
+            wrap.classList.toggle('mobile-open');
+          }
+        }}>
+          <div>
+            <div className="sb-logo-title">ITVTG <span>HUB</span></div>
+            <div className="sb-logo-sub">Admin Dashboard</div>
+          </div>
         </div>
 
         {/* SCROLL AREA */}
@@ -249,14 +428,25 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           <div className="sb-section-label">Hệ thống</div>
           <button
             className={`sb-btn ${isActive('global-users') ? 'active' : ''}`}
-            onClick={() => navigate('/admin/users')}
+            onClick={() => {
+              navigate('/admin/users');
+              // Đóng sidebar trên mobile sau khi chọn
+              if (window.innerWidth <= 768) {
+                document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
+              }
+            }}
           >
             <span className="sb-btn-icon">◈</span>
             Người dùng
           </button>
           <button
             className={`sb-btn ${isActive('global-tours') ? 'active' : ''}`}
-            onClick={() => navigate('/admin/tournaments')}
+            onClick={() => {
+              navigate('/admin/tournaments');
+              if (window.innerWidth <= 768) {
+                document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
+              }
+            }}
           >
             <span className="sb-btn-icon">◉</span>
             Tất cả giải đấu
@@ -270,14 +460,24 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
             <select
               className="sb-select"
               value={selectedTourId || ''}
-              onChange={(e) => handleSelectTour(e.target.value)}
+              onChange={(e) => {
+                handleSelectTour(e.target.value);
+                if (window.innerWidth <= 768) {
+                  document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
+                }
+              }}
             >
               <option value="">— Chọn giải —</option>
               {tournaments.map(t => (
                 <option key={t._id} value={t._id}>{t.name}</option>
               ))}
             </select>
-            <button className="sb-create-btn" onClick={onCreate}>
+            <button className="sb-create-btn" onClick={() => {
+              onCreate();
+              if (window.innerWidth <= 768) {
+                document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
+              }
+            }}>
               + Tạo giải mới
             </button>
           </div>
@@ -303,7 +503,12 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
                     <button
                       key={id}
                       className={`sb-btn sb-btn-sub ${isActive(id) ? 'active' : ''}`}
-                      onClick={() => navigate(path)}
+                      onClick={() => {
+                        navigate(path);
+                        if (window.innerWidth <= 768) {
+                          document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
+                        }
+                      }}
                     >
                       <span className="sb-btn-icon">{icon}</span>
                       {label}

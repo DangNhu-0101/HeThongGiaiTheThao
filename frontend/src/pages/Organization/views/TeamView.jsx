@@ -32,7 +32,6 @@ const TeamView = ({ tourId: propTourId }) => {
         fetchTeams();
     }, [fetchTeams]);
 
-    // DUYỆT đội (từ chờ duyệt → đã duyệt)
     const handleApproveTeam = async (teamId) => {
         try {
             await api.patch(`/teams/${teamId}/payment`, { status: 'confirmed' });
@@ -42,7 +41,6 @@ const TeamView = ({ tourId: propTourId }) => {
         }
     };
 
-    // HỦY DUYỆT (từ đã duyệt → chờ duyệt)
     const handleUnapproveTeam = async (teamId) => {
         try {
             await api.patch(`/teams/${teamId}/payment`, { status: 'validated' });
@@ -98,49 +96,71 @@ const TeamView = ({ tourId: propTourId }) => {
     return (
         <div className="tv-container">
             <style>{`
-                /* ──────────────────────────────────────────────────────────── */
-                /* TEAM VIEW STYLES - inspired by TournamentModal & Sidebar   */
-                /* ──────────────────────────────────────────────────────────── */
-
                 .tv-container {
                     padding: 20px;
                     background: #fcfcfc;
                     min-height: 100vh;
                     font-family: 'Be Vietnam Pro', sans-serif;
+                    animation: tvFadeIn 0.3s ease-out;
                 }
 
-                /* LOADING */
+                @keyframes tvFadeIn {
+                    from { opacity: 0; transform: translateY(8px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                @media (max-width: 768px) {
+                    .tv-container {
+                        padding: 16px;
+                    }
+                }
+
+                @media (max-width: 640px) {
+                    .tv-container {
+                        padding: 12px;
+                    }
+                }
+
                 .tv-loading {
                     color: #018ABE;
                     font-weight: 800;
                     padding: 40px;
                     text-align: center;
                     font-size: 14px;
-                    letter-spacing: 1px;
                 }
 
-                /* IMPORT SECTION (wrapper for ImportTeams component) */
+                @media (max-width: 640px) {
+                    .tv-loading {
+                        padding: 24px;
+                        font-size: 12px;
+                    }
+                }
+
                 .tv-import-wrapper {
                     margin-bottom: 28px;
                 }
 
-                /* TEAM SECTION */
                 .tv-section {
                     border-radius: 20px;
                     padding: 20px;
                     margin-bottom: 24px;
+                    background: #fff;
+                }
+
+                @media (max-width: 640px) {
+                    .tv-section {
+                        padding: 16px;
+                        margin-bottom: 16px;
+                        border-radius: 16px;
+                    }
                 }
 
                 .tv-section-confirmed {
-                    background: #fff;
                     border: 1px solid rgba(1,138,190,0.15);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
                 }
 
                 .tv-section-pending {
-                    background: #fff;
                     border: 1px solid rgba(100,116,139,0.12);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
                 }
 
                 .tv-section-title {
@@ -152,6 +172,7 @@ const TeamView = ({ tourId: propTourId }) => {
                     display: flex;
                     align-items: center;
                     gap: 8px;
+                    flex-wrap: wrap;
                 }
 
                 .tv-section-title::before {
@@ -160,10 +181,6 @@ const TeamView = ({ tourId: propTourId }) => {
                     height: 14px;
                     background: #018ABE;
                     border-radius: 4px;
-                }
-
-                .tv-section-title-confirmed::before {
-                    background: #018ABE;
                 }
 
                 .tv-section-title-confirmed {
@@ -192,7 +209,19 @@ const TeamView = ({ tourId: propTourId }) => {
                     color: #64748b;
                 }
 
-                /* TEAM CARD */
+                .tv-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 16px;
+                }
+
+                @media (max-width: 768px) {
+                    .tv-grid {
+                        grid-template-columns: 1fr;
+                        gap: 12px;
+                    }
+                }
+
                 .tv-team-card {
                     display: flex;
                     align-items: center;
@@ -201,7 +230,13 @@ const TeamView = ({ tourId: propTourId }) => {
                     border: 1px solid #EEF6FB;
                     border-radius: 16px;
                     transition: all 0.2s ease;
-                    margin-bottom: 12px;
+                }
+
+                @media (max-width: 640px) {
+                    .tv-team-card {
+                        flex-wrap: wrap;
+                        gap: 12px;
+                    }
                 }
 
                 .tv-team-card:hover {
@@ -224,6 +259,14 @@ const TeamView = ({ tourId: propTourId }) => {
                     flex-shrink: 0;
                 }
 
+                @media (max-width: 640px) {
+                    .tv-team-avatar {
+                        width: 44px;
+                        height: 44px;
+                        font-size: 18px;
+                    }
+                }
+
                 .tv-team-info {
                     flex: 1;
                 }
@@ -233,12 +276,25 @@ const TeamView = ({ tourId: propTourId }) => {
                     color: #02457A;
                     font-size: 16px;
                     margin-bottom: 4px;
+                    word-break: break-word;
+                }
+
+                @media (max-width: 640px) {
+                    .tv-team-name {
+                        font-size: 14px;
+                    }
                 }
 
                 .tv-team-meta {
                     font-size: 11px;
                     color: #64748b;
                     font-weight: 500;
+                }
+
+                @media (max-width: 640px) {
+                    .tv-team-meta {
+                        font-size: 10px;
+                    }
                 }
 
                 .tv-team-actions {
@@ -265,7 +321,12 @@ const TeamView = ({ tourId: propTourId }) => {
                     text-decoration: underline;
                 }
 
-                /* BUTTONS */
+                @media (max-width: 640px) {
+                    .tv-delete-btn {
+                        font-size: 11px;
+                    }
+                }
+
                 .tv-btn-confirmed {
                     padding: 8px 18px;
                     border-radius: 12px;
@@ -279,6 +340,13 @@ const TeamView = ({ tourId: propTourId }) => {
                     cursor: pointer;
                     transition: all 0.2s;
                     flex-shrink: 0;
+                }
+
+                @media (max-width: 640px) {
+                    .tv-btn-confirmed, .tv-btn-pending {
+                        padding: 8px 14px;
+                        font-size: 10px;
+                    }
                 }
 
                 .tv-btn-confirmed:hover {
@@ -306,14 +374,6 @@ const TeamView = ({ tourId: propTourId }) => {
                     border-color: #ca8a04;
                 }
 
-                /* GRID LAYOUT */
-                .tv-grid {
-                    display: grid;
-                    grid-template-columns: 1fr;
-                    gap: 12px;
-                }
-
-                /* EMPTY STATE */
                 .tv-empty {
                     color: #94a3b8;
                     font-style: italic;
@@ -325,31 +385,10 @@ const TeamView = ({ tourId: propTourId }) => {
                     border: 1px dashed #CBD5E1;
                 }
 
-                /* ANIMATION */
-                @keyframes tv-fade-in {
-                    from {
-                        opacity: 0;
-                        transform: translateY(8px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                .tv-container {
-                    animation: tv-fade-in 0.3s ease-out;
-                }
-
-                /* RESPONSIVE */
-                @media (min-width: 768px) {
-                    .tv-grid {
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: 16px;
-                    }
-                    
-                    .tv-team-card {
-                        margin-bottom: 0;
+                @media (max-width: 640px) {
+                    .tv-empty {
+                        padding: 16px;
+                        font-size: 12px;
                     }
                 }
             `}</style>
@@ -361,7 +400,6 @@ const TeamView = ({ tourId: propTourId }) => {
                 />
             </div>
             
-            {/* ĐỘI ĐÃ DUYỆT */}
             <div className="tv-section tv-section-confirmed">
                 <div className="tv-section-title tv-section-title-confirmed">
                     Đội đã duyệt
@@ -373,7 +411,6 @@ const TeamView = ({ tourId: propTourId }) => {
                 </div>
             </div>
 
-            {/* ĐỘI CHỜ DUYỆT */}
             <div className="tv-section tv-section-pending">
                 <div className="tv-section-title tv-section-title-pending">
                     Chờ duyệt
