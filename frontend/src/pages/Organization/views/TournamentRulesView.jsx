@@ -406,7 +406,7 @@ const CSS = `
     font-size: 16px; font-weight: 600;
     color: var(--ocean-mid);
   }
-  /* ─── RESPONSIVE ─── */
+     /* ─── RESPONSIVE ─── */
   @media (max-width: 1024px) {
     .rv-inner { max-width: 95%; }
     .rv-stage { margin-left: 0 !important; }

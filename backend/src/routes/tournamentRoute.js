@@ -42,8 +42,15 @@ router.post('/createTournament',
 );
 
 // Chỉnh sửa giải đấu (có upload file)
-router.put('/:id', protectedRoute('Organization'), editTournament);
-
+router.put('/:id', 
+    protectedRoute('Organization'), 
+    upload.fields([
+        { name: 'logo', maxCount: 1 },
+        { name: 'paymentQR', maxCount: 1 },
+        { name: 'banners', maxCount: 10 }
+    ]), 
+    editTournament
+);
 // Hủy giải đấu (chuyển status thành cancelled)
 router.put('/:id/cancel', protectedRoute('Organization'), cancelTournament);
 
