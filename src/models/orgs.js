@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const OrganizationsSchema = new mongoose.Schema({
+const orgsSchema = new mongoose.Schema({
     ownerId:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -32,5 +32,5 @@ const OrganizationsSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const Organization = mongoose.model("Organization", OrganizationsSchema);
+const Organization = mongoose.model("Organization", orgsSchema);
 export default Organization;

@@ -30,24 +30,29 @@ const baseRuleSchema = new mongoose.Schema({
     sport: {
         type: String,
         required: true,
-        enum: ['Football',  'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball',  'Other']
+        enum: ['Soccer', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Esports', 'Other']
     },
 
-    playerEntryFee:{
+    slotPlayerOfSport:{
+            type:Number,
+            default:1
+    },
+
+    feeEntry:{
         type: Number,
         default: 0
     },
 
-    teamComposition: { 
-        maxTeams: { type: Number, default: 32 },           // Tổng số đội tối đa
+    teamComposition: { // Số cầu thủ tối thiểu
+        maxTeams: { type: Number, default: 4 },           // Tổng số đội tối đa
         minTeams: { type: Number, default: 2 }             // Tổng số đội tối thiểu
     },
 
     timeLine: {
-        registrationStart: {type: Date,required: true},
-        registrationEnd: {type: Date,required: true},
-        tournamentStart: {type: Date,required: true},
-        tournamentEnd: {type: Date,required: true},
+        timeRegiter: { type: Date, default: null },
+        timeCloseRegister: { type: Date, default: null },
+        timeOpen: { type: Date, default: Date.now },
+        timeClose: { type: Date, default: null }
     },
 
     tournamentStructure:{

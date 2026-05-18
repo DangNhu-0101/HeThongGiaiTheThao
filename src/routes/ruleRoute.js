@@ -16,15 +16,15 @@ const router = express.Router();
 router.get('/systems', getBaseRules);
 
 // GET /api/rules?tournamentId=... (lấy tất cả rule của giải đấu)
-router.get('/', protectedRoute('Organization'), getAllRules);
+router.get('/', protectedRoute('org'), getAllRules);
 
 // GET /api/rules/:id (lấy chi tiết 1 rule)
-router.get('/:id', protectedRoute('Organization'), getDetailRules);
+router.get('/:id', protectedRoute('org'), getDetailRules);
 
 // PUT /api/rules/:id (chỉnh sửa rule)
-router.put('/:id', protectedRoute('Organization'), editRule);
+router.put('/:id', protectedRoute('org'), editRule);
 
 // DELETE /api/rules/:id (xóa rule)
-router.delete('/:id', protectedRoute('Organization'), deleteRule);
+router.delete('/:id', protectedRoute('org'), deleteRule);
 
 export default router;

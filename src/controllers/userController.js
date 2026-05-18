@@ -1,10 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import User from '../models/users.js';
-import Player from '../models/players.js';
+import Players from '../models/players.js';
 import Referee from '../models/referees.js';
-import Organization from '../models/Organizations.js';
-const players = []; 
+import Organization from '../models/orgs.js';
+
 export const authMe = async (req, res) => {
     const user = req.user
     return res.status(200).json({
@@ -128,30 +128,33 @@ export const getProfile = async (req, res) => {
         if (!user) {
             return res.status(401).json({ message: "Người dùng không tồn tại" });
         }
-        
-        let organizations = [];
+
         let profileDetails = null;
-        
         if (user.role === "player") {
-            profileDetails = await Players.findOne({ userId: currentId }).lean();
+            profileDetails = await players.findOne({ userId: currentId });
         } else if (user.role === "referee") {
-            profileDetails = await Referee.findOne({ userId: currentId }).lean();
-        } else if (user.role === "Organization") {
-            organizations = await Organization.find({ ownerId: user._id }).lean();
+            profileDetails = await Referee.findOne({ userId: currentId });
+        } else if (user.role === "org") {
+            profileDetails = await Organization.findOne({ userId: currentId });
         }
 
-        // Merge user + profileDetails
-        const result = {
-            ...user.toObject(),
-            ...(profileDetails || {}),  // ← Spread profileDetails TRỰC TIẾP
-            organizations
+        const userObject = user.toObject();
+        const profileObject = profileDetails ? profileDetails.toObject() : {};
+
+        const customData = {
+            username: userObject.username,
+            avatarUrl: userObject.avatarUrl,
+            email: userObject.email,
+            role: userObject.role,
+            ...profileObject,
         };
 
-        res.status(200).json({
-            success: true,
-            message: 'Lấy thông tin profile thành công',
-            data: result
+
+        return res.status(200).json({
+            message: "Lấy thông tin profile thành công",
+            data: customData
         });
+
     } catch (error) {
         console.error("Lỗi trong hàm getProfile:", error);
         return res.status(500).json({
@@ -159,7 +162,7 @@ export const getProfile = async (req, res) => {
             error: error.message
         });
     }
-};
+}
 
 export const editProfile = async (req, res) => {
     try {
@@ -197,7 +200,7 @@ export const editProfile = async (req, res) => {
                 { new: true, runValidators: true }
             );
         }
-        else if (updatedUser.role === "Organization") {
+        else if (updatedUser.role === "org") {
             updatedDetails = await Organization.findOneAndUpdate(
                 { userId: currentId },
                 { $set: details },

@@ -17,7 +17,7 @@ const refereeSchema = new mongoose.Schema({
         required: true
     },
 
-    birthDate: {
+    birthDay: {
         type: Date,
         required: true
     },

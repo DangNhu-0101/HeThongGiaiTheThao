@@ -5,8 +5,6 @@ const tournamentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    slogan: { type: String, trim: true, default: "" },
-    targetParticipants: { type: String, default: "0" },
 
     description: { type: String, trim: true, default: "" },
     logo:{
@@ -14,19 +12,11 @@ const tournamentSchema = new mongoose.Schema({
         default:''
     },
 
-   banners: [{ type: String }],
+    banner: { type: String },
 
     sportType:[{
-         type: String,
-        required: true,
-        enum: ['Pickleball', 'Tennis', 'Badminton', 'Table Tennis','Football', 'Volleyball'],
-        default: 'Pickleball'
-    }],
-    sportsConfig: [{
-        sport: String,
-        feePerAthlete: Number, // Lệ phí theo vận động viên
-        maxTeams: Number,      // Giới hạn đội
-        categories: [String]   // Nội dung (MS, MD, ...)
+        type: String,
+        required: true
     }],
 
     timeLine:{
@@ -41,14 +31,13 @@ const tournamentSchema = new mongoose.Schema({
     galaConfig: {
         hasGala: { type: Boolean, default: false },
         time: { type: Date, default: null },
-        location: { type: String, default: "" },
+        venue: { type: String, default: "" },
         description: { type: String, default: "" }
     },
 
     location: {
-        type: String,
-        trim: true,
-        default: ""
+        city: String,
+        district: String,
     },
     baseRule:[{
         type: mongoose.Schema.Types.ObjectId,
@@ -58,11 +47,6 @@ const tournamentSchema = new mongoose.Schema({
     budget: {
         totalSponsor: { type: Number, default: 0 },
         totalExpense: { type: Number, default: 0 },
-    },
-    contactPerson: {
-        name: { type: String, default: "" },
-        phone: { type: String, default: "" },
-  
     },
     organizer: {
         type: mongoose.Schema.Types.ObjectId,

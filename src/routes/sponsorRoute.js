@@ -16,10 +16,10 @@ const router = express.Router();
 router.get('/tournaments/:tournamentId/sponsors', getSponsorsByTournament);
 router.get('/sponsors/:id', getSponsorById);
 
-// Routes yêu cầu đăng nhập và quyền tổ chức (Organization) hoặc admin
-router.post('/sponsors', protectedRoute('Organization'), createSponsor);
-router.put('/sponsors/:id', protectedRoute('Organization'), updateSponsor);
-router.patch('/sponsors/:id/deactivate', protectedRoute('Organization'), deactivateSponsor);
-router.patch('/sponsors/:id/activate', protectedRoute('Organization'), activateSponsor);
+// Routes yêu cầu đăng nhập và quyền tổ chức (org) hoặc admin
+router.post('/sponsors', protectedRoute('org'), createSponsor);
+router.put('/sponsors/:id', protectedRoute('org'), updateSponsor);
+router.patch('/sponsors/:id/deactivate', protectedRoute('org'), deactivateSponsor);
+router.patch('/sponsors/:id/activate', protectedRoute('org'), activateSponsor);
 
 export default router;

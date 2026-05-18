@@ -6,8 +6,7 @@ import {
     searchUsers,
     changePassword,
     getProfile,
-    editProfile,
-    getAllOrganizations
+    editProfile, getAllOrganizations
 } from '../controllers/userController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
