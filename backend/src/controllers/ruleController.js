@@ -8,7 +8,7 @@ import TimeManagementRule from '../models/rules/timeManagements.js';
 import ResourceManagementRule from '../models/rules/resourceManagements.js';
 import FaultsAndPenalties from '../models/rules/faultsAndPenalties.js';
 import Tournament from '../models/tournaments.js';
-import Bracket from '../models/rules//brackets.js';
+import Bracket from '../models/rules/brackets.js';
 import Group from '../models/groups.js';
 import Match from '../models/matches.js';
 import Team from '../models/teams.js';
@@ -103,7 +103,7 @@ export const editRule = async (req, res) => {
         baseRule.ruleName = newData.ruleName;
         baseRule.description = newData.description;
         baseRule.sport = newData.sport;
-        baseRule.playerEntryFee = newData.playerEntryFee;
+        baseRule.feeEntry = newData.feeEntry;
         if (newData.teamComposition) baseRule.teamComposition = newData.teamComposition;
         // (có thể thêm version, language nếu cần)
 
@@ -224,7 +224,7 @@ export const editRule = async (req, res) => {
             const sportItem = {
                 sport: newData.sport,
                 
-                playerEntryFee: max,
+                feeEntry: max,
                 maxTeams: newData.teamComposition?.maxTeams || 32,
                 ruleData: newData
             };

@@ -79,7 +79,6 @@ if (process.env.NODE_ENV === 'production') {
 connectDB().then(() => {
     app.listen(PORT, () => {
         console.log(` Server started on port: ${PORT}`);
-        console.log(` Static files available at: http://localhost:${PORT}/uploads`);
     });
 }).catch((error) => {
     console.error("Kết nối Database thất bại:", error);

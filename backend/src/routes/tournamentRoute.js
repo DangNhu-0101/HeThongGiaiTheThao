@@ -22,8 +22,9 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + file.originalname);
   }
 });
-
 const upload = multer({ storage: storage });
+
+
 // Các route công khai (không cần đăng nhập)
 router.get('/', getAllTournament);               // Lấy danh sách giải đấu (phân trang, lọc)
 router.get('/:id', getTournament);               // Lấy chi tiết giải đấu

@@ -53,7 +53,7 @@ const scoringRulesSchema = new mongoose.Schema({
     sport: {
         type: String,
         required: true,
-        enum: ['Football', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Other']
+        enum: ['Soccer', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Other']
     },
     ruleName: {
         type: String,
