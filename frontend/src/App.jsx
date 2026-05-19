@@ -46,7 +46,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
         <div className="p-10 text-center">
           <div className="skeleton" style={{ width: 200, height: 200, borderRadius: '50%', margin: '0 auto 20px' }} />
           <p style={{ color: 'var(--ocean-deep)', fontFamily: 'var(--font-title)' }}>
-            Đang kiểm tra dữ liệu bảo mật...
+            Đang tải dữ liệu ...
           </p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { parseExcelFile } from '../utils/excelHelper.js';
+import { parseExcelFile } from '../utils/ExcelHelper.js';
 import {
     importUsers, importTournaments, importTeams, importPlayers,
     importGroups, importCourts, importMatches
