@@ -1,4 +1,4 @@
-import Invitation from '../models/Invitations.js';
+import Invitation from '../models/invitations.js';
 import User from '../models/users.js';
 import Member from '../models/membersOfTeam.js';
 
