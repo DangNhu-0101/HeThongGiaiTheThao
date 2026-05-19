@@ -13,6 +13,7 @@ import tournamentRoute from './routes/tournamentRoute.js';
 import stageRoutes from './routes/stageRoutes.js';
 import refereeRoute from './routes/refereeRoute.js';
 import notificationRoute from './routes/notificationRoute.js';
+import xlxsRoute from './routes/xlxsRoute.js';
 import teamRoute from './routes/teamRoute.js';
 import courtRoute from './routes/courtRoute.js';
 import matchRoute from './routes/matchRoute.js';
@@ -32,16 +33,11 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Chặn bởi CORS'));
-        }
-    },
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5000'],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Thêm PATCH cho editProfile/Tournament
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['Content-Disposition']
 }));
 
 app.use(express.json());
@@ -56,6 +52,7 @@ app.use('/api/auth', authRoute);
 app.use('/api/users', userRoute);
 app.use('/api/rules', ruleRoute);
 app.use('/api/matches', matchRoute);
+app.use('/api/xlxs', xlxsRoute);
 app.use('/api/teams', teamRoute);
 // Lưu ý: Đổi tên cho khớp với Frontend đang gọi (/api/tournaments)
 app.use('/api/tournaments', tournamentRoute);

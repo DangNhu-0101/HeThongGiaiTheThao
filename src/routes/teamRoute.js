@@ -51,6 +51,6 @@ router.post('/join-requests/:requestId/reject', protectedRoute('player'), reject
 router.get('/:teamId/join-requests', protectedRoute('player'), getTeamJoinRequests);      // Lấy danh sách yêu cầu (captain)
 
 // ======================== PAYMENT ========================
-router.patch('/:id/payment', protectedRoute('org'), updatePaymentStatus); // Cập nhật thanh toán
+router.patch('/:id/payment', protectedRoute(['org', 'Organization']), updatePaymentStatus); // Cập nhật thanh toán
 
 export default router;

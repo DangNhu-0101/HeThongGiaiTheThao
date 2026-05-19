@@ -3,8 +3,166 @@ import mongoose from 'mongoose';
 import Match from '../models/matches.js';
 import Group from '../models/groups.js';
 import Team from '../models/teams.js';
+import BaseRule from '../models/rules/baseRules.js';
+import Bracket from '../models/rules/brackets.js';
 import { updateStandingsAfterMatch } from '../utils/standingHelper.js';
 import { createRoundRobinMatches } from '../utils/matchScheduleHelper.js';
+
+const getTeamDisplayName = (team) => team?.name || team?.teamName || 'Đội chưa đặt tên';
+
+const buildRoundRobinDraft = ({ teams, group, tournamentId, bracketId, stageRuleId, sportType, ruleId, startTime, courts, startMatchNumber }) => {
+    const matches = [];
+    let matchNumber = startMatchNumber;
+    const start = new Date(startTime);
+    const courtList = courts?.length ? courts : ['Sân 1'];
+
+    for (let i = 0; i < teams.length; i++) {
+        for (let j = i + 1; j < teams.length; j++) {
+            const scheduledStartTime = new Date(start.getTime() + (matchNumber - startMatchNumber) * 60 * 60 * 1000);
+            const courtName = courtList[(matchNumber - startMatchNumber) % courtList.length];
+            matches.push({
+                tournamentId,
+                bracketId,
+                stageRuleId,
+                groupId: group?._id || null,
+                groupName: group?.name || '',
+                group: group?.name || '',
+                round: 1,
+                matchNumber,
+                matchType: 'group',
+                sportType,
+                ruleId,
+                team1: teams[i]._id,
+                team2: teams[j]._id,
+                team1Name: getTeamDisplayName(teams[i]),
+                team2Name: getTeamDisplayName(teams[j]),
+                scheduledStartTime,
+                timestart: scheduledStartTime,
+                courtName,
+                court: courtName,
+                status: 'SCHEDULED'
+            });
+            matchNumber += 1;
+        }
+    }
+
+    return matches;
+};
+
+export const autoDrawTournamentMatches = async (req, res) => {
+    try {
+        const { tournamentId } = req.params;
+        const { ruleId, startTime, courts = [] } = req.body;
+
+        if (!ruleId || !startTime) {
+            return res.status(400).json({ success: false, message: 'Thiếu ruleId hoặc startTime' });
+        }
+
+        const rule = await BaseRule.findById(ruleId).populate('tournamentStructure.stages').lean();
+        if (!rule) return res.status(404).json({ success: false, message: 'Không tìm thấy luật thi đấu' });
+
+        const sportType = rule.sport || rule.sportType;
+        const stageRuleId = rule.tournamentStructure?.stages?.[0]?._id || rule.tournamentStructure?.stages?.[0];
+        if (!stageRuleId) {
+            return res.status(400).json({ success: false, message: 'Luật chưa có cấu hình vòng đấu' });
+        }
+        let bracket = await Bracket.findOne({ tournamentId, sport: sportType }).lean();
+        if (!bracket) {
+            bracket = await Bracket.create({
+                tournamentId,
+                stageId: stageRuleId,
+                sport: sportType,
+                name: `${sportType} - Auto bracket`,
+                numberOfGroup: 1,
+                groups: []
+            });
+            bracket = bracket.toObject();
+        }
+
+        const groups = await Group.find({ bracketId: bracket._id }).populate('teamInGroup').sort({ name: 1 }).lean();
+        let matchNumber = 1;
+        let draftMatches = [];
+
+        if (groups.length && groups.some(g => g.teamInGroup?.length >= 2)) {
+            for (const group of groups) {
+                if (group.teamInGroup?.length < 2) continue;
+                const groupMatches = buildRoundRobinDraft({
+                    teams: group.teamInGroup,
+                    group,
+                    tournamentId,
+                    bracketId: bracket._id,
+                    stageRuleId: group.stageRuleId || stageRuleId,
+                    sportType,
+                    ruleId,
+                    startTime,
+                    courts,
+                    startMatchNumber: matchNumber
+                });
+                draftMatches = draftMatches.concat(groupMatches);
+                matchNumber += groupMatches.length;
+            }
+        } else {
+            const teams = await Team.find({
+                tournamentId,
+                status: { $in: ['validated', 'confirmed', 'pending'] }
+            }).lean();
+            const sportTeams = teams.filter(t => !sportType || (t.sportCategory || t.sportType || '').toLowerCase().includes(sportType.toLowerCase()));
+            const selectedTeams = sportTeams.length ? sportTeams : teams;
+
+            if (selectedTeams.length < 2) {
+                return res.status(400).json({ success: false, message: 'Cần ít nhất 2 đội để tạo lịch' });
+            }
+
+            draftMatches = buildRoundRobinDraft({
+                teams: selectedTeams,
+                group: null,
+                tournamentId,
+                bracketId: bracket._id,
+                stageRuleId,
+                sportType,
+                ruleId,
+                startTime,
+                courts,
+                startMatchNumber: matchNumber
+            });
+        }
+
+        return res.json({ success: true, data: draftMatches });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const publishDraftMatches = async (req, res) => {
+    try {
+        const { matches = [] } = req.body;
+        if (!matches.length) {
+            return res.status(400).json({ success: false, message: 'Không có trận nháp để công khai' });
+        }
+
+        const docs = matches.map((match) => ({
+            tournamentId: match.tournamentId,
+            bracketId: match.bracketId,
+            stageRuleId: match.stageRuleId,
+            groupId: match.groupId || null,
+            round: match.round || 1,
+            matchNumber: match.matchNumber,
+            matchType: match.matchType || 'group',
+            sportType: match.sportType,
+            ruleId: match.ruleId,
+            team1: match.team1,
+            team2: match.team2,
+            scheduledStartTime: match.scheduledStartTime || match.timestart,
+            courtName: match.courtName || match.court || '',
+            status: 'SCHEDULED'
+        }));
+
+        const saved = await Match.insertMany(docs);
+        return res.status(201).json({ success: true, data: saved });
+    } catch (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+};
 
 // ==================== TỰ ĐỘNG TẠO LỊCH VÒNG TRÒN CHO GROUP ====================
 export const autoGenerateGroupMatches = async (req, res) => {
@@ -96,6 +254,8 @@ export const getMatches = async (req, res) => {
         const matches = await Match.find(filter)
             .populate('team1 team2', 'name')
             .populate('winnerTeamId', 'name')
+            .populate('groupId', 'name')
+            .populate('courtId', 'name')
             .sort({ matchNumber: 1 });
         res.json({ success: true, data: matches });
     } catch (error) {
