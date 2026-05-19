@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node src/scripts/createRuleSystem.js"
+    "seed": "node src/scripts/createRuleSystem.js",
+    "template": "node src/scripts/configFileExcel.js"
   },
   "keywords": [],
   "author": "",

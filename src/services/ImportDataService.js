@@ -1,13 +1,14 @@
-
+// services/importDataService.js
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import User from '../models/users.js';
+import Player from '../models/players.js';
 import Tournament from '../models/tournaments.js';
 import Team from '../models/teams.js';
-import Player from '../models/players.js';
 import Group from '../models/groups.js';
-import Match from '../models/matches.js';
 import Court from '../models/courts.js';
+import Match from '../models/matches.js';
+import Member from '../models/membersOfTeam.js';
 
 
 // Helper tìm tournamentId theo tên
@@ -34,48 +35,53 @@ async function getTeamIdByName(name, tournamentId, session) {
 }
 
 
-export const importUsers = async (rows, session) => {
+// 1. Import Người dùng + Cầu thủ (gộp)
+export const importUsersWithPlayers = async (rows, session) => {
     const created = [];
     for (const row of rows) {
-        const hashed = await bcrypt.hash(row.password, 10);
-        const user = await User.create([{
+         for (const row of rows) {
+        // Kiểm tra password
+        if (!row.hashedPassword || row.hashedPassword.toString().trim() === '') {
+            throw new Error(`User ${row.username}: hashedPassword không được để trống`);
+        }}
+        // Tạo User
+        const hashed = await bcrypt.hash(row.hashedPassword, 10);
+        const [user] = await User.create([{
             username: row.username,
             email: row.email,
             phoneNumber: row.phoneNumber,
-            password: hashed,
+            hashedPassword: hashed,
             role: row.role,
             status: row.status || 'active'
         }], { session });
-        created.push(user[0]);
+        created.push(user);
+
+
+        // Nếu role là player, tạo Player tương ứng
+        if (row.role === 'player') {
+            await Player.create([{
+                userId: user._id,
+                name: row.displayName,
+                birthYear: parseInt(row.birthYear),
+                gender: row.gender,
+                skillLevel: parseFloat(row.skillLevel) || 3.0
+            }], { session });
+        }
     }
     return created;
 };
 
 
-export const importTournaments = async (rows, session) => {
-    const created = [];
-    for (const row of rows) {
-        const tournament = await Tournament.create([{
-            displayName: row.name,
-            description: row.description || '',
-            sport: row.sport,
-            venue: row.venue,
-            timeLine: { timeOpen: new Date(row.timeOpen), timeClose: row.timeClose ? new Date(row.timeClose) : null },
-            location: row.location || '',
-            status: 'upcoming'
-        }], { session });
-        created.push(tournament[0]);
-    }
-    return created;
-};
-
-
+// 3. Import Đội
 export const importTeams = async (rows, session) => {
     const created = [];
     for (const row of rows) {
         const tournamentId = await getTournamentIdByName(row.tournamentName, session);
         const ownerId = await getUserIdByUsername(row.ownerUsername, session);
-        const team = await Team.create([{
+
+
+        // Tạo team
+        const [team] = await Team.create([{
             name: row.name,
             tournamentId,
             sportType: row.sportType,
@@ -83,43 +89,59 @@ export const importTeams = async (rows, session) => {
             createdBy: ownerId,
             status: row.status || 'pending'
         }], { session });
-        created.push(team[0]);
-    }
-    return created;
-};
 
 
-export const importPlayers = async (rows, session) => {
-    const created = [];
-    for (const row of rows) {
-        const userId = await getUserIdByUsername(row.username, session);
-        const player = await Player.create([{
-            userId,
-            name: row.displayName,
-            birthYear: parseInt(row.birthYear),
-            gender: row.gender,
-            skillLevel: parseFloat(row.skillLevel) || 3.0
+        // Tạo member cho chủ đội (Captain)
+        await Member.create([{
+            teamId: team._id,
+            userId: ownerId,
+            role: 'Captain',
+            status: 'Active',
+            joinedAt: new Date()
         }], { session });
-        created.push(player[0]);
+
+
+        // Xử lý danh sách thành viên (members)
+        if (row.members) {
+            const memberUsernames = row.members.split(/[,\n]+/).map(s => s.trim()).filter(s => s);
+            for (const username of memberUsernames) {
+                const userId = await getUserIdByUsername(username, session);
+                // Tránh thêm trùng với owner (nếu owner cũng nằm trong danh sách)
+                if (userId.toString() !== ownerId.toString()) {
+                    await Member.create([{
+                        teamId: team._id,
+                        userId,
+                        role: 'Member',
+                        status: 'Active',
+                        joinedAt: new Date()
+                    }], { session });
+                }
+            }
+        }
+
+
+        created.push(team);
     }
     return created;
 };
 
 
+
+
+
+
+// 4. Import Bảng
 export const importGroups = async (rows, session) => {
     const created = [];
     for (const row of rows) {
         const tournamentId = await getTournamentIdByName(row.tournamentName, session);
-        // teamNames: chuỗi tên đội cách nhau bằng dấu phẩy hoặc xuống dòng
-        const teamNames = row.teamNames ? row.teamNames.split(/[,\n]+/).map(s => s.trim()) : [];
+        const teamNames = row.teamNames ? row.teamNames.split(/[,\n]+/).map(s => s.trim()).filter(s => s) : [];
         const teamIds = [];
         for (const tn of teamNames) {
-            if (tn) {
-                const tid = await getTeamIdByName(tn, tournamentId, session);
-                teamIds.push(tid);
-            }
+            const tid = await getTeamIdByName(tn, tournamentId, session);
+            teamIds.push(tid);
         }
-        const group = await Group.create([{
+        const [group] = await Group.create([{
             name: row.name,
             tournamentId,
             sport: row.sport,
@@ -127,30 +149,15 @@ export const importGroups = async (rows, session) => {
             standings: teamIds.map(tid => ({ teamId: tid, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0 })),
             status: row.status || 'pending'
         }], { session });
-        created.push(group[0]);
+        created.push(group);
     }
     return created;
 };
 
 
-export const importCourts = async (rows, session) => {
-    const created = [];
-    for (const row of rows) {
-        const tournamentId = await getTournamentIdByName(row.tournamentName, session);
-        const sports = row.sportTypes ? row.sportTypes.split(/[,\n]+/).map(s => s.trim()) : [];
-        const court = await Court.create([{
-            name: row.name,
-            tournamentId,
-            sportTypes: sports,
-            location: row.location || '',
-            status: row.status || 'empty'
-        }], { session });
-        created.push(court[0]);
-    }
-    return created;
-};
 
 
+// 6. Import Trận đấu
 export const importMatches = async (rows, session) => {
     const created = [];
     for (const row of rows) {
@@ -163,21 +170,21 @@ export const importMatches = async (rows, session) => {
             if (!group) throw new Error(`Không tìm thấy bảng: ${row.groupName}`);
             groupId = group._id;
         }
-        const match = await Match.create([{
+        const [match] = await Match.create([{
             tournamentId,
             groupId,
             round: parseInt(row.round) || 1,
             matchNumber: parseInt(row.matchNumber) || 1,
             matchType: groupId ? 'group' : 'knockout',
             sportType: row.sportType || '',
-            ruleId: null, // có thể để trống hoặc tìm rule
+            ruleId: null,
             team1: team1Id,
             team2: team2Id,
             scheduledStartTime: new Date(row.scheduledStartTime),
             courtName: row.courtName || '',
             status: row.status || 'SCHEDULED'
         }], { session });
-        created.push(match[0]);
+        created.push(match);
     }
     return created;
 };
