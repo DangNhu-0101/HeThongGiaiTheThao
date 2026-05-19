@@ -31,10 +31,10 @@ router.put('/profile', protectedRoute(), editProfile);
 // --- NHỮNG ROUTE PHÂN QUYỀN CỤ THỂ ---
 
 // Lấy danh sách tất cả users (Giả sử chỉ Organization mới xem được)
-router.get('/', protectedRoute('Organization'), getAllUsers);
+router.get('/', protectedRoute('org, Organization'), getAllUsers);
 
 // Tìm kiếm users
-router.get('/search', protectedRoute('player', 'referee', 'Organization'), searchUsers);
+router.get('/search', protectedRoute('player', 'referee', 'org, Organization'), searchUsers);
 
 router.get('/organizations', getAllOrganizations);
 

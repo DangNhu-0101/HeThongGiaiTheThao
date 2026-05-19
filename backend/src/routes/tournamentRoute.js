@@ -33,7 +33,7 @@ router.get('/:id', getTournament);               // Lấy chi tiết giải đ�
 
 // Tạo giải đấu mới (có upload file)
 router.post('/createTournament', 
-    protectedRoute('Organization'), 
+    protectedRoute('org, Organization'), 
     upload.fields([
         { name: 'logo', maxCount: 1 },
         { name: 'paymentQR', maxCount: 1 },
@@ -44,7 +44,7 @@ router.post('/createTournament',
 
 // Chỉnh sửa giải đấu (có upload file)
 router.put('/:id', 
-    protectedRoute('Organization'), 
+    protectedRoute('org, Organization'), 
     upload.fields([
         { name: 'logo', maxCount: 1 },
         { name: 'paymentQR', maxCount: 1 },
@@ -53,6 +53,6 @@ router.put('/:id',
     editTournament
 );
 // Hủy giải đấu (chuyển status thành cancelled)
-router.put('/:id/cancel', protectedRoute('Organization'), cancelTournament);
+router.put('/:id/cancel', protectedRoute('org, Organization'), cancelTournament);
 
 export default router;

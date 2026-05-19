@@ -493,7 +493,7 @@ const RegisterTeam = () => {
                   <div className="rg-info-rows">
                     <div className="rg-info-row">
                       <span className="rg-info-key">Đơn vị tổ chức</span>
-                      <span className="rg-info-val">{selectedTour?.Organization?.name || 'Ban tổ chức'}</span>
+                      <span className="rg-info-val">{selectedTour?.org?.name || 'Ban tổ chức'}</span>
                     </div>
                     <div className="rg-info-row">
                       <span className="rg-info-key">Hạng mục</span>

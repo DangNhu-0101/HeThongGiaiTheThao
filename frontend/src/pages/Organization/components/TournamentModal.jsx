@@ -55,7 +55,7 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
   useEffect(() => {
     api.get('/users/organizations')
       .then(res => {
-        const orgList = res.data?.data?.data || res.data?.data || res.data?.organizations || [];
+        const orgList = res.data?.data?.data || res.data?.data || res.data?.org || [];
         setOrganizations(orgList);
       })
       .catch(err => {

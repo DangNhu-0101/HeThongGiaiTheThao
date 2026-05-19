@@ -712,7 +712,7 @@ const DashboardView = () => {
                 <div className="dv-footer-grid">
                     <MetaItem label="Created At" value={new Date(tournament.createdAt).toLocaleString()} />
                     <MetaItem label="Last Update" value={new Date(tournament.updatedAt).toLocaleString()} />
-                    <MetaItem label="Organizer" value={tournament.organization?.orgName || tournament.organization?.name || "N/A"} />
+                    <MetaItem label="Organizer" value={tournament.org?.orgName || tournament.org?.name || "N/A"} />
                     <MetaItem label="Location" value={tournament.venue || "N/A"} />
                 </div>
             </div>

@@ -26,7 +26,7 @@ const Login = () => {
         }
         
         const userRole = res.data.user?.role;
-        if (userRole === 'Organization') {
+        if (userRole === 'org') {
           navigate('/admin');
         } else {
           navigate('/');

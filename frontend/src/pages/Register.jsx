@@ -51,9 +51,9 @@ const Register = () => {
     const validateStep2 = () => {
         let errs = {};
         if (!profileForm.name) errs.name = "Họ và tên/Tên tổ chức không được để trống!";
-        if (userForm.role !== 'Organization' && !profileForm.birthDate) errs.birthDate = "Vui lòng chọn ngày sinh!";
+        if (userForm.role !== 'org' && !profileForm.birthDate) errs.birthDate = "Vui lòng chọn ngày sinh!";
         
-        if (userForm.role === 'Organization') {
+        if (userForm.role === 'org') {
             if (!profileForm.city) errs.city = "Vui lòng nhập thành phố!";
             if (!profileForm.detail) errs.detail = "Vui lòng nhập địa chỉ chi tiết!";
         }
@@ -217,7 +217,7 @@ const Register = () => {
                             >
                                 <option value="player">Vận động viên</option>
                                 <option value="referee">Trọng tài</option>
-                                <option value="Organization">Tổ chức</option>
+                                <option value="org">Tổ chức</option>
                             </select>
                         </div>
 
@@ -231,7 +231,7 @@ const Register = () => {
                         
                         <div>
                             <label className="register-label">
-                                {userForm.role === 'Organization' ? "Tên Tổ chức / CLB" : "Họ và tên hiển thị"}
+                                {userForm.role === 'org' ? "Tên Tổ chức " : "Họ và tên hiển thị"}
                             </label>
                             <input 
                                 className={`register-input ${errors.name ? 'register-input-error' : ''}`} 
@@ -242,7 +242,7 @@ const Register = () => {
                             {errors.name && <p className="register-error-text">{errors.name}</p>}
                         </div>
 
-                        {userForm.role !== 'Organization' && (
+                        {userForm.role !== 'org' && (
                             <div className="register-grid-2">
                                 <div>
                                     <label className="register-label">Ngày sinh</label>
@@ -301,7 +301,7 @@ const Register = () => {
                             </div>
                         )}
 
-                        {userForm.role === 'Organization' && (
+                        {userForm.role === 'org' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div className="register-grid-2">
                                     <div>

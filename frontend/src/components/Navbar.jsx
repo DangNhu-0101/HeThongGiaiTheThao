@@ -12,7 +12,7 @@ const NAV_LINKS = [
 /* Menu dropdown theo role */
 const USER_MENU = {
   player: [
-    { to: '/profile',       label: 'Hồ sơ VĐV'   },
+    { to: '/profile',       label: 'Hồ sơ'   },
     { to: '/register-team', label: 'Đăng ký đội'  },
     { to: '/my-teams',      label: 'Quản lý đội'  },
   ],
@@ -20,8 +20,8 @@ const USER_MENU = {
     { to: '/profile',  label: 'Hồ sơ'             },
     { to: '/referee',  label: 'Khu vực Trọng tài'  },
   ],
-  Organization: [
-    { to: '/admin',    label: 'Tổ chức / Admin'    },
+  org: [
+    { to: '/admin',    label: 'Quản lý tổ chức'    },
     { to: '/profile',  label: 'Hồ sơ'              },
   ],
 };
@@ -379,7 +379,7 @@ export default function Navbar() {
             />
             <div>
               <div className="nb-logo-name">ITVTG</div>
-              <div className="nb-logo-sub">Pickleball 2025</div>
+              <div className="nb-logo-sub">Pickleball 2026</div>
             </div>
           </Link>
 
@@ -393,14 +393,7 @@ export default function Navbar() {
           {/* RIGHT */}
           <div className="nb-right">
 
-            {user?.role === 'Organization' && (
-              <Link to="/admin" className="nb-chip dang">Tổ chức / Admin</Link>
-            )}
-
-            {user?.role === 'referee' && (
-              <Link to="/referee" className="nb-chip warn">Khu vực Trọng tài</Link>
-            )}
-
+            
             {user && <div className="nb-sep" />}
 
             {!user ? (

@@ -49,7 +49,8 @@ const level = profileData?.sports?.[0]?.level || profileData?.level || profileDa
         'referee': 'Trọng tài',
         'Referee': 'Trọng tài',
         'Organization': 'Ban tổ chức',
-        'organization': 'Ban tổ chức',
+        'org': 'Ban tổ chức',
+        'orgs': 'Ban tổ chức',
         'coach': 'Huấn luyện viên',
     }[role] || role;
 
