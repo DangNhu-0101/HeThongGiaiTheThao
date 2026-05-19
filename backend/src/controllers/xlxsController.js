@@ -3,7 +3,7 @@ import { parseExcelFile } from '../utils/ExcelHelper.js';
 import {
     importUsers, importTournaments, importTeams, importPlayers,
     importGroups, importCourts, importMatches
-} from '../services/importDataService.js';
+} from '../services/ImportDataService.js';
 
 export const importExcel = async (req, res) => {
     if (!req.file) return res.status(400).json({ success: false, message: 'Vui lòng upload file Excel' });
