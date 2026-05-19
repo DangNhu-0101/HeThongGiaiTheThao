@@ -97,7 +97,7 @@ const TeamView = ({ tourId: propTourId }) => {
     };
 
     const downloadTemplate = () => {
-        window.open('http://localhost:5001/api/excel/template', '_blank');
+        window.open('http://localhost:5001/api/xlxs/template', '_blank');
     };
 
     const handleApproveTeam = async (teamId) => {

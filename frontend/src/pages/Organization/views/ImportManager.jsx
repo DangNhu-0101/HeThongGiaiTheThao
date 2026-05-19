@@ -19,51 +19,79 @@ const ImportManager = () => {
         }
     };
 
-    const handleImport = async () => {
-        if (!file) {
-            setMessage({ type: 'error', text: 'Vui lòng chọn file Excel!' });
-            return;
-        }
+   const handleImport = async () => {
+    if (!file) {
+        setMessage({ type: 'error', text: 'Vui lòng chọn file Excel!' });
+        return;
+    }
 
-        const formData = new FormData();
-        formData.append('file', file);
+    const formData = new FormData();
+    formData.append('file', file);
 
-        setUploading(true);
-        setMessage(null);
-        
-        try {
-            const res = await api.post('/excel/import', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+    // DEBUG: In ra thông tin
+    console.log('=== DEBUG IMPORT ===');
+    console.log('File:', file.name, file.size, file.type);
+    console.log('API baseURL:', api.defaults.baseURL);
+    console.log('Full URL:', api.defaults.baseURL + '/xlsx/import');
+    console.log('Token:', localStorage.getItem('token')?.substring(0, 20) + '...');
 
-            if (res.data.success) {
-                setMessage({ 
-                    type: 'success', 
-                    text: res.data.message || '✅ Import thành công!' 
-                });
-                setFile(null);
-                const fileInput = document.getElementById('excel-file-input');
-                if (fileInput) fileInput.value = '';
-            } else {
-                setMessage({ type: 'error', text: res.data.message || '❌ Import thất bại!' });
-                if (res.data.errors) {
-                    console.error('Validation errors:', res.data.errors);
-                }
-            }
-        } catch (error) {
-            console.error('Import error:', error);
+    setUploading(true);
+    setMessage(null);
+    
+    try {
+        const res = await api.post('/xlsx/import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        console.log('✅ Response:', res.status, res.data);
+
+        if (res.data.success) {
             setMessage({ 
-                type: 'error', 
-                text: error.response?.data?.message || '❌ Lỗi kết nối server!' 
+                type: 'success', 
+                text: res.data.message || '✅ Import thành công!' 
             });
-        } finally {
-            setUploading(false);
+            setFile(null);
+            const fileInput = document.getElementById('excel-file-input');
+            if (fileInput) fileInput.value = '';
+        } else {
+            setMessage({ type: 'error', text: res.data.message || '❌ Import thất bại!' });
+            if (res.data.errors) {
+                console.error('Validation errors:', res.data.errors);
+            }
         }
-    };
-
+    } catch (error) {
+    // DEBUG: In chi tiết lỗi
+    console.error('=== IMPORT ERROR ===');
+    console.error('Status:', error.response?.status);
+    console.error('StatusText:', error.response?.statusText);
+    console.error('Message:', error.message);
+    
+    // In chi tiết errors array
+    const errors = error.response?.data?.errors;
+    console.error('Errors:', errors);
+    
+    // Log từng lỗi riêng biệt
+    if (errors && Array.isArray(errors)) {
+        errors.forEach((err, i) => {
+            console.error(`❌ Lỗi ${i + 1}:`, JSON.stringify(err, null, 2));
+        });
+        setMessage({ 
+            type: 'error', 
+            text: `❌ Import thất bại! Có ${errors.length} lỗi. Mở Console (F12) để xem chi tiết.` 
+        });
+    } else {
+        setMessage({ 
+            type: 'error', 
+            text: error.response?.data?.message || `❌ Lỗi ${error.response?.status || ''}: ${error.message}` 
+        });
+    }
+} finally {
+    setUploading(false);
+}
+   };
     const downloadTemplate = () => {
-        window.open('http://localhost:5001/api/excel/template', '_blank');
-    };
+    window.open('http://localhost:5001/api/xlsx/template', '_blank');
+};
 
     const importTypes = [
         { id: 'all', name: '📦 Tất cả', desc: 'Import toàn bộ dữ liệu' },

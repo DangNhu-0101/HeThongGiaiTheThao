@@ -142,11 +142,12 @@ function App() {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute allowedRoles={['Organization']}>
+              <ProtectedRoute allowedRoles={['org']}>
                 <Admin />
               </ProtectedRoute>
             }
           >
+            <Route path="import" element={<ImportManager />} />
             <Route index element={<DashboardView />} />
             <Route path="users" element={<UserListView />} />
             <Route path="tournaments" element={<TournamentManagementView />} />
