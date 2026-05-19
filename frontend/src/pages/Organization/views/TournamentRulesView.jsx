@@ -18,16 +18,7 @@ const RANKING_CRITERIA_LIST = [
 ];
 
 const CSS = `
-  :root {
-    --ocean-deep:    #02457A;
-    --ocean-mid:     #018ABE;
-    --ocean-pale:    #97CADB;
-    --sky-mist:      #D6E7EE;
-    --purple-accent: #A999DC;
-    --logo-red:      #BD0014;
-    --dark-base:     #18181C;
-    --bg-white:      #FFFFFF;
-  }
+ 
   .rv-wrap {
     min-height: 100vh;
     background: var(--sky-mist);

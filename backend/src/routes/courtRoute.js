@@ -13,12 +13,12 @@ import Referee from '../models/referees.js';
 const router = express.Router();
 
 // Lấy danh sách sân của giải đấu (có thể public, nhưng vẫn yêu cầu đăng nhập nếu cần)
-router.get('/tournaments/:tournamentId/courts',protectedRoute('player','referee','org'), getCourtsByTournament);
+router.get('/tournaments/:tournamentId/courts', protectedRoute(['player', 'referee', 'org', 'Organization']), getCourtsByTournament);
 
 // Các route quản lý sân chỉ dành cho tổ chức (org) hoặc admin
-router.post('/courts', protectedRoute('org'), addCourt);
-router.put('/courts/:courtId', protectedRoute('org'), updateCourt);
-router.patch('/courts/:courtId/status', protectedRoute('org'), updateCourtStatus);
-router.delete('/courts/:courtId',protectedRoute('org'), deleteCourt);
+router.post('/courts', protectedRoute(['org', 'Organization']), addCourt);
+router.put('/courts/:courtId', protectedRoute(['org', 'Organization']), updateCourt);
+router.patch('/courts/:courtId/status', protectedRoute(['org', 'Organization']), updateCourtStatus);
+router.delete('/courts/:courtId', protectedRoute(['org', 'Organization']), deleteCourt);
 
 export default router;

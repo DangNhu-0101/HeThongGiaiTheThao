@@ -2,9 +2,11 @@ import jwt from 'jsonwebtoken';
 import User from '../models/users.js';
 
 // Đổi thành function nhận allowedRoles
-export const protectedRoute = (allowedRoles = []) => {
+export const protectedRoute = (...allowedRolesInput) => {
     return async (req, res, next) => {
         try {
+            const firstArg = allowedRolesInput.length === 0 ? [] : allowedRolesInput;
+            const roles = firstArg.flat().filter(Boolean);
             let token = req.cookies.jwt || req.cookies.accessToken;
             
             // Extract token from Authorization header (Bearer token)
@@ -29,9 +31,9 @@ export const protectedRoute = (allowedRoles = []) => {
                 }
 
                 // KIỂM TRA QUYỀN (Nếu mảng allowedRoles không trống)
-                if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+                if (roles.length > 0 && !roles.includes(user.role)) {
                     return res.status(403).json({
-                        message: `Bạn không có quyền thực hiện hành động này. Yêu cầu quyền: ${allowedRoles}`
+                        message: `Bạn không có quyền thực hiện hành động này. Yêu cầu quyền: ${roles}`
                     });
                 }
 

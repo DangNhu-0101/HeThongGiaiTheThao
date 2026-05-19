@@ -1,15 +1,36 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from "../../../api/axiosConfig";
 
 const MatchView = () => {
     const { id: tournamentId } = useParams();
-    const rules = []; 
+    const [rules, setRules] = useState([]);
     const [selectedRule, setSelectedRule] = useState("");
     const [startTime, setStartTime] = useState("");
     const [courts, setCourts] = useState(["Sân 1", "Sân 2", "Sân 3"]);
     const [draftMatches, setDraftMatches] = useState([]);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    useEffect(() => {
+        if (!tournamentId) return;
+
+        const fetchSetupData = async () => {
+            try {
+                const [ruleRes, courtRes] = await Promise.all([
+                    api.get('/rules', { params: { tournamentId } }),
+                    api.get(`/courts/tournaments/${tournamentId}/courts`).catch(() => ({ data: { data: [] } }))
+                ]);
+
+                setRules(ruleRes.data?.data || []);
+                const courtNames = (courtRes.data?.data || []).map(c => c.name).filter(Boolean);
+                if (courtNames.length) setCourts(courtNames);
+            } catch (error) {
+                console.error("Lỗi tải dữ liệu xếp lịch:", error);
+            }
+        };
+
+        fetchSetupData();
+    }, [tournamentId]);
 
     const handleAutoDraw = async () => {
         if (!selectedRule || !startTime) {
@@ -358,7 +379,7 @@ const MatchView = () => {
                                 <option value="" className="text-gray-900">-- Click để chọn --</option>
                                 {rules?.length > 0 ? (
                                     rules.map(r => (
-                                        <option key={r._id} value={r._id} className="text-gray-900">{r.ruleName} ({r.sportType})</option>
+                                        <option key={r._id} value={r._id} className="text-gray-900">{r.ruleName} ({r.sport || r.sportType})</option>
                                     ))
                                 ) : (
                                     <option value="" disabled className="text-gray-900">Đang tải dữ liệu luật...</option>

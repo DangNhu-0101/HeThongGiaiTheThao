@@ -56,7 +56,6 @@
 body {
   margin: 0;
   background-color: var(--bg-light);
-  /* Texture lưới mùa hè nhẹ */
   background-image:
     linear-gradient(rgba(1, 138, 190, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(1, 138, 190, 0.06) 1px, transparent 1px);
@@ -209,7 +208,7 @@ h1, h2, h3, h4 {
 }
 
 /* =========================================
-   8. HOME PAGE
+   8. HOME PAGE - COMPACT
 ========================================= */
 .hero-section {
   background: linear-gradient(
@@ -348,7 +347,6 @@ h1, h2, h3, h4 {
 }
 .nav-link:hover, .nav-link.active { color: var(--ocean-mid); }
 
-/* Nút bấm trên Header */
 .nav-btn {
   padding: 8px 20px; border-radius: 8px; font-weight: bold;
   text-decoration: none; transition: 0.3s; font-family: var(--font-title);
@@ -363,7 +361,6 @@ h1, h2, h3, h4 {
 }
 .nav-btn-danger:hover { background: var(--logo-red); color: white; }
 
-/* Badge quyền Admin */
 .admin-badge {
   background: var(--purple-accent); color: white;
   padding: 4px 10px; border-radius: 8px;
@@ -597,8 +594,346 @@ h1, h2, h3, h4 {
   font-size: 3.5rem; font-family: var(--font-title);
 }
 
+/* =========================================
+   19. SKELETON LOADER
+========================================= */
+.skeleton {
+  background: linear-gradient(90deg, #dce8ee 25%, #c4d8e2 50%, #dce8ee 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer { 
+  from { background-position: 200% 0; } 
+  to { background-position: -200% 0; } 
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar { width: 4px; }
   .custom-scrollbar::-webkit-scrollbar-track { background: var(--sky-mist); }
   .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-ocean-mid rounded-full; }
+}
+
+/* Thêm vào cuối file index.css */
+
+/* =========================================
+   20. REGISTER PAGE STYLES - OCEAN THEME
+========================================= */
+.register-container {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, var(--ocean-deep) 0%, var(--ocean-mid) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  margin: 0;
+  position: relative;
+}
+
+/* Đảm bảo container chiếm toàn bộ viewport */
+.register-container::before {
+  content: '';
+  display: block;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .register-container {
+    padding: 30px 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .register-container {
+    padding: 20px 12px;
+  }
+}
+
+.register-card {
+  background: var(--bg-white);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
+  padding: 40px;
+  max-width: 500px;
+  width: 100%;
+  border-top: 4px solid var(--ocean-mid);
+  box-shadow: 0 25px 50px -12px rgba(2, 69, 122, 0.25);
+  /* Đảm bảo card không bị co giãn quá mức */
+  margin: auto;
+}
+
+/* Center card trên mọi thiết bị */
+@media (min-width: 641px) {
+  .register-card {
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .register-card {
+    padding: 24px;
+    border-radius: 20px;
+    max-width: 100%;
+  }
+}
+
+/* Phần còn lại giữ nguyên */
+.register-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 40px;
+  padding: 0 16px;
+}
+
+@media (max-width: 640px) {
+  .register-progress {
+    margin-bottom: 30px;
+    padding: 0 8px;
+  }
+}
+
+.register-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.register-step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.7rem;
+  transition: all 0.3s;
+}
+
+.register-step-number-active {
+  background: var(--ocean-mid);
+  color: white;
+  box-shadow: 0 0 10px rgba(1, 138, 190, 0.5);
+}
+
+.register-step-number-inactive {
+  background: var(--sky-mist);
+  color: var(--ocean-deep);
+}
+
+.register-step-label {
+  font-size: 0.6rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.register-step-label-active {
+  color: var(--ocean-mid);
+}
+
+.register-step-label-inactive {
+  color: var(--ocean-pale);
+}
+
+.register-progress-line {
+  flex: 1;
+  height: 2px;
+  margin: 0 16px;
+  transition: all 0.3s;
+}
+
+.register-progress-line-active {
+  background: var(--ocean-mid);
+}
+
+.register-progress-line-inactive {
+  background: var(--sky-mist);
+}
+
+.register-title {
+  color: var(--ocean-deep);
+  font-size: 1.5rem;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .register-title {
+    font-size: 1.25rem;
+    margin-bottom: 20px;
+  }
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.register-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  color: var(--ocean-deep);
+}
+
+.register-input {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-white);
+  border: 1.5px solid var(--ocean-pale);
+  border-radius: 12px;
+  color: var(--dark-base);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .register-input {
+    padding: 10px;
+    font-size: 16px;
+  }
+}
+
+.register-input:focus {
+  border-color: var(--ocean-mid);
+  box-shadow: 0 0 0 3px rgba(1, 138, 190, 0.1);
+}
+
+.register-input-error {
+  border-color: var(--logo-red);
+}
+
+.register-error-text {
+  color: var(--logo-red);
+  font-size: 0.6rem;
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.register-server-error {
+  padding: 12px;
+  background: rgba(189, 0, 20, 0.1);
+  border: 1px solid var(--logo-red);
+  border-radius: 8px;
+  color: var(--logo-red);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.register-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .register-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.register-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  font-weight: 900;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .register-btn {
+    padding: 12px;
+    font-size: 0.7rem;
+  }
+}
+
+.register-btn-primary {
+  background: linear-gradient(90deg, var(--ocean-deep), var(--ocean-mid));
+  color: white;
+}
+
+.register-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(1, 138, 190, 0.4);
+}
+
+.register-btn-secondary {
+  background: var(--sky-mist);
+  color: var(--ocean-deep);
+  border: 1.5px solid var(--ocean-pale);
+}
+
+.register-btn-secondary:hover:not(:disabled) {
+  background: var(--ocean-pale);
+  transform: translateY(-1px);
+}
+
+.register-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.register-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+@media (max-width: 640px) {
+  .register-actions {
+    gap: 12px;
+  }
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Select dropdown styling */
+.register-input option {
+  background: var(--bg-white);
+  color: var(--dark-base);
+}
+
+/* Đảm bảo text trong success screen được căn giữa */
+.register-card.text-center {
+  text-align: center;
+}
+
+.register-card.text-center .register-title {
+  text-align: center;
 }

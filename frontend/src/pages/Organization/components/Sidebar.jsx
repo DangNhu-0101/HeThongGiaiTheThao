@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
 const NAV_TABS = [
@@ -8,6 +8,7 @@ const NAV_TABS = [
   { id: 'teams',     label: 'Đội tuyển',         icon: '◎' },
   { id: 'courts',    label: 'Sân bãi',           icon: '▣' },
   { id: 'finance',   label: 'Tài chính',         icon: '◆' },
+  { id: 'import',    label: 'Import dữ liệu',   icon: '📥' },  // ← THÊM DÒNG NÀY
 ];
 
 const Sidebar = ({ tournaments = [], onCreate }) => {
@@ -15,11 +16,26 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
   const location  = useLocation();
   const { id: selectedTourId } = useParams();
 
+  // Đóng sidebar khi resize lên desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        const wrap = document.getElementById('sidebar-wrap');
+        if (wrap?.classList.contains('mobile-open')) {
+          wrap.classList.remove('mobile-open');
+        }
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const getActiveTab = () => {
     const p = location.pathname;
     if (p.includes('/rules'))   return 'rules';
     if (p.includes('/users'))   return 'global-users';
     if (p.includes('/tournaments') && !selectedTourId) return 'global-tours';
+    if (p.includes('/import'))  return 'import';  // ← THÊM DÒNG NÀY
     if (selectedTourId) {
       if (p.includes('/matches')) return 'matches';
       if (p.includes('/teams'))   return 'teams';
@@ -38,10 +54,16 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
 
   const isActive = (tab) => activeTab === tab;
 
+  // Đóng sidebar (dùng chung cho mobile)
+  const closeSidebarOnMobile = () => {
+    if (window.innerWidth <= 768) {
+      document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
+    }
+  };
+
   return (
     <>
       <style>{`
-        /* ─── CSS VARIABLES (THÊM VÀO ĐÂY) ─── */
         :root {
           --ocean-deep: #02457A;
           --ocean-mid: #018ABE;
@@ -49,7 +71,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           --neutral-cream: #f5f5f0;
         }
 
-        /* ─── SIDEBAR SHELL - RESPONSIVE ─── */
         .sb-wrap {
           width: 260px;
           min-width: 260px;
@@ -64,14 +85,12 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           transition: all 0.3s ease;
         }
 
-        /* Desktop: đảm bảo Sidebar luôn hiển thị */
         @media (min-width: 769px) {
           .sb-wrap {
             display: flex !important;
           }
         }
 
-        /* Mobile: Sidebar chuyển thành top bar + drawer */
         @media (max-width: 768px) {
           .sb-wrap {
             width: 100%;
@@ -125,7 +144,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           }
         }
 
-        /* Tablet: Sidebar thu nhỏ */
         @media (max-width: 1024px) and (min-width: 769px) {
           .sb-wrap {
             width: 220px;
@@ -146,7 +164,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           }
         }
 
-        /* Mobile nhỏ */
         @media (max-width: 480px) {
           .sb-logo {
             padding: 20px 20px;
@@ -161,7 +178,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           }
         }
 
-        /* ─── LOGO ─── */
         .sb-logo {
           padding: 28px 24px 20px;
           border-bottom: 1px solid rgba(151,202,219,0.1);
@@ -184,7 +200,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           margin-top: 4px;
         }
 
-        /* ─── SCROLL AREA ─── */
         .sb-scroll {
           flex: 1;
           overflow-y: auto;
@@ -203,7 +218,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           border-radius: 4px;
         }
 
-        /* ─── SECTION LABEL ─── */
         .sb-section-label {
           font-size: 9px;
           font-weight: 700;
@@ -213,14 +227,12 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           padding: 16px 24px 6px;
         }
 
-        /* Tablet điều chỉnh section label */
         @media (max-width: 1024px) {
           .sb-section-label {
             padding: 12px 16px 4px;
           }
         }
 
-        /* ─── NAV BUTTON ─── */
         .sb-btn {
           width: 100%;
           display: flex;
@@ -240,7 +252,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           border-left: 3px solid transparent;
         }
         
-        /* Mobile: nút to hơn để dễ chạm */
         @media (max-width: 768px) {
           .sb-btn {
             padding: 12px 24px;
@@ -270,7 +281,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
         }
         .sb-btn.active .sb-btn-icon { opacity: 1; }
 
-        /* ─── SUB BUTTON (indented) ─── */
         .sb-btn-sub {
           padding-left: 40px;
           font-size: 12.5px;
@@ -288,14 +298,12 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           }
         }
 
-        /* ─── DIVIDER ─── */
         .sb-divider {
           height: 1px;
           background: rgba(151,202,219,0.1);
           margin: 8px 0;
         }
 
-        /* ─── TOURNAMENT SELECTOR ─── */
         .sb-selector-wrap {
           padding: 8px 16px 12px;
         }
@@ -326,7 +334,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           transition: border-color 0.15s;
         }
         
-        /* Mobile: select to hơn */
         @media (max-width: 768px) {
           .sb-select {
             padding: 12px 12px;
@@ -337,7 +344,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
         .sb-select:focus { border-color: var(--ocean-pale, #97CADB); }
         .sb-select option { background: #02457A; color: #fff; }
 
-        /* ─── CREATE BUTTON ─── */
         .sb-create-btn {
           width: 100%;
           margin-top: 8px;
@@ -354,7 +360,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           letter-spacing: 0.5px;
         }
         
-        /* Mobile: create button to hơn */
         @media (max-width: 768px) {
           .sb-create-btn {
             padding: 12px 12px;
@@ -369,7 +374,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           color: #fff;
         }
 
-        /* ─── active TOUR PILL ─── */
         .sb-tour-active {
           margin: 0 16px 4px;
           background: rgba(1,138,190,0.15);
@@ -408,7 +412,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           }
         }
 
-        /* ─── FOOTER ─── */
         .sb-footer {
           padding: 14px 24px;
           border-top: 1px solid rgba(151,202,219,0.1);
@@ -422,11 +425,10 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
       `}</style>
 
       <div className="sb-wrap" id="sidebar-wrap">
-        {/* LOGO - có thể click để toggle trên mobile */}
-        <div className="sb-logo" onClick={(e) => {
+        <div className="sb-logo" onClick={() => {
           if (window.innerWidth <= 768) {
             const wrap = document.getElementById('sidebar-wrap');
-            wrap.classList.toggle('mobile-open');
+            wrap?.classList.toggle('mobile-open');
           }
         }}>
           <div>
@@ -435,18 +437,14 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           </div>
         </div>
 
-        {/* SCROLL AREA */}
         <div className="sb-scroll">
 
-          {/* HỆ THỐNG */}
           <div className="sb-section-label">Hệ thống</div>
           <button
             className={`sb-btn ${isActive('global-users') ? 'active' : ''}`}
             onClick={() => {
               navigate('/admin/users');
-              if (window.innerWidth <= 768) {
-                document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
-              }
+              closeSidebarOnMobile();
             }}
           >
             <span className="sb-btn-icon">◈</span>
@@ -456,18 +454,25 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
             className={`sb-btn ${isActive('global-tours') ? 'active' : ''}`}
             onClick={() => {
               navigate('/admin/tournaments');
-              if (window.innerWidth <= 768) {
-                document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
-              }
+              closeSidebarOnMobile();
             }}
           >
             <span className="sb-btn-icon">◉</span>
             Tất cả giải đấu
           </button>
+          <button
+            className={`sb-btn ${isActive('import') ? 'active' : ''}`}
+            onClick={() => {
+              navigate('/admin/import');
+              closeSidebarOnMobile();
+            }}
+          >
+            <span className="sb-btn-icon">📥</span>
+            Import dữ liệu
+          </button>
 
           <div className="sb-divider" />
 
-          {/* TOURNAMENT SELECTOR */}
           <div className="sb-section-label">Giải đấu</div>
           <div className="sb-selector-wrap">
             <select
@@ -475,27 +480,24 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
               value={selectedTourId || ''}
               onChange={(e) => {
                 handleSelectTour(e.target.value);
-                if (window.innerWidth <= 768) {
-                  document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
-                }
+                closeSidebarOnMobile();
               }}
             >
               <option value="">— Chọn giải —</option>
               {tournaments.map(t => (
-                <option key={t._id} value={t._id}>{t.name}</option>
+                <option key={t._id} value={t._id}>
+                  {t.displayName || t.name || t.tournamentName || 'Giải đấu'}
+                </option>
               ))}
             </select>
             <button className="sb-create-btn" onClick={() => {
               onCreate();
-              if (window.innerWidth <= 768) {
-                document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
-              }
+              closeSidebarOnMobile();
             }}>
               + Tạo giải mới
             </button>
           </div>
 
-          {/* active TOUR + LOCAL NAV */}
           {selectedTourId && (() => {
             const activeTour = tournaments.find(t => t._id === selectedTourId);
             return (
@@ -503,12 +505,14 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
                 {activeTour && (
                   <div className="sb-tour-active">
                     <div className="sb-tour-active-label">Đang quản lý</div>
-                    <div className="sb-tour-active-name">{activeTour.displayName || activeTour.name}</div>
+                    <div className="sb-tour-active-name">
+                      {activeTour.displayName || activeTour.name || 'Giải đấu'}
+                    </div>
                   </div>
                 )}
 
                 <div className="sb-section-label" style={{ marginTop: 8 }}>Điều hành</div>
-                {NAV_TABS.map(({ id, label, icon }) => {
+                {NAV_TABS.filter(tab => tab.id !== 'import').map(({ id, label, icon }) => {
                   const path = id === 'dashboard'
                     ? `/admin/tournament/${selectedTourId}`
                     : `/admin/tournament/${selectedTourId}/${id}`;
@@ -518,9 +522,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
                       className={`sb-btn sb-btn-sub ${isActive(id) ? 'active' : ''}`}
                       onClick={() => {
                         navigate(path);
-                        if (window.innerWidth <= 768) {
-                          document.getElementById('sidebar-wrap')?.classList.remove('mobile-open');
-                        }
+                        closeSidebarOnMobile();
                       }}
                     >
                       <span className="sb-btn-icon">{icon}</span>
@@ -534,7 +536,6 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
 
         </div>
 
-        {/* FOOTER */}
         <div className="sb-footer">
           <div className="sb-footer-text">© 2025 IT Vũng Tàu Group</div>
         </div>
@@ -544,4 +545,4 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
   );
 };
 
-export default Sidebar;
+export default Sidebar; 

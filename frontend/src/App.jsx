@@ -1,9 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-// Lưu ý: Không cần import api axios ở đây nữa vì AuthContext đã lo việc gọi API
 
 // --- CÁC TRANG SHARED & PUBLIC ---
+import TournamentsList from './pages/TournamentsList';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -21,12 +21,13 @@ import TeamDetail from './pages/TeamDetail';
 import Navbar from './components/Navbar';
 
 // --- CÁC TRANG DÀNH RIÊNG CHO Organization (ADMIN) ---
-// Admin chính là component Organization (chứa Layout Sidebar + Outlet)
-import Admin from './pages/Organization/Organization'; 
+import Admin from './pages/Organization/Organization';
 
 // Import đầy đủ các Views nằm trong thư mục Organization/views
+import ImportManager from './pages/Organization/views/ImportManager';
 import DashboardView from './pages/Organization/views/DashboardView';
-import TournamentRulesView from './pages/Organization/views/TournamentRulesView'; // Chứa cái DynamicStageConfig hoặc RuleFormModal
+import TournamentManagementView from './pages/Organization/views/TournamentManagementView';
+import TournamentRulesView from './pages/Organization/views/TournamentRulesView';
 import TournamentDetailView from './pages/Organization/views/TournamentDetailView';
 import MatchView from './pages/Organization/views/MatchView';
 import TeamView from './pages/Organization/views/TeamView';
@@ -35,56 +36,53 @@ import FinanceView from './pages/Organization/views/FinanceView';
 import UserListView from './pages/Organization/views/UserListView';
 
 
-// TẠO TRẠM KIỂM SOÁT BẢO MẬT ĐÃ ĐƯỢC TỐI ƯU (Dùng Global State)
+// Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  // Rút trích thông tin user và trạng thái loading trực tiếp từ AuthContext
   const { user, loading } = useAuth();
 
-  // Đang kiểm tra token với server -> Hiện loading trạng thái mượt mà
   if (loading) {
-      return (
-          <div className="flex items-center justify-center min-h-screen bg-neutral-cream">
-              <div className="p-10 text-center text-teal-accent font-title font-bold text-2xl animate-pulse">
-                  Đang kiểm tra dữ liệu bảo mật...
-              </div>
-          </div>
-      );
+    return (
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--bg-light)' }}>
+        <div className="p-10 text-center">
+          <div className="skeleton" style={{ width: 200, height: 200, borderRadius: '50%', margin: '0 auto 20px' }} />
+          <p style={{ color: 'var(--ocean-deep)', fontFamily: 'var(--font-title)' }}>
+            Đang kiểm tra dữ liệu bảo mật...
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  // 1. Không hợp lệ (Không có cookie/Token hết hạn hoặc user = null) -> Đá về Login
   if (!user) return <Navigate to="/login" replace />;
 
-  // 2. Organization được quyền đi muôn nơi (Bypass mọi luật lệ)
   if (user.role === 'Organization') return children;
 
-  // 3. Nếu route có yêu cầu Role cụ thể, mà User không có quyền -> Đá về Home
   if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
 
-  // 4. Hợp lệ -> Cho phép truy cập
   return children;
 };
 
-// COMPONENT TẠM THỜI CHO CÁC TRANG CHƯA LÀM
+// Component cho các trang đang phát triển
 const ComingSoon = ({ title }) => (
-  <div style={{ textAlign: 'center', padding: '50px' }}>
-    <h2 className="text-2xl font-title text-dark-forest">{title}</h2>
-    <p className="text-gray-500">Trang này đang được xây dựng...</p>
+  <div className="page-container" style={{ textAlign: 'center', padding: '50px' }}>
+    <h2 style={{ color: 'var(--ocean-deep)', marginBottom: 16 }}>{title}</h2>
+    <p style={{ color: '#5a6a7a' }}>Trang này đang được xây dựng...</p>
   </div>
 );
 
 function App() {
   return (
-    // FIX CHÍNH: Bao bọc toàn bộ ứng dụng bằng AuthProvider để cấp phát Global State
     <AuthProvider>
       <Router>
-        {/* Navbar hiển thị chung cho các trang ngoài Admin */}
         <Navbar />
-
         <Routes>
           {/* ==========================================
-              CÁC TRANG PUBLIC (Không cần đăng nhập) 
+              CÁC TRANG PUBLIC (Không cần đăng nhập)
           ========================================== */}
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<TournamentsList />} />
+          <Route path="/admin/import" element={<ImportManager />} />
+          <Route path="/tournaments/:tournamentId" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/standings" element={<Standings />} />
@@ -92,55 +90,78 @@ function App() {
           <Route path="/fixtures" element={<Fixtures />} />
 
           {/* ==========================================
-              CÁC TRANG USER (Chỉ cần đăng nhập, không phân biệt Role)
+              CÁC TRANG USER (Chỉ cần đăng nhập)
           ========================================== */}
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        
-          {/* ==========================================
-              CÁC TRANG DÀNH CHO player (VÀ Organization)
-          ========================================== */}
-          <Route path="/notifications" element={<ProtectedRoute allowedRoles={['player', 'Referee']}><Notifications /></ProtectedRoute>} />
-          <Route path="/register-team" element={<ProtectedRoute allowedRoles={['player']}><RegisterTeam /></ProtectedRoute>} />
-          <Route path="/my-teams" element={<ProtectedRoute allowedRoles={['player']}><MyTeams /></ProtectedRoute>} />
-          <Route path="/team/detail/:id" element={<ProtectedRoute allowedRoles={['player']}><TeamDetail /></ProtectedRoute>} />
-          <Route path="/payment/:id" element={<Payment />} />          {/* ==========================================
-              CÁC TRANG DÀNH CHO REFEREE (VÀ Organization)
-          =================================== ======= */}
-          <Route path="/referee" element={<ProtectedRoute allowedRoles={['Referee']}><Referee /></ProtectedRoute>} />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
 
           {/* ==========================================
-              CÁC TRANG QUYỀN LỰC NHẤT DÀNH CHO Organization (NESTED ROUTING)
+              CÁC TRANG DÀNH CHO player
+          ========================================== */}
+          <Route path="/notifications" element={
+            <ProtectedRoute allowedRoles={['player', 'Referee']}>
+              <Notifications />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/register-team" element={
+            <ProtectedRoute allowedRoles={['player']}>
+              <RegisterTeam />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/my-teams" element={
+            <ProtectedRoute allowedRoles={['player']}>
+              <MyTeams />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/team/detail/:id" element={
+            <ProtectedRoute allowedRoles={['player']}>
+              <TeamDetail />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/payment/:id" element={<Payment />} />
+
+          {/* ==========================================
+              CÁC TRANG DÀNH CHO REFEREE
+          ========================================== */}
+          <Route path="/referee" element={
+            <ProtectedRoute allowedRoles={['Referee']}>
+              <Referee />
+            </ProtectedRoute>
+          } />
+
+          {/* ==========================================
+              CÁC TRANG DÀNH CHO Organization (ADMIN)
           ========================================== */}
           <Route 
             path="/admin" 
             element={
               <ProtectedRoute allowedRoles={['Organization']}>
-                <Admin /> {/* Admin chính là Organization.jsx (Chứa Sidebar và <Outlet />) */}
+                <Admin />
               </ProtectedRoute>
             }
           >
-              {/* Khi URL là "/admin", nó sẽ load DashboardView vào lỗ hổng <Outlet /> 
-              */}
-              <Route index element={<DashboardView />} />
-                
-              {/* Global admin routes */}
-              <Route path="users" element={<UserListView />} />
-
-              {/* ĐÃ FIX: Bổ sung Route gốc khi chọn 1 giải đấu cụ thể
-              */}
-              <Route path="tournament/:id" element={<DashboardView />} /> 
-              
-              <Route path="tournament/:id/rules" element={<TournamentRulesView />} />             
-              <Route path="tournament/:id/settings" element={<TournamentDetailView />} />
-              <Route path="tournament/:id/teams" element={<TeamView />} />
-              <Route path="tournament/:id/matches" element={<MatchView />} />
-              <Route path="tournament/:id/courts" element={<CourtView />} />
-              <Route path="tournament/:id/finance" element={<FinanceView />} />
-              
-              {/* Route gốc của bạn chuyển thành Route con */}
-              <Route path="schedule-drafts" element={<ScheduleDrafts />} />
+            <Route index element={<DashboardView />} />
+            <Route path="users" element={<UserListView />} />
+            <Route path="tournaments" element={<TournamentManagementView />} />
+            <Route path="tournament/:id" element={<DashboardView />} />
+            <Route path="tournament/:id/rules" element={<TournamentRulesView />} />
+            <Route path="tournament/:id/settings" element={<TournamentDetailView />} />
+            <Route path="tournament/:id/teams" element={<TeamView />} />
+            <Route path="tournament/:id/matches" element={<MatchView />} />
+            <Route path="tournament/:id/courts" element={<CourtView />} />
+            <Route path="tournament/:id/finance" element={<FinanceView />} />
+            <Route path="schedule-drafts" element={<ScheduleDrafts />} />
           </Route>
 
+          {/* Fallback route - 404 */}
+          <Route path="*" element={<ComingSoon title="404 - Không tìm thấy trang" />} />
         </Routes>
       </Router>
     </AuthProvider>

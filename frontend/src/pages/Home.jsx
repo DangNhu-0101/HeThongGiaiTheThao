@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import api from '../api/axiosConfig';
 
 const IMAGE_BASE_URL = "http://localhost:5001/";
 
-const styles = `
-  :root {
-    --ocean-deep:    #02457A;
-    --ocean-mid:     #018ABE;
-    --ocean-pale:    #97CADB;
-    --sky-mist:      #D6E7EE;
-    --purple-accent: #A999DC;
-    --logo-red:      #BD0014;
-    --dark-base:     #18181C;
-    --bg-light:      #D6E7EE;
-    --bg-white:      #FFFFFF;
-  }
-  *, *::before, *::after { box-sizing: border-box; }
+// Chỉ giữ lại styles đặc thù cho Home (không có :root vì đã có trong index.css)
+const homeStyles = `
+  /* Home page specific styles */
   .home-wrap {
     background: var(--sky-mist);
     font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
@@ -24,7 +14,7 @@ const styles = `
     min-height: 100vh;
   }
 
-  /* ── HERO ── */
+  /* HERO */
   .hero {
     background: linear-gradient(160deg, rgba(2,69,122,0.97) 0%, rgba(1,57,106,0.95) 60%, rgba(1,138,190,0.85) 100%);
     padding: 64px 24px 72px;
@@ -68,7 +58,7 @@ const styles = `
     margin-bottom: 40px;
   }
 
-  /* ── COUNTDOWN ── */
+  /* COUNTDOWN */
   .countdown {
     display: flex;
     justify-content: center;
@@ -116,7 +106,7 @@ const styles = `
   }
   .hero-cta:hover { background: #019fd8; transform: translateY(-1px); }
 
-  /* ── SPONSOR ── */
+  /* SPONSOR */
   .sponsor-strip {
     background: var(--bg-white);
     border-bottom: 1px solid rgba(2,69,122,0.08);
@@ -143,7 +133,7 @@ const styles = `
     flex-shrink: 0;
   }
 
-  /* ── MAIN ── */
+  /* MAIN */
   .home-main {
     max-width: 1000px;
     margin: 0 auto;
@@ -172,7 +162,7 @@ const styles = `
     background: linear-gradient(90deg, var(--ocean-pale), transparent);
   }
 
-  /* ── ABOUT ── */
+  /* ABOUT */
   .about-card {
     background: var(--bg-white);
     border-radius: 20px;
@@ -222,7 +212,7 @@ const styles = `
     margin-top: 4px;
   }
 
-  /* ── INFO GRID ── */
+  /* INFO GRID */
   .info-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -274,7 +264,7 @@ const styles = `
   }
   .info-link:hover { border-color: var(--ocean-mid); }
 
-  /* ── TIMELINE ── */
+  /* TIMELINE */
   .timeline-wrap {
     position: relative;
     display: flex;
@@ -308,7 +298,7 @@ const styles = `
     margin-top: 3px;
   }
 
-  /* ── TWO COL ── */
+  /* TWO COL */
   .two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -316,7 +306,7 @@ const styles = `
   }
   @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
 
-  /* ── FORMAT ── */
+  /* FORMAT */
   .format-card {
     background: var(--bg-white);
     border-radius: 20px;
@@ -339,7 +329,7 @@ const styles = `
     white-space: pre-wrap;
   }
 
-  /* ── PRIZE ── */
+  /* PRIZE */
   .prize-card {
     background: var(--ocean-deep);
     border-radius: 20px;
@@ -372,7 +362,7 @@ const styles = `
     position: relative; z-index: 1;
   }
 
-  /* ── VIDEO ── */
+  /* VIDEO */
   .video-wrap {
     background: var(--bg-white);
     border-radius: 20px;
@@ -391,7 +381,7 @@ const styles = `
     border: none;
   }
 
-  /* ── STANDINGS ── */
+  /* STANDINGS */
   .standings-card {
     background: var(--bg-white);
     border-radius: 20px;
@@ -459,7 +449,7 @@ const styles = `
   }
   .standings-more:hover { background: #c4dde8; }
 
-  /* ── LIVE ── */
+  /* LIVE */
   .live-bar {
     display: flex;
     align-items: center;
@@ -547,7 +537,7 @@ const styles = `
     font-size: 14px;
   }
 
-  /* ── FOOTER ── */
+  /* FOOTER */
   .home-footer {
     background: var(--ocean-deep);
     padding: 52px 24px 36px;
@@ -600,24 +590,18 @@ const styles = `
     transition: color 0.15s;
   }
   .footer-links a:hover { color: var(--ocean-pale); }
-
-  .skeleton {
-    background: linear-gradient(90deg, #dce8ee 25%, #c4d8e2 50%, #dce8ee 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-    border-radius: 8px;
-  }
-  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 `;
 
 const SPONSORS = ['Nhà Tài Trợ Đặc Biệt', 'Nhà Tài Trợ Kim Cương', 'Nhà Tài Trợ Vàng', 'Đối Tác Truyền Thông', 'Đối Tác Thiết Bị'];
 
 export default function Home() {
-  const [timeLeft, setTimeLeft]   = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const { tournamentId } = useParams();
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [tournament, setTournament] = useState(null);
-  const [teams, setTeams]         = useState([]);
+  const [teams, setTeams] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   /* ── Countdown ── */
   useEffect(() => {
@@ -630,8 +614,8 @@ export default function Home() {
         return;
       }
       setTimeLeft({
-        days:    Math.floor(dist / 86400000),
-        hours:   Math.floor((dist % 86400000) / 3600000),
+        days: Math.floor(dist / 86400000),
+        hours: Math.floor((dist % 86400000) / 3600000),
         minutes: Math.floor((dist % 3600000) / 60000),
         seconds: Math.floor((dist % 60000) / 1000),
       });
@@ -641,39 +625,72 @@ export default function Home() {
     return () => clearInterval(t);
   }, [tournament]);
 
-  /* ── Fetch data ── */
+  /* ── Fetch tournament by ID ── */
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchTournament = async () => {
+      if (!tournamentId) {
+        // Nếu không có ID, chuyển hướng về trang danh sách giải
+        window.location.href = '/tournaments';
+        return;
+      }
+
       try {
-        const [tournamentsRes, teamsRes] = await Promise.all([
-          api.get('/tournaments'),
-          api.get('/teams'),
-        ]);
-
-        // Lấy tournament upcoming đầu tiên
-        const tournaments = tournamentsRes.data?.data || [];
-        const upcoming = tournaments.find(t => t.status === 'upcoming') || tournaments[0];
-
-        if (upcoming) {
-          const detailRes = await api.get(`/tournaments/${upcoming._id}`);
-          if (detailRes.data?.data) {
-            setTournament(detailRes.data.data);
-          }
+        setIsLoading(true);
+        setError(null);
+        const response = await api.get(`/tournaments/${tournamentId}`);
+        
+        if (response.data?.data) {
+          setTournament(response.data.data);
+        } else {
+          setError('Không tìm thấy thông tin giải đấu');
         }
-
-        // Teams
-        const teamsData = teamsRes.data?.data || [];
-        const sorted = [...teamsData].sort((a, b) => (b.points || 0) - (a.points || 0));
-        setTeams(sorted);
-
       } catch (err) {
-        console.error('Home fetch error:', err);
+        console.error('Error fetching tournament:', err);
+        setError(err.response?.data?.message || 'Không thể tải thông tin giải đấu');
       } finally {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, []);
+
+    fetchTournament();
+  }, [tournamentId]);
+
+  /* ── Fetch teams for this tournament ── */
+  useEffect(() => {
+    const fetchTeams = async () => {
+      if (!tournamentId) return;
+      
+      try {
+        const response = await api.get(`/tournaments/${tournamentId}/teams`);
+        const teamsData = response.data?.data || [];
+        const sorted = [...teamsData].sort((a, b) => (b.points || 0) - (a.points || 0));
+        setTeams(sorted);
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+        // Không set error vì đây không phải lỗi chính
+      }
+    };
+
+    fetchTeams();
+  }, [tournamentId]);
+
+  /* ── Fetch live matches ── */
+  useEffect(() => {
+    const fetchLiveMatches = async () => {
+      if (!tournamentId) return;
+      
+      try {
+        const response = await api.get(`/tournaments/${tournamentId}/matches/live`);
+        setLiveMatches(response.data?.data || []);
+      } catch (err) {
+        console.error('Error fetching live matches:', err);
+      }
+    };
+
+    fetchLiveMatches();
+    const interval = setInterval(fetchLiveMatches, 10000);
+    return () => clearInterval(interval);
+  }, [tournamentId]);
 
   const pad = n => String(n).padStart(2, '0');
   const top5 = teams.slice(0, 5);
@@ -684,26 +701,78 @@ export default function Home() {
     return IMAGE_BASE_URL + path.replace(/\\/g, '/').replace(/^\/+/, '');
   };
 
-  // Format timeline từ tournament
   const timelineEvents = tournament?.timeLine ? [
     { time: formatTime(tournament.timeLine.registrationStart), name: 'Mở đăng ký' },
-    { time: formatTime(tournament.timeLine.tournamentStart),   name: 'Khai mạc' },
-    { time: formatTime(tournament.timeLine.tournamentEnd),     name: 'Bế mạc' },
+    { time: formatTime(tournament.timeLine.tournamentStart), name: 'Khai mạc' },
+    { time: formatTime(tournament.timeLine.tournamentEnd), name: 'Bế mạc' },
     ...(tournament.galaConfig?.hasGala ? [{ time: formatTime(tournament.galaConfig.time), name: 'Gala Dinner' }] : []),
   ] : [];
 
   function formatTime(dateStr) {
     if (!dateStr) return '--:--';
     const d = new Date(dateStr);
-    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <>
+        <style>{homeStyles}</style>
+        <div className="home-wrap">
+          <div className="home-main" style={{ textAlign: 'center', padding: '100px 20px' }}>
+            <div className="skeleton" style={{ width: '80%', height: '300px', margin: '0 auto' }} />
+            <p style={{ marginTop: 20, color: 'var(--ocean-deep)' }}>Đang tải thông tin giải đấu...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <>
+        <style>{homeStyles}</style>
+        <div className="home-wrap">
+          <div className="home-main" style={{ textAlign: 'center', padding: '100px 20px' }}>
+            <div style={{ fontSize: 64, marginBottom: 20 }}>⚠️</div>
+            <h2 style={{ color: 'var(--logo-red)', marginBottom: 16 }}>Có lỗi xảy ra</h2>
+            <p style={{ color: '#5a6a7a', marginBottom: 24 }}>{error}</p>
+            <Link to="/tournaments" className="hero-cta" style={{ display: 'inline-flex' }}>
+              ← Quay lại danh sách giải
+            </Link>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // No tournament found
+  if (!tournament) {
+    return (
+      <>
+        <style>{homeStyles}</style>
+        <div className="home-wrap">
+          <div className="home-main" style={{ textAlign: 'center', padding: '100px 20px' }}>
+            <div style={{ fontSize: 64, marginBottom: 20 }}>🏓</div>
+            <h2 style={{ color: 'var(--ocean-deep)', marginBottom: 16 }}>Không tìm thấy giải đấu</h2>
+            <p style={{ color: '#5a6a7a', marginBottom: 24 }}>Giải đấu bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
+            <Link to="/tournaments" className="hero-cta" style={{ display: 'inline-flex' }}>
+              ← Xem danh sách giải đấu
+            </Link>
+          </div>
+        </div>
+      </>
+    );
   }
 
   return (
     <>
-      <style>{styles}</style>
+      <style>{homeStyles}</style>
       <div className="home-wrap">
 
-        {/* ═══════════ HERO ═══════════ */}
+        {/* HERO */}
         <section className="hero">
           <div className="hero-badge">
             {tournament?.sportType?.join(' · ') || 'Giải Pickleball Nội Bộ'}
@@ -713,15 +782,15 @@ export default function Home() {
             {tournament?.slogan || 'IT Vũng Tàu Group'} &nbsp;·&nbsp;
             {tournament?.timeLine?.tournamentStart
               ? new Date(tournament.timeLine.tournamentStart).toLocaleDateString('vi-VN')
-              : '26.10.2025'}
+              : 'Đang cập nhật'}
           </div>
 
           <div className="countdown">
             {[
-              { val: timeLeft.days,    label: 'Ngày'  },
-              { val: timeLeft.hours,   label: 'Giờ'   },
-              { val: timeLeft.minutes, label: 'Phút'  },
-              { val: timeLeft.seconds, label: 'Giây'  },
+              { val: timeLeft.days, label: 'Ngày' },
+              { val: timeLeft.hours, label: 'Giờ' },
+              { val: timeLeft.minutes, label: 'Phút' },
+              { val: timeLeft.seconds, label: 'Giây' },
             ].map(({ val, label }) => (
               <div className="cd-box" key={label}>
                 <div className="cd-num">{pad(val)}</div>
@@ -730,12 +799,12 @@ export default function Home() {
             ))}
           </div>
 
-          <Link to="/register-team" className="hero-cta">
+          <Link to={`/register-team?tournament=${tournamentId}`} className="hero-cta">
             ✦ Đăng ký tham gia ngay
           </Link>
         </section>
 
-        {/* ═══════════ SPONSOR MARQUEE ═══════════ */}
+        {/* SPONSOR MARQUEE */}
         <div className="sponsor-strip">
           <div className="sponsor-track">
             {[...SPONSORS, ...SPONSORS].map((s, i) => (
@@ -744,16 +813,16 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ═══════════ MAIN ═══════════ */}
+        {/* MAIN */}
         <div className="home-main">
 
-          {/* ── ABOUT ── */}
+          {/* ABOUT */}
           <div className="about-card">
             <div className="about-header">
               <div>
                 <div className="about-title">
                   {tournament?.name ? (
-                    <>Về <span>Giải Đấu</span></>
+                    <>Về <span>{tournament.name}</span></>
                   ) : (
                     'Đang tải...'
                   )}
@@ -775,11 +844,11 @@ export default function Home() {
               <div className="info-item">
                 <div className="info-icon">🏢</div>
                 <div className="info-label">Ban tổ chức</div>
-                <div className="info-val">{tournament?.organizer?.name || 'IT Vũng Tàu Group'}</div>
+                <div className="info-val">{tournament?.organizer?.name || tournament?.organizer || 'IT Vũng Tàu Group'}</div>
                 <div className="info-sub">
                   {tournament?.timeLine?.tournamentStart
                     ? new Date(tournament.timeLine.tournamentStart).toLocaleDateString('vi-VN')
-                    : '26-10-2025'} · {formatTime(tournament?.timeLine?.tournamentStart)}
+                    : 'Đang cập nhật'} · {formatTime(tournament?.timeLine?.tournamentStart)}
                 </div>
               </div>
               <div className="info-item">
@@ -823,51 +892,51 @@ export default function Home() {
             )}
           </div>
 
-          {/* ── FORMAT + PRIZE ── */}
+          {/* FORMAT + PRIZE */}
           <div className="two-col">
             <div className="format-card">
               <div className="format-card-title">🏓 Thể thức & Luật thi đấu</div>
               <div className="format-text">
-                {tournament?.description || 'Đang cập nhật thể thức thi đấu...\n\nVui lòng xem điều lệ giải để biết thêm chi tiết.'}
+                {tournament?.rules || tournament?.description || 'Đang cập nhật thể thức thi đấu...\n\nVui lòng xem điều lệ giải để biết thêm chi tiết.'}
               </div>
             </div>
 
             <div className="prize-card">
               <div className="prize-label">Cơ cấu giải thưởng</div>
               <div className="prize-text">
-                {tournament?.prizes || 'Đang cập nhật cơ cấu giải thưởng...'}
+                {tournament?.prizes || '🏆 Giải nhất: 10.000.000đ\n🥈 Giải nhì: 5.000.000đ\n🥉 Giải ba: 3.000.000đ'}
               </div>
             </div>
           </div>
 
-          {/* ── VIDEO ── */}
-          <div>
-            <div className="sec-head">
-              <span className="sec-head-text">🎥 Trailer giải đấu</span>
-              <div className="sec-head-line" />
-            </div>
-            <div className="video-wrap">
-              <div className="video-ratio">
-                <iframe
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                  title="Pickleball Tournament Trailer"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+          {/* VIDEO - Chỉ hiển thị nếu có video URL */}
+          {tournament?.videoUrl && (
+            <div>
+              <div className="sec-head">
+                <span className="sec-head-text">🎥 Trailer giải đấu</span>
+                <div className="sec-head-line" />
+              </div>
+              <div className="video-wrap">
+                <div className="video-ratio">
+                  <iframe
+                    src={tournament.videoUrl}
+                    title={`${tournament.name} Trailer`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* ── LIVE SCORES ── */}
+          {/* LIVE SCORES */}
           <div>
             <div className="live-bar">
               <div className="live-dot" />
               <span className="live-tag">Đang thi đấu</span>
               <span className="live-refresh">Cập nhật mỗi 10 giây</span>
             </div>
-            {isLoading ? (
-              <div style={{ height: 100 }} className="skeleton" />
-            ) : liveMatches.length === 0 ? (
+            {liveMatches.length === 0 ? (
               <div className="match-empty">
                 ⏱ Hiện chưa có trận nào đang diễn ra.
               </div>
@@ -894,20 +963,14 @@ export default function Home() {
             )}
           </div>
 
-          {/* ── STANDINGS ── */}
+          {/* STANDINGS */}
           <div>
             <div className="sec-head">
               <span className="sec-head-text">🏆 Bảng xếp hạng</span>
               <div className="sec-head-line" />
             </div>
             <div className="standings-card">
-              {isLoading ? (
-                <div style={{ padding: 20 }}>
-                  {[1,2,3].map(i => (
-                    <div key={i} className="skeleton" style={{ height: 48, marginBottom: 8 }} />
-                  ))}
-                </div>
-              ) : top5.length === 0 ? (
+              {teams.length === 0 ? (
                 <p style={{ textAlign: 'center', padding: '24px', color: '#9aadba', fontSize: 14 }}>
                   Chưa có dữ liệu đội thi đấu.
                 </p>
@@ -923,7 +986,7 @@ export default function Home() {
                       <div className="spts">{team.points || 0} điểm</div>
                     </div>
                   ))}
-                  <Link to="/standings" className="standings-more">
+                  <Link to={`/standings?tournament=${tournamentId}`} className="standings-more">
                     Xem toàn bộ bảng xếp hạng →
                   </Link>
                 </>
@@ -933,7 +996,7 @@ export default function Home() {
 
         </div>
 
-        {/* ═══════════ FOOTER ═══════════ */}
+        {/* FOOTER */}
         <footer className="home-footer">
           <div className="footer-sponsor-label">Đối tác & nhà tài trợ chiến lược</div>
           <div className="footer-tiers">
@@ -944,6 +1007,7 @@ export default function Home() {
           <div className="footer-copy">
             © 2025 IT Vũng Tàu Group Tournament
             <div className="footer-links">
+              <Link to="/tournaments">Các giải đấu</Link>
               <a href="#">Điều lệ giải</a>
               <a href="#">Liên hệ BTC</a>
             </div>

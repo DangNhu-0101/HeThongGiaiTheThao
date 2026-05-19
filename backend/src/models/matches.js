@@ -45,6 +45,7 @@ const matchSchema = new mongoose.Schema({
         ref: 'Court', 
         default: null 
     },
+    courtName: { type: String, default: '' },
     scheduledStartTime: { type: Date, 
         required: true 
     },

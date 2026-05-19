@@ -12,7 +12,7 @@ const orgStyles = `
   .org-container {
     display: flex;
     min-height: 100vh;
-    background: var(--neutral-cream, #f5f5f0);
+    background: var(--sky-mist);
   }
 
   /* Main content - responsive padding */

@@ -65,7 +65,7 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
 
     if (mode === 'edit' && tourId) {
       setLoading(true);
-      api.get(`/tournaments/getTournament/${tourId}`)
+      api.get(`/tournaments/${tourId}`)
         .then(res => {
           const d = res.data.data;
           if (!d) return;
@@ -149,9 +149,16 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
     setLoading(true);
     const payload = new FormData();
 
-    Object.keys(formData).forEach(k => payload.append(k, formData[k]));
+    payload.append('displayName', formData.name);
+    payload.append('venue', formData.location);
+    payload.append('targetAudience', formData.targetParticipants);
+    payload.append('description', formData.description);
+    payload.append('prizes', formData.prizes);
     payload.append('contactPerson', JSON.stringify(contactPerson));
-    payload.append('timeLine', JSON.stringify(timeLine));
+    payload.append('timeRegister', timeLine.registrationStart);
+    payload.append('timeCloseRegister', timeLine.registrationEnd);
+    payload.append('timeOpen', timeLine.tournamentStart);
+    payload.append('timeClose', timeLine.tournamentEnd);
     payload.append('galaConfig', JSON.stringify(galaConfig));
 
     const activeSports = Object.keys(sportsConfig)
@@ -172,8 +179,8 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
     files.banners.forEach(b => payload.append('banners', b));
 
     try {
-      const ep = mode === 'create' ? '/tournaments/createTournament' : `/tournaments/editTournament/${tourId}`;
-      await api[mode === 'create' ? 'post' : 'patch'](ep, payload);
+      const ep = mode === 'create' ? '/tournaments/createTournament' : `/tournaments/${tourId}`;
+      await api[mode === 'create' ? 'post' : 'put'](ep, payload);
       alert("Xử lý giải đấu thành công!");
       onSuccess();
     } catch (err) {

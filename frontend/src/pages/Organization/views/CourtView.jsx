@@ -14,7 +14,7 @@ const CourtView = () => {
     const fetchCourts = async () => {
         try {
             console.log("📥 Đang lấy sân cho tournament:", tourId);
-            const res = await api.get(`/courts/tournament/${tourId}`);
+            const res = await api.get(`/courts/tournaments/${tourId}/courts`);
             console.log("✅ API Response:", res.data);
             setCourts(res.data.data || []);
             console.log(`📊 Tìm thấy ${res.data.data?.length || 0} sân`);
@@ -38,7 +38,7 @@ const CourtView = () => {
         if (!newCourtName.trim() || selectedSports.length === 0) return alert("Vui lòng nhập tên và chọn môn!");
         
         try {
-            await api.post('/courts/add', { 
+            await api.post('/courts/courts', { 
                 name: newCourtName, 
                 tournamentId: tourId, 
                 sportTypes: selectedSports,
@@ -57,7 +57,7 @@ const CourtView = () => {
         if (currentStatus === 'busy') return alert("Sân đang có trận đấu!");
         const nextStatus = currentStatus === 'inactive' ? 'empty' : 'inactive';
         try {
-            await api.patch(`/courts/${id}/status`, { status: nextStatus });
+            await api.patch(`/courts/courts/${id}/status`, { status: nextStatus });
             fetchCourts();
         } catch (e) { alert("Lỗi cập nhật trạng thái!"); }
     };
@@ -65,7 +65,7 @@ const CourtView = () => {
     const handleDeleteCourt = async (id, name) => {
         if (!window.confirm(`Xóa sân [${name}]?`)) return;
         try {
-            await api.delete(`/courts/${id}`);
+            await api.delete(`/courts/courts/${id}`);
             fetchCourts();
         } catch (e) { alert("Lỗi khi xóa sân!"); }
     };

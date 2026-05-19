@@ -17,17 +17,14 @@ const Login = () => {
       const res = await api.post('/auth/login', formData);
 
       if (res.data) { 
-        // 1. Lưu Token
         if (res.data.accessToken) {
           localStorage.setItem('accessToken', res.data.accessToken);
         }
         
-        // 2. Cập nhật Global State
         if (res.data.user) {
           setUser(res.data.user);
         }
         
-        // 3. Điều hướng Role-based
         const userRole = res.data.user?.role;
         if (userRole === 'Organization') {
           navigate('/admin');
@@ -37,7 +34,6 @@ const Login = () => {
       }
 
     } catch (err) {
-      // Sử dụng UI Alert hoặc một Toast Component phù hợp với style Cyber
       alert(err.response?.data?.message || "HỆ THỐNG: Truy cập bị từ chối. Kiểm tra lại thông tin!");
     } finally {
       setIsSubmitting(false);
@@ -51,11 +47,9 @@ const Login = () => {
 
   return (
     <div className="auth-container">
-      {/* Thẻ card HUD với border-glass và circuit corners */}
       <div className="auth-card glass-card">
         <div className="mb-6">
           <h2 className="text-neon-cyan mb-1">ĐĂNG NHẬP</h2>
-          
         </div>
         
         <form onSubmit={handleLogin} className="space-y-4">
@@ -88,7 +82,7 @@ const Login = () => {
             type="submit"
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'CONNECTING...' : 'vÀO HỆ THỐNG'}
+            {isSubmitting ? 'CONNECTING...' : 'VÀO HỆ THỐNG'}
           </button>
         </form>
 

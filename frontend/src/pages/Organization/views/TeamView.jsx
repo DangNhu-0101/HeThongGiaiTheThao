@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../../api/axiosConfig';
-import ImportTeams from '../../../components/ImportTeams';
 
 const TeamView = ({ tourId: propTourId }) => {
     const { id: urlTourId } = useParams();
@@ -9,6 +8,11 @@ const TeamView = ({ tourId: propTourId }) => {
 
     const [teams, setTeams] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // State cho import Excel
+    const [file, setFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [importMessage, setImportMessage] = useState(null);
 
     const fetchTeams = useCallback(async () => {
         if (!activeTourId) {
@@ -17,7 +21,7 @@ const TeamView = ({ tourId: propTourId }) => {
         }
         setIsLoading(true);
         try {
-            const res = await api.get(`/teams?tournamentId=${activeTourId}`);
+            const res = await api.get(`/teams/tournament/${activeTourId}`);
             if (res.data && res.data.success) {
                 setTeams(res.data.data);
             }
@@ -32,10 +36,74 @@ const TeamView = ({ tourId: propTourId }) => {
         fetchTeams();
     }, [fetchTeams]);
 
+    // Xử lý import Excel
+    const handleFileChange = (e) => {
+        const selectedFile = e.target.files[0];
+        if (selectedFile && (selectedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || selectedFile.type === 'application/vnd.ms-excel')) {
+            setFile(selectedFile);
+            setImportMessage(null);
+        } else {
+            setImportMessage({ type: 'error', text: 'Vui lòng chọn file Excel (.xlsx hoặc .xls)' });
+            e.target.value = '';
+        }
+    };
+
+    const handleImportExcel = async () => {
+        if (!file) {
+            setImportMessage({ type: 'error', text: 'Vui lòng chọn file Excel!' });
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        if (activeTourId) {
+            formData.append('tournamentId', activeTourId);
+        }
+
+        setUploading(true);
+        setImportMessage(null);
+        
+        try {
+            const res = await api.post('/xlxs/import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (res.data.success) {
+                setImportMessage({ 
+                    type: 'success', 
+                    text: res.data.message || '✅ Import thành công! Dữ liệu đã được cập nhật.' 
+                });
+                setFile(null);
+                // Reset file input
+                const fileInput = document.getElementById('excel-file-input');
+                if (fileInput) fileInput.value = '';
+                // Refresh danh sách đội
+                fetchTeams();
+            } else {
+                setImportMessage({ type: 'error', text: res.data.message || '❌ Import thất bại!' });
+                if (res.data.errors) {
+                    console.error('Validation errors:', res.data.errors);
+                }
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            setImportMessage({ 
+                type: 'error', 
+                text: error.response?.data?.message || '❌ Lỗi kết nối server!' 
+            });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const downloadTemplate = () => {
+        window.open('http://localhost:5001/api/excel/template', '_blank');
+    };
+
     const handleApproveTeam = async (teamId) => {
         try {
-            await api.patch(`/teams/${teamId}/payment`, { status: 'confirmed' });
-            setTeams(teams.map(t => t._id === teamId ? { ...t, status: 'confirmed' } : t));
+            await api.patch(`/teams/${teamId}/payment`, { isPaid: true });
+            setTeams(teams.map(t => t._id === teamId ? { ...t, isPaid: true } : t));
         } catch (e) { 
             alert("Lỗi duyệt đội!"); 
         }
@@ -43,8 +111,8 @@ const TeamView = ({ tourId: propTourId }) => {
 
     const handleUnapproveTeam = async (teamId) => {
         try {
-            await api.patch(`/teams/${teamId}/payment`, { status: 'validated' });
-            setTeams(teams.map(t => t._id === teamId ? { ...t, status: 'validated' } : t));
+            await api.patch(`/teams/${teamId}/payment`, { isPaid: false });
+            setTeams(teams.map(t => t._id === teamId ? { ...t, isPaid: false } : t));
         } catch (e) { 
             alert("Lỗi hủy duyệt!"); 
         }
@@ -62,17 +130,17 @@ const TeamView = ({ tourId: propTourId }) => {
 
     if (isLoading) return <div className="tv-loading">Đang tải danh sách đội...</div>;
 
-    const confirmedTeams = teams.filter(t => t.status === 'confirmed');
-    const pendingTeams = teams.filter(t => t.status !== 'confirmed');
+    const confirmedTeams = teams.filter(t => t.isPaid);
+    const pendingTeams = teams.filter(t => !t.isPaid);
 
     const TeamCard = ({ t, isConfirmed }) => (
         <div className="tv-team-card">
             <div className="tv-team-avatar">
-                {(t.name || 'T').charAt(0).toUpperCase()}
+                {(t.name || t.teamName || 'T').charAt(0).toUpperCase()}
             </div>
             <div className="tv-team-info">
-                <div className="tv-team-name">{t.name}</div>
-                <div className="tv-team-meta">{t.sportCategory} | {t.memberCount || 0} thành viên</div>
+                <div className="tv-team-name">{t.name || t.teamName}</div>
+                <div className="tv-team-meta">{t.sportCategory || t.sportType || 'Chưa phân môn'} | {t.memberCount || 0} thành viên</div>
                 <div className="tv-team-actions">
                     <button onClick={() => handleDeleteTeam(t._id)} className="tv-delete-btn">Xóa</button>
                 </div>
@@ -136,10 +204,215 @@ const TeamView = ({ tourId: propTourId }) => {
                     }
                 }
 
-                .tv-import-wrapper {
+                /* Import Excel Section */
+                .import-excel-container {
+                    background: linear-gradient(135deg, #fff 0%, #f8fafc 100%);
+                    border: 1px solid rgba(1,138,190,0.2);
+                    border-radius: 20px;
+                    padding: 24px;
                     margin-bottom: 28px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
                 }
 
+                @media (max-width: 640px) {
+                    .import-excel-container {
+                        padding: 16px;
+                        margin-bottom: 20px;
+                    }
+                }
+
+                .import-excel-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 20px;
+                    padding-bottom: 12px;
+                    border-bottom: 2px solid rgba(1,138,190,0.15);
+                    flex-wrap: wrap;
+                }
+
+                .import-excel-icon {
+                    font-size: 28px;
+                }
+
+                .import-excel-title {
+                    font-size: 16px;
+                    font-weight: 800;
+                    color: #02457A;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                .import-excel-sub {
+                    font-size: 12px;
+                    color: #64748b;
+                    margin-top: 4px;
+                }
+
+                .import-excel-actions {
+                    display: flex;
+                    gap: 16px;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    margin-bottom: 20px;
+                }
+
+                @media (max-width: 640px) {
+                    .import-excel-actions {
+                        flex-direction: column;
+                        align-items: stretch;
+                    }
+                }
+
+                .import-excel-dropzone {
+                    flex: 1;
+                    padding: 20px;
+                    background: #F1F5F9;
+                    border: 2px dashed #CBD5E1;
+                    border-radius: 16px;
+                    cursor: pointer;
+                    text-align: center;
+                    transition: all 0.2s;
+                }
+
+                .import-excel-dropzone:hover {
+                    border-color: #018ABE;
+                    background: rgba(1,138,190,0.05);
+                }
+
+                .import-excel-dropzone.has-file {
+                    border-color: #10b981;
+                    background: rgba(16,185,129,0.05);
+                }
+
+                .import-excel-dropzone-icon {
+                    font-size: 32px;
+                    margin-bottom: 8px;
+                }
+
+                .import-excel-dropzone-text {
+                    font-size: 13px;
+                    color: #64748b;
+                }
+
+                .import-excel-dropzone-text strong {
+                    color: #018ABE;
+                }
+
+                .import-excel-file-input {
+                    display: none;
+                }
+
+                .import-excel-file-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 10px 16px;
+                    background: #F1F5F9;
+                    border-radius: 12px;
+                    margin-top: 12px;
+                    flex-wrap: wrap;
+                }
+
+                .import-excel-file-name {
+                    flex: 1;
+                    font-size: 13px;
+                    font-weight: 500;
+                    color: #02457A;
+                    word-break: break-all;
+                }
+
+                .import-excel-remove-btn {
+                    background: none;
+                    border: none;
+                    color: #ef4444;
+                    cursor: pointer;
+                    font-size: 18px;
+                    padding: 4px 8px;
+                }
+
+                .import-excel-btn {
+                    padding: 12px 28px;
+                    border-radius: 12px;
+                    font-weight: 700;
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    border: none;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                .import-excel-btn-primary {
+                    background: #018ABE;
+                    color: #fff;
+                    box-shadow: 0 2px 4px rgba(1,138,190,0.2);
+                }
+
+                .import-excel-btn-primary:hover:not(:disabled) {
+                    background: #02457A;
+                    transform: translateY(-1px);
+                }
+
+                .import-excel-btn-secondary {
+                    background: #fff;
+                    color: #018ABE;
+                    border: 1px solid #018ABE;
+                }
+
+                .import-excel-btn-secondary:hover {
+                    background: rgba(1,138,190,0.05);
+                }
+
+                .import-excel-btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+
+                .import-excel-message {
+                    margin-top: 16px;
+                    padding: 14px 16px;
+                    border-radius: 12px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+
+                .import-excel-message-success {
+                    background: rgba(16,185,129,0.1);
+                    color: #10b981;
+                    border: 1px solid rgba(16,185,129,0.2);
+                }
+
+                .import-excel-message-error {
+                    background: rgba(239,68,68,0.1);
+                    color: #ef4444;
+                    border: 1px solid rgba(239,68,68,0.2);
+                }
+
+                .import-excel-features {
+                    display: flex;
+                    gap: 20px;
+                    margin-top: 16px;
+                    padding-top: 16px;
+                    border-top: 1px solid #e2e8f0;
+                    font-size: 11px;
+                    color: #94a3b8;
+                    flex-wrap: wrap;
+                }
+
+                .import-excel-feature {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                /* Team Section */
                 .tv-section {
                     border-radius: 20px;
                     padding: 20px;
@@ -393,13 +666,92 @@ const TeamView = ({ tourId: propTourId }) => {
                 }
             `}</style>
 
-            <div className="tv-import-wrapper">
-                <ImportTeams 
-                    tournamentId={activeTourId} 
-                    onRefresh={fetchTeams}
-                />
+            {/* Import Excel Section */}
+            <div className="import-excel-container">
+                <div className="import-excel-header">
+                    <span className="import-excel-icon">📊</span>
+                    <div>
+                        <div className="import-excel-title">IMPORT DANH SÁCH ĐỘI TỪ EXCEL</div>
+                        <div className="import-excel-sub">Nhập nhiều đội cùng lúc bằng file Excel chuẩn</div>
+                    </div>
+                </div>
+
+                <div className="import-excel-actions">
+                    <label 
+                        className={`import-excel-dropzone ${file ? 'has-file' : ''}`}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            const droppedFile = e.dataTransfer.files[0];
+                            if (droppedFile && (droppedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || droppedFile.type === 'application/vnd.ms-excel')) {
+                                setFile(droppedFile);
+                                setImportMessage(null);
+                            } else {
+                                setImportMessage({ type: 'error', text: 'Vui lòng chọn file Excel!' });
+                            }
+                        }}
+                    >
+                        <div className="import-excel-dropzone-icon">📁</div>
+                        <div className="import-excel-dropzone-text">
+                            <strong>Nhấp để chọn file Excel</strong> hoặc kéo thả file vào đây
+                        </div>
+                        <input
+                            id="excel-file-input"
+                            type="file"
+                            accept=".xlsx, .xls"
+                            onChange={handleFileChange}
+                            className="import-excel-file-input"
+                        />
+                    </label>
+
+                    <button 
+                        onClick={downloadTemplate}
+                        className="import-excel-btn import-excel-btn-secondary"
+                    >
+                        📥 Tải file mẫu
+                    </button>
+
+                    <button 
+                        onClick={handleImportExcel} 
+                        disabled={!file || uploading}
+                        className="import-excel-btn import-excel-btn-primary"
+                    >
+                        {uploading ? '⏳ Đang xử lý...' : '🚀 Import dữ liệu'}
+                    </button>
+                </div>
+
+                {file && (
+                    <div className="import-excel-file-info">
+                        <span>📄</span>
+                        <span className="import-excel-file-name">{file.name}</span>
+                        <button 
+                            onClick={() => {
+                                setFile(null);
+                                const fileInput = document.getElementById('excel-file-input');
+                                if (fileInput) fileInput.value = '';
+                            }}
+                            className="import-excel-remove-btn"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
+
+                {importMessage && (
+                    <div className={`import-excel-message import-excel-message-${importMessage.type}`}>
+                        <span>{importMessage.type === 'success' ? '✅' : '❌'}</span>
+                        <span>{importMessage.text}</span>
+                    </div>
+                )}
+
+                <div className="import-excel-features">
+                    <div className="import-excel-feature">📋 Hỗ trợ import: Đội, Cầu thủ, Người dùng</div>
+                    <div className="import-excel-feature">🔍 Tự động validate dữ liệu</div>
+                    <div className="import-excel-feature">⚡ Xử lý hàng loạt nhanh chóng</div>
+                </div>
             </div>
             
+            {/* Teams Section */}
             <div className="tv-section tv-section-confirmed">
                 <div className="tv-section-title tv-section-title-confirmed">
                     Đội đã duyệt

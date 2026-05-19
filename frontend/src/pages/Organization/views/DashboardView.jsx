@@ -34,9 +34,9 @@ const DashboardView = () => {
     const calculatePlannedRevenue = () => {
         if (!tournament?.sportsConfig || tournament.sportsConfig.length === 0) return 0;
         return tournament.sportsConfig.reduce((sum, sport) => {
-            const fee = Number(sport.feePerAthlete) || 0;
+            const fee = Number(sport.feeEntry ?? sport.feePerAthlete) || 0;
             const max = Number(sport.maxTeams) || 0;
-            return (sum + (fee * max)) * 2;
+            return sum + (fee * max);
         }, 0);
     };
 
@@ -89,8 +89,8 @@ const DashboardView = () => {
 
                 .dv-btn-outline {
                     background: transparent;
-                    border: 1px solid #06b6d4;
-                    color: #22d3ee;
+                    border: 1.5px solid var(--ocean-mid);
+                    color: var(--ocean-mid);
                     padding: 10px 20px;
                     border-radius: 8px;
                     font-size: 0.7rem;
@@ -100,8 +100,14 @@ const DashboardView = () => {
                     transition: all 0.2s;
                 }
 
+                .dv-btn-outline:hover {
+                    background: var(--ocean-mid);
+                    color: white;
+                    transform: translateY(-1px);
+                }
+
                 .dv-btn-primary {
-                    background: #0891b2;
+                    background: linear-gradient(90deg, var(--ocean-deep), var(--ocean-mid));
                     color: #fff;
                     padding: 10px 20px;
                     border-radius: 8px;
@@ -111,6 +117,11 @@ const DashboardView = () => {
                     border: none;
                     cursor: pointer;
                     transition: all 0.2s;
+                }
+
+                .dv-btn-primary:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(1, 138, 190, 0.3);
                 }
 
                 @media (max-width: 640px) {
@@ -123,8 +134,8 @@ const DashboardView = () => {
                 }
 
                 .dv-header {
-                    background: #0f172a;
-                    border-bottom: 2px solid #22d3ee;
+                    background: var(--bg-white);
+                    border-bottom: 3px solid var(--ocean-mid);
                     padding: 24px;
                     border-radius: 12px 12px 0 0;
                     display: flex;
@@ -132,6 +143,7 @@ const DashboardView = () => {
                     align-items: flex-end;
                     flex-wrap: wrap;
                     gap: 16px;
+                    box-shadow: 0 2px 12px rgba(2, 69, 122, 0.08);
                 }
 
                 @media (max-width: 768px) {
@@ -144,7 +156,7 @@ const DashboardView = () => {
                 .dv-header-id {
                     font-size: 0.55rem;
                     font-weight: 900;
-                    color: #06b6d4;
+                    color: var(--ocean-mid);
                     letter-spacing: 5px;
                     text-transform: uppercase;
                 }
@@ -152,7 +164,7 @@ const DashboardView = () => {
                 .dv-header-title {
                     font-size: 2rem;
                     font-weight: 900;
-                    color: #fff;
+                    color: var(--ocean-deep);
                     text-transform: uppercase;
                     margin: 8px 0;
                 }
@@ -205,7 +217,8 @@ const DashboardView = () => {
                     height: 224px;
                     border-radius: 16px;
                     overflow: hidden;
-                    border: 1px solid #1e293b;
+                    border: 1px solid var(--ocean-pale);
+                    background: linear-gradient(135deg, var(--ocean-deep), var(--ocean-mid));
                 }
 
                 .dv-banner-img {
@@ -218,7 +231,7 @@ const DashboardView = () => {
                 .dv-banner-overlay {
                     position: absolute;
                     inset: 0;
-                    background: linear-gradient(to top, #020617, rgba(2,6,23,0.4));
+                    background: linear-gradient(to top, rgba(2,69,122,0.8), rgba(1,138,190,0.2));
                 }
 
                 .dv-banner-text {
@@ -230,7 +243,7 @@ const DashboardView = () => {
                 .dv-banner-label {
                     font-size: 0.6rem;
                     font-weight: 900;
-                    color: #22d3ee;
+                    color: var(--ocean-pale);
                     text-transform: uppercase;
                     letter-spacing: 3px;
                 }
@@ -249,14 +262,15 @@ const DashboardView = () => {
                 }
 
                 .dv-logo-box {
-                    background: #0f172a;
-                    border: 1px solid #1e293b;
+                    background: var(--bg-white);
+                    border: 1px solid var(--ocean-pale);
                     border-radius: 16px;
                     padding: 24px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
+                    box-shadow: 0 2px 8px rgba(2, 69, 122, 0.05);
                 }
 
                 .dv-logo-img {
@@ -293,10 +307,11 @@ const DashboardView = () => {
                 }
 
                 .dv-info-card {
-                    background: rgba(15,23,42,0.8);
-                    border-left: 4px solid #334155;
+                    background: var(--bg-white);
+                    border-left: 4px solid var(--ocean-mid);
                     padding: 20px;
-                    border-radius: 8px;
+                    border-radius: 12px;
+                    box-shadow: 0 2px 8px rgba(2, 69, 122, 0.05);
                 }
 
                 .dv-info-icon {
@@ -306,7 +321,7 @@ const DashboardView = () => {
 
                 .dv-info-label {
                     font-size: 0.55rem;
-                    color: #64748b;
+                    color: var(--ocean-mid);
                     text-transform: uppercase;
                     font-weight: 900;
                     letter-spacing: 1px;
@@ -314,7 +329,7 @@ const DashboardView = () => {
 
                 .dv-info-value {
                     font-size: 0.75rem;
-                    color: #fff;
+                    color: var(--ocean-deep);
                     font-weight: 900;
                     margin-top: 4px;
                     word-break: break-word;
@@ -335,14 +350,15 @@ const DashboardView = () => {
                 }
 
                 .dv-sport-card {
-                    background: rgba(15,23,42,0.6);
-                    border: 1px solid #1e293b;
+                    background: var(--bg-white);
+                    border: 1px solid var(--ocean-pale);
                     border-radius: 16px;
                     padding: 32px;
+                    box-shadow: 0 2px 8px rgba(2, 69, 122, 0.05);
                 }
 
                 .dv-sport-title {
-                    color: #22d3ee;
+                    color: var(--ocean-mid);
                     font-size: 0.7rem;
                     font-weight: 900;
                     text-transform: uppercase;
@@ -360,8 +376,8 @@ const DashboardView = () => {
                 }
 
                 .dv-sport-item {
-                    background: rgba(30,41,59,0.3);
-                    border: 1px solid #334155;
+                    background: var(--sky-mist);
+                    border: 1px solid var(--ocean-pale);
                     padding: 24px;
                     border-radius: 12px;
                     display: flex;
@@ -369,6 +385,12 @@ const DashboardView = () => {
                     align-items: center;
                     flex-wrap: wrap;
                     gap: 16px;
+                    transition: all 0.2s;
+                }
+
+                .dv-sport-item:hover {
+                    border-color: var(--ocean-mid);
+                    box-shadow: 0 4px 12px rgba(1, 138, 190, 0.1);
                 }
 
                 @media (max-width: 640px) {
@@ -381,7 +403,7 @@ const DashboardView = () => {
                 .dv-sport-name {
                     font-size: 1.5rem;
                     font-weight: 900;
-                    color: #fff;
+                    color: var(--ocean-deep);
                 }
 
                 .dv-sport-categories {
@@ -393,11 +415,11 @@ const DashboardView = () => {
 
                 .dv-sport-cat-badge {
                     font-size: 0.55rem;
-                    background: rgba(8,145,178,0.2);
-                    color: #67e8f9;
+                    background: rgba(1, 138, 190, 0.1);
+                    color: var(--ocean-mid);
                     padding: 4px 12px;
                     border-radius: 4px;
-                    border: 1px solid #0891b2;
+                    border: 1px solid var(--ocean-pale);
                     text-transform: uppercase;
                     font-weight: 700;
                 }
@@ -413,16 +435,16 @@ const DashboardView = () => {
                 }
 
                 .dv-revenue-box {
-                    background: #0f172a;
-                    border: 1px solid #06b6d4;
+                    background: linear-gradient(135deg, var(--ocean-deep), var(--ocean-mid));
                     padding: 24px;
                     border-radius: 16px;
                     margin-bottom: 24px;
+                    box-shadow: 0 4px 12px rgba(1, 138, 190, 0.2);
                 }
 
                 .dv-revenue-label {
                     font-size: 0.55rem;
-                    color: #06b6d4;
+                    color: var(--ocean-pale);
                     font-weight: 900;
                     text-transform: uppercase;
                     letter-spacing: 1px;
@@ -442,11 +464,12 @@ const DashboardView = () => {
                 }
 
                 .dv-timeline-box {
-                    background: #0f172a;
-                    border: 1px solid #1e293b;
+                    background: var(--bg-white);
+                    border: 1px solid var(--ocean-pale);
                     padding: 24px;
                     border-radius: 16px;
                     margin-bottom: 24px;
+                    box-shadow: 0 2px 8px rgba(2, 69, 122, 0.05);
                 }
 
                 .dv-gala-box {
@@ -456,22 +479,23 @@ const DashboardView = () => {
                 }
 
                 .dv-gala-active {
-                    background: rgba(79,70,229,0.1);
-                    border: 1px solid #6366f1;
+                    background: linear-gradient(135deg, rgba(1, 138, 190, 0.1), rgba(2, 69, 122, 0.05));
+                    border: 1px solid var(--ocean-mid);
                 }
 
                 .dv-gala-inactive {
-                    background: #0f172a;
-                    border: 1px solid #1e293b;
-                    opacity: 0.4;
+                    background: var(--bg-white);
+                    border: 1px solid var(--ocean-pale);
+                    opacity: 0.5;
                 }
 
                 .dv-qr-box {
-                    background: #0f172a;
-                    border: 1px solid #1e293b;
+                    background: var(--bg-white);
+                    border: 1px solid var(--ocean-pale);
                     padding: 24px;
                     border-radius: 16px;
                     text-align: center;
+                    box-shadow: 0 2px 8px rgba(2, 69, 122, 0.05);
                 }
 
                 .dv-qr-img {
@@ -494,7 +518,7 @@ const DashboardView = () => {
                     gap: 24px;
                     margin-top: 32px;
                     padding-top: 32px;
-                    border-top: 1px solid #1e293b;
+                    border-top: 1px solid var(--ocean-pale);
                 }
 
                 @media (max-width: 1024px) {
@@ -515,15 +539,15 @@ const DashboardView = () => {
                     justify-content: center;
                     align-items: center;
                     height: 256px;
-                    background: #0f172a;
+                    background: var(--bg-white);
                     border-radius: 16px;
-                    border: 1px solid #0891b2;
+                    border: 1px solid var(--ocean-mid);
                 }
 
                 .dv-loading-text {
                     font-size: 1.25rem;
                     font-weight: 900;
-                    color: #22d3ee;
+                    color: var(--ocean-mid);
                     animation: pulse 1.5s ease-in-out infinite;
                     text-transform: uppercase;
                 }
@@ -539,9 +563,9 @@ const DashboardView = () => {
                     justify-content: center;
                     align-items: center;
                     height: 256px;
-                    border: 2px dashed #0891b2;
+                    border: 2px dashed var(--ocean-mid);
                     border-radius: 16px;
-                    background: rgba(15,23,42,0.5);
+                    background: rgba(1, 138, 190, 0.05);
                 }
 
                 .dv-empty-icon {
@@ -550,7 +574,7 @@ const DashboardView = () => {
                 }
 
                 .dv-empty-text {
-                    color: #06b6d4;
+                    color: var(--ocean-mid);
                     font-size: 0.75rem;
                     font-weight: 700;
                     text-transform: uppercase;
@@ -571,21 +595,25 @@ const DashboardView = () => {
                 <div className="dv-header">
                     <div>
                         <p className="dv-header-id">Core-ID: {tournament._id}</p>
-                        <h1 className="dv-header-title">{tournament.name}</h1>
+                        <h1 className="dv-header-title">{tournament.displayName || tournament.name}</h1>
                         <div className="dv-status-tags">
-                            <span className="dv-status-tag" style={{ background: 'rgba(8,145,178,0.4)', color: '#22d3ee', borderColor: '#06b6d4' }}>Status: {tournament.status}</span>
-                            <span className="dv-status-tag" style={{ background: '#1e293b', color: '#94a3b8', borderColor: '#475569' }}>Môn: {tournament.sportType?.join(', ')}</span>
+                            <span className="dv-status-tag" style={{ background: 'rgba(1,138,190,0.15)', color: 'var(--ocean-mid)', borderColor: 'var(--ocean-mid)' }}>
+                                Status: {tournament.status}
+                            </span>
+                            <span className="dv-status-tag" style={{ background: 'var(--sky-mist)', color: 'var(--ocean-deep)', borderColor: 'var(--ocean-pale)' }}>
+                                Môn: {(tournament.sportsConfig || []).map(s => s.sport).join(', ') || 'N/A'}
+                            </span>
                         </div>
                     </div>
                 </div>
 
                 <div className="dv-banner-section">
                     <div className="dv-banner">
-                        {tournament.banners && tournament.banners[0] ? (
-                            <img src={IMAGE_BASE_URL + formatImagePath(tournament.banners[0])} alt="Banner" className="dv-banner-img" />
+                        {tournament.banner ? (
+                            <img src={IMAGE_BASE_URL + formatImagePath(tournament.banner)} alt="Banner" className="dv-banner-img" />
                         ) : (
-                            <div style={{ width: '100%', height: '100%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span style={{ color: '#475569' }}>No Banner</span>
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ color: 'var(--ocean-pale)' }}>No Banner</span>
                             </div>
                         )}
                         <div className="dv-banner-overlay"></div>
@@ -598,22 +626,22 @@ const DashboardView = () => {
                         {tournament.logo ? (
                             <img src={IMAGE_BASE_URL + formatImagePath(tournament.logo)} alt="Logo" className="dv-logo-img" />
                         ) : (
-                            <span style={{ color: '#475569' }}>No Logo</span>
+                            <span style={{ color: 'var(--ocean-pale)' }}>No Logo</span>
                         )}
                     </div>
                 </div>
 
                 <div className="dv-info-grid">
-                    <InfoCard label="Thiết lập địa điểm" value={tournament.location} icon="📍" />
-                    <InfoCard label="Phân khúc mục tiêu" value={tournament.targetParticipants} icon="👥" color="#ef4444" />
-                    <InfoCard label="Nhân sự liên hệ" value={tournament.contactPerson?.name || "N/A"} icon="📞" />
-                    <InfoCard label="Tổng hợp giải thưởng" value={tournament.prizes} icon="🎁" color="#22d3ee" />
+                    <InfoCard label="Thiết lập địa điểm" value={tournament.venue} icon="📍" />
+                    <InfoCard label="Phân khúc mục tiêu" value={tournament.targetAudience} icon="👥" />
+                    <InfoCard label="Nhân sự liên hệ" value={tournament.organization?.orgName || tournament.organization?.name || "N/A"} icon="📞" />
+                    <InfoCard label="Tổng hợp giải thưởng" value={tournament.prizes} icon="🎁" />
                 </div>
 
                 <div className="dv-main-grid">
                     <div className="dv-sport-card">
                         <h3 className="dv-sport-title">
-                            <span style={{ width: 32, height: 2, background: '#22d3ee' }}></span> Sports Configuration
+                            <span style={{ width: 32, height: 2, background: 'var(--ocean-mid)' }}></span> Sports Configuration
                         </h3>
                         <div className="dv-sport-list">
                             {tournament.sportsConfig?.map((sport, idx) => (
@@ -621,17 +649,17 @@ const DashboardView = () => {
                                     <div>
                                         <h4 className="dv-sport-name">{sport.sport}</h4>
                                         <div className="dv-sport-categories">
-                                            {sport.categories?.map(cat => (
+                                            {(sport.categoryConfig || sport.categories || []).map(cat => (
                                                 <span key={cat} className="dv-sport-cat-badge">{cat}</span>
                                             ))}
                                         </div>
                                     </div>
                                     <div className="dv-sport-fee">
-                                        <p style={{ fontSize: '0.55rem', color: '#64748b', fontWeight: 900, textTransform: 'uppercase' }}>Fee / Limit</p>
-                                        <p style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff' }}>
-                                            {sport.feePerAthlete ? (sport.feePerAthlete * 2).toLocaleString() : "N/A"} <span style={{ fontSize: '0.7rem', color: '#0891b2' }}>VNĐ</span>
+                                        <p style={{ fontSize: '0.55rem', color: 'var(--ocean-mid)', fontWeight: 900, textTransform: 'uppercase' }}>Fee / Limit</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--ocean-deep)' }}>
+                                            {(sport.feeEntry ?? sport.feePerAthlete) ? Number(sport.feeEntry ?? sport.feePerAthlete).toLocaleString() : "N/A"} <span style={{ fontSize: '0.7rem', color: 'var(--ocean-mid)' }}>VNĐ</span>
                                         </p>
-                                        <p style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700 }}>Max: {sport.maxTeams || "Unlimited"} Teams</p>
+                                        <p style={{ fontSize: '0.7rem', color: '#7a8fa0', fontWeight: 700 }}>Max: {sport.maxTeams || "Unlimited"} Teams</p>
                                     </div>
                                 </div>
                             ))}
@@ -641,28 +669,30 @@ const DashboardView = () => {
                     <div>
                         <div className="dv-revenue-box">
                             <label className="dv-revenue-label">Estimated Revenue</label>
-                            <p className="dv-revenue-amount">{calculatePlannedRevenue().toLocaleString()} <span style={{ fontSize: '0.75rem', color: '#0891b2' }}>VNĐ</span></p>
+                            <p className="dv-revenue-amount">{calculatePlannedRevenue().toLocaleString()} <span style={{ fontSize: '0.75rem', color: 'var(--ocean-pale)' }}>VNĐ</span></p>
                         </div>
 
                         <div className="dv-timeline-box">
-                            <h3 style={{ fontSize: '0.6rem', fontWeight: 900, color: '#fff', textTransform: 'uppercase', borderBottom: '1px solid #1e293b', paddingBottom: 12 }}>Critical Timeline</h3>
-                            <TimelineRow label="Đăng ký" start={tournament.timeLine?.registrationStart} end={tournament.timeLine?.registrationEnd} />
-                            <TimelineRow label="Thi đấu" start={tournament.timeLine?.tournamentStart} end={tournament.timeLine?.tournamentEnd} />
+                            <h3 style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--ocean-deep)', textTransform: 'uppercase', borderBottom: '1px solid var(--ocean-pale)', paddingBottom: 12 }}>
+                                Critical Timeline
+                            </h3>
+                            <TimelineRow label="Đăng ký" start={tournament.timeLine?.timeRegister} end={tournament.timeLine?.timeCloseRegister} />
+                            <TimelineRow label="Thi đấu" start={tournament.timeLine?.timeOpen} end={tournament.timeLine?.timeClose} />
                         </div>
 
                         {tournament.galaConfig && (
                             <div className={`dv-gala-box ${tournament.galaConfig?.hasGala ? 'dv-gala-active' : 'dv-gala-inactive'}`}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                                    <h3 style={{ fontSize: '0.6rem', fontWeight: 900, color: '#818cf8', textTransform: 'uppercase' }}>Gala Event</h3>
-                                    {tournament.galaConfig?.hasGala && <span style={{ width: 8, height: 8, background: '#6366f1', borderRadius: '50%', animation: 'pulse 1.5s ease-in-out infinite' }}></span>}
+                                    <h3 style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--ocean-mid)', textTransform: 'uppercase' }}>Gala Event</h3>
+                                    {tournament.galaConfig?.hasGala && <span style={{ width: 8, height: 8, background: 'var(--logo-red)', borderRadius: '50%', animation: 'pulse 1.5s ease-in-out infinite' }}></span>}
                                 </div>
                                 {tournament.galaConfig?.hasGala ? (
                                     <div>
-                                        <p style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 700 }}>📍 {tournament.galaConfig.location}</p>
-                                        <p style={{ fontSize: '0.65rem', color: '#a5b4fc', marginTop: 8 }}>🕒 {new Date(tournament.galaConfig.time).toLocaleString('vi-VN')}</p>
-                                        <p style={{ fontSize: '0.6rem', color: '#64748b', marginTop: 8 }}>"{tournament.galaConfig.description}"</p>
+                                        <p style={{ fontSize: '0.75rem', color: 'var(--ocean-deep)', fontWeight: 700 }}>📍 {tournament.galaConfig.venue || tournament.galaConfig.location}</p>
+                                        <p style={{ fontSize: '0.65rem', color: 'var(--ocean-mid)', marginTop: 8 }}>🕒 {new Date(tournament.galaConfig.time).toLocaleString('vi-VN')}</p>
+                                        <p style={{ fontSize: '0.6rem', color: '#7a8fa0', marginTop: 8 }}>"{tournament.galaConfig.description}"</p>
                                     </div>
-                                ) : <p style={{ fontSize: '0.7rem', color: '#475569', fontWeight: 700 }}>No Gala Configured</p>}
+                                ) : <p style={{ fontSize: '0.7rem', color: '#7a8fa0', fontWeight: 700 }}>No Gala Configured</p>}
                             </div>
                         )}
 
@@ -672,7 +702,7 @@ const DashboardView = () => {
                                 {tournament.paymentQR ? (
                                     <img src={IMAGE_BASE_URL + formatImagePath(tournament.paymentQR)} alt="Payment QR" className="dv-qr-img" />
                                 ) : (
-                                    <span style={{ color: '#64748b', fontSize: '0.7rem' }}>No QR Code</span>
+                                    <span style={{ color: '#7a8fa0', fontSize: '0.7rem' }}>No QR Code</span>
                                 )}
                             </div>
                         </div>
@@ -682,16 +712,16 @@ const DashboardView = () => {
                 <div className="dv-footer-grid">
                     <MetaItem label="Created At" value={new Date(tournament.createdAt).toLocaleString()} />
                     <MetaItem label="Last Update" value={new Date(tournament.updatedAt).toLocaleString()} />
-                    <MetaItem label="Organizer" value={tournament.organizer?.name || "N/A"} />
-                    <MetaItem label="Location" value={tournament.location || "N/A"} />
+                    <MetaItem label="Organizer" value={tournament.organization?.orgName || tournament.organization?.name || "N/A"} />
+                    <MetaItem label="Location" value={tournament.venue || "N/A"} />
                 </div>
             </div>
         </>
     );
 };
 
-const InfoCard = ({ label, value, icon, color }) => (
-    <div className="dv-info-card" style={{ borderLeftColor: color || '#334155' }}>
+const InfoCard = ({ label, value, icon }) => (
+    <div className="dv-info-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <span className="dv-info-icon">{icon}</span>
             <label className="dv-info-label">{label}</label>
@@ -701,19 +731,19 @@ const InfoCard = ({ label, value, icon, color }) => (
 );
 
 const TimelineRow = ({ label, start, end }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1e293b' }}>
-        <span style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>{label}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--ocean-pale)' }}>
+        <span style={{ fontSize: '0.6rem', color: 'var(--ocean-mid)', fontWeight: 700, textTransform: 'uppercase' }}>{label}</span>
         <div style={{ textAlign: 'right' }}>
-            <p style={{ fontSize: '0.6rem', color: '#fff', fontWeight: 700 }}>{start ? new Date(start).toLocaleDateString('vi-VN') : '---'}</p>
-            {end && <p style={{ fontSize: '0.55rem', color: '#ef4444', fontWeight: 700 }}>➔ {new Date(end).toLocaleDateString('vi-VN')}</p>}
+            <p style={{ fontSize: '0.6rem', color: 'var(--ocean-deep)', fontWeight: 700 }}>{start ? new Date(start).toLocaleDateString('vi-VN') : '---'}</p>
+            {end && <p style={{ fontSize: '0.55rem', color: 'var(--logo-red)', fontWeight: 700 }}>➔ {new Date(end).toLocaleDateString('vi-VN')}</p>}
         </div>
     </div>
 );
 
 const MetaItem = ({ label, value }) => (
     <div>
-        <p style={{ fontSize: '0.5rem', color: '#475569', fontWeight: 900, textTransform: 'uppercase' }}>{label}</p>
-        <p style={{ fontSize: '0.55rem', color: '#94a3b8', wordBreak: 'break-all' }}>{value}</p>
+        <p style={{ fontSize: '0.5rem', color: 'var(--ocean-mid)', fontWeight: 900, textTransform: 'uppercase' }}>{label}</p>
+        <p style={{ fontSize: '0.55rem', color: '#7a8fa0', wordBreak: 'break-all' }}>{value}</p>
     </div>
 );
 
