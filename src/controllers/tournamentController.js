@@ -27,7 +27,6 @@ const normalizeTournament = (tournament) => {
 
     return {
         _id: raw._id,
-        displayName: raw.displayName || raw.name,
         name: raw.name || raw.displayName,
         slogan: raw.slogan || '',
         targetAudience: raw.targetAudience || '',
