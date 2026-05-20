@@ -7,11 +7,10 @@ import TournamentsList from './pages/TournamentsList';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Home from './pages/Home';
-import Standings from './pages/Standings';
+import Overview from './pages/Overview';
 import Referee from './pages/Referee';
 import Profile from './pages/Profile';
-import Bracket from './pages/Bracket';
-import Fixtures from './pages/Fixtures';
+
 import Notifications from './pages/Notifications';
 import MyTeams from './pages/MyTeam';
 import Payment from './pages/Payment';
@@ -34,6 +33,7 @@ import TeamView from './pages/Organization/views/TeamView';
 import CourtView from './pages/Organization/views/CourtView';
 import FinanceView from './pages/Organization/views/FinanceView';
 import UserListView from './pages/Organization/views/UserListView';
+
 
 
 // Protected Route Component
@@ -80,14 +80,12 @@ function App() {
               CÁC TRANG PUBLIC (Không cần đăng nhập)
           ========================================== */}
           <Route path="/" element={<TournamentsList />} />
-          <Route path="/admin/import" element={<ImportManager />} />
+          
           <Route path="/tournaments/:tournamentId" element={<Home />} />
-          <Route path="/home" element={<Home />} />
+          <Route path="/tournaments/:tournamentId/overview" element={<Overview />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/standings" element={<Standings />} />
-          <Route path="/bracket" element={<Bracket />} />
-          <Route path="/fixtures" element={<Fixtures />} />
+
 
           {/* ==========================================
               CÁC TRANG USER (Chỉ cần đăng nhập)

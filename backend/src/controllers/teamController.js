@@ -155,14 +155,14 @@ export const getUserTeams = async (req, res) => {
 export const getTeamDetail = async (req, res) => {
     try {
         const { id } = req.params;
-        const team = await Team.findById(id).populate('tournamentId', 'displayName sport');
+        const team = await Team.findById(id).populate('tournamentId', 'name sport');
         if (!team) return res.status(404).json({ success: false, message: 'Đội không tồn tại' });
 
         const userId = req.user.id;
         const isCaptainOrCreator = await checkCaptainOrCreator(id, userId);
         const memberFilter = isCaptainOrCreator ? {} : { status: 'Active' };
         const members = await Member.find({ teamId: id, ...memberFilter })
-            .populate('userId', 'displayName email avatar')
+            .populate('userId', 'name email avatar')
             .lean();
 
         return res.status(200).json({ success: true, data: { ...team.toObject(), members } });
@@ -179,7 +179,7 @@ export const getTeamsByTournament = async (req, res) => {
         const filter = { tournamentId };
         if (status) filter.status = status;
 
-        const teams = await Team.find(filter).populate('createdBy', 'displayName').lean();
+        const teams = await Team.find(filter).populate('createdBy', 'name').lean();
         const teamsWithCount = await Promise.all(teams.map(async (team) => ({
             ...team,
             memberCount: await Member.countDocuments({ teamId: team._id, status: 'Active' })
@@ -371,8 +371,8 @@ export const getUserInvitations = async (req, res) => {
     try {
         const userId = req.user.id;
         const invites = await Invitation.find({ receiverId: userId, status: 'pending', invitationType: 'captain_invite' })
-            .populate('senderId', 'displayName email')
-            .populate('teamId', 'teamName sportType')
+            .populate('senderId', 'name email')
+            .populate('teamId', 'name sportType')
             .lean();
         return res.status(200).json({ success: true, data: invites });
     } catch (error) {
@@ -509,7 +509,7 @@ export const getTeamJoinRequests = async (req, res) => {
         if (!captainMember) return res.status(403).json({ success: false, message: 'Chỉ đội trưởng mới xem được' });
 
         const requests = await Invitation.find({ teamId, invitationType: 'player_request', status: 'pending' })
-            .populate('senderId', 'displayName email avatar')
+            .populate('senderId', 'name email avatar')
             .lean();
         return res.status(200).json({ success: true, data: requests });
     } catch (error) {
@@ -541,11 +541,11 @@ export const searchUsers = async (req, res) => {
         const users = await User.find({
             role: 'player', // Chỉ tìm cầu thủ
             $or: [
-                { displayName: { $regex: keyword, $options: 'i' } },
+                { name: { $regex: keyword, $options: 'i' } },
                 { email: { $regex: keyword, $options: 'i' } },
                 { phoneNumber: { $regex: keyword, $options: 'i' } }
             ]
-        }).select('displayName email phoneNumber avatar skillLevel');
+        }).select('name email phoneNumber avatar skillLevel');
 
         return res.status(200).json({ success: true, data: users });
     } catch (error) {
@@ -576,7 +576,7 @@ export const registerFlow = async (req, res) => {
         // 3. Xử lý theo chế độ đăng ký
         if (regMode === 'solo') {
             // Đăng ký cá nhân (tạo đội 1 người)
-            const soloTeamName = `${req.user.displayName || 'VĐV'} - ${sport} ${categoryId || ''}`;
+            const soloTeamName = `${req.user.name || 'VĐV'} - ${sport} ${categoryId || ''}`;
             [newTeam] = await Team.create([{
                 teamName: soloTeamName,
                 tournamentId,

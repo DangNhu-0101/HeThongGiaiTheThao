@@ -50,7 +50,7 @@ export const registerFull = async (req, res) => {
             profile = new Referee({
                 userId: newUser._id,
                 name: profileData.name,
-                birthDay: profileData.birthDate,
+                birthDate: profileData.birthDate,
                 gender: profileData.gender,
                 sports: [{ category: 'Pickleball', yearsOfExperience: profileData.experienceYears }]
             });

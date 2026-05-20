@@ -5,8 +5,7 @@ import api from '../api/axiosConfig';
 
 const NAV_LINKS = [
   { to: '/',          label: 'Trang chủ'     },
-  { to: '/standings', label: 'Bảng xếp hạng' },
-  { to: '/bracket',   label: 'Sơ đồ cây'     },
+ 
 ];
 
 /* Menu dropdown theo role */
@@ -467,11 +466,11 @@ export default function Navbar() {
                             alt=""
                             onError={e => { e.currentTarget.style.display = 'none'; }}
                           />
-                        : (displayName || 'U').charAt(0).toUpperCase()
+                        : (name || 'U').charAt(0).toUpperCase()
                       }
                     </div>
                     <div>
-                      <div className="nb-uname">{displayName}</div>
+                      <div className="nb-uname">{name}</div>
                       <div className="nb-urole">{user.role}</div>
                     </div>
                     <CaretSVG open={userOpen} />
@@ -480,7 +479,7 @@ export default function Navbar() {
                   {userOpen && (
                     <div className="nb-user-dd">
                       <div className="nb-dd-head">
-                        <div className="nb-dd-name">{displayName}</div>
+                        <div className="nb-dd-name">{name}</div>
                         <span className="nb-dd-role">{user.role}</span>
                       </div>
                       <div className="nb-dd-list">

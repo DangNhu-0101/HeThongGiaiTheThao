@@ -13,7 +13,7 @@ import Member from '../models/membersOfTeam.js';
 
 // Helper tìm tournamentId theo tên
 async function getTournamentIdByName(name, session) {
-    const tournament = await Tournament.findOne({ displayName: name }).session(session);
+    const tournament = await Tournament.findOne({ name: name }).session(session);
     if (!tournament) throw new Error(`Không tìm thấy giải đấu: ${name}`);
     return tournament._id;
 }
@@ -57,16 +57,32 @@ export const importUsersWithPlayers = async (rows, session) => {
         created.push(user);
 
 
-        // Nếu role là player, tạo Player tương ứng
-        if (row.role === 'player') {
-            await Player.create([{
-                userId: user._id,
-                name: row.displayName,
-                birthYear: parseInt(row.birthYear),
-                gender: row.gender,
-                skillLevel: parseFloat(row.skillLevel) || 3.0
-            }], { session });
+       // Nếu role là player, tạo Player tương ứng
+if (row.role === 'player') {
+    let birthDate = null;
+    if (row.birthDate) {
+        // Nếu là số serial của Excel (ví dụ: 36892)
+        const num = parseFloat(row.birthDate);
+        if (!isNaN(num) && num > 30000 && num < 50000) {
+            // Chuyển từ Excel serial date sang Date
+            birthDate = new Date((num - 25569) * 86400 * 1000);
+        } else {
+            birthDate = new Date(row.birthDate);
         }
+        // Kiểm tra hợp lệ
+        if (isNaN(birthDate.getTime())) {
+            birthDate = null;
+        }
+    }
+    
+    await Player.create([{
+        userId: user._id,
+        name: row.name,
+        birthDate: birthDate,
+        gender: row.gender || null,
+        skillLevel: parseFloat(row.skillLevel) || 3.0
+    }], { session });
+}
     }
     return created;
 };

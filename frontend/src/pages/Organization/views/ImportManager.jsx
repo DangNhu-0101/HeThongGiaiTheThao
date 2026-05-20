@@ -2,11 +2,13 @@
 import React, { useState } from 'react';
 import api from '../../../api/axiosConfig';
 
+
 const ImportManager = () => {
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
+
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
@@ -19,7 +21,8 @@ const ImportManager = () => {
         }
     };
 
-   const handleImport = async () => {
+
+ const handleImport = async () => {
     if (!file) {
         setMessage({ type: 'error', text: 'Vui lòng chọn file Excel!' });
         return;
@@ -28,12 +31,7 @@ const ImportManager = () => {
     const formData = new FormData();
     formData.append('file', file);
 
-    // DEBUG: In ra thông tin
-    console.log('=== DEBUG IMPORT ===');
-    console.log('File:', file.name, file.size, file.type);
-    console.log('API baseURL:', api.defaults.baseURL);
-    console.log('Full URL:', api.defaults.baseURL + '/xlsx/import');
-    console.log('Token:', localStorage.getItem('token')?.substring(0, 20) + '...');
+    console.log('File:', file.name, file.size);
 
     setUploading(true);
     setMessage(null);
@@ -43,66 +41,81 @@ const ImportManager = () => {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
 
-        console.log('✅ Response:', res.status, res.data);
-
+        console.log('Success:', res.data);
         if (res.data.success) {
-            setMessage({ 
-                type: 'success', 
-                text: res.data.message || '✅ Import thành công!' 
-            });
+            setMessage({ type: 'success', text: res.data.message || '✅ Import thành công!' });
             setFile(null);
-            const fileInput = document.getElementById('excel-file-input');
-            if (fileInput) fileInput.value = '';
-        } else {
-            setMessage({ type: 'error', text: res.data.message || '❌ Import thất bại!' });
-            if (res.data.errors) {
-                console.error('Validation errors:', res.data.errors);
-            }
         }
     } catch (error) {
-    // DEBUG: In chi tiết lỗi
-    console.error('=== IMPORT ERROR ===');
-    console.error('Status:', error.response?.status);
-    console.error('StatusText:', error.response?.statusText);
-    console.error('Message:', error.message);
-    
-    // In chi tiết errors array
-    const errors = error.response?.data?.errors;
-    console.error('Errors:', errors);
-    
-    // Log từng lỗi riêng biệt
-    if (errors && Array.isArray(errors)) {
-        errors.forEach((err, i) => {
-            console.error(`❌ Lỗi ${i + 1}:`, JSON.stringify(err, null, 2));
-        });
-        setMessage({ 
-            type: 'error', 
-            text: `❌ Import thất bại! Có ${errors.length} lỗi. Mở Console (F12) để xem chi tiết.` 
-        });
-    } else {
-        setMessage({ 
-            type: 'error', 
-            text: error.response?.data?.message || `❌ Lỗi ${error.response?.status || ''}: ${error.message}` 
-        });
+        console.error('Status:', error.response?.status);
+        console.error('Data:', error.response?.data);
+        
+        // Hiển thị lỗi validation
+        const errData = error.response?.data;
+        if (errData?.errors) {
+            console.table(errData.errors);
+            const msg = errData.errors.map(e => `• ${e.sheet}: ${e.errors.join(', ')}`).join('\n\n');
+            setMessage({ type: 'error', text: msg });
+        } else {
+            setMessage({ type: 'error', text: errData?.message || `Lỗi ${error.response?.status}` });
+        }
+    } finally {
+        setUploading(false);
     }
-} finally {
-    setUploading(false);
-}
-   };
-    const downloadTemplate = () => {
-    window.open('http://localhost:5001/api/xlsx/template', '_blank');
 };
+
+
+    // ✅ Tải file mẫu (trống)
+    const downloadTemplate = async () => {
+        try {
+            const response = await api.get('/xlsx/template', {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'import_template.xlsx');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Download template error:', error);
+            setMessage({ type: 'error', text: 'Không thể tải file mẫu. Vui lòng thử lại sau.' });
+        }
+    };
+
+
+    // ✅ Xuất dữ liệu hiện tại từ DB
+    const downloadExport = async () => {
+        try {
+            const response = await api.get('/xlsx/export', {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'export_data.xlsx');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Export error:', error);
+            setMessage({ type: 'error', text: 'Không thể xuất dữ liệu. Vui lòng thử lại sau.' });
+        }
+    };
+
 
     const importTypes = [
         { id: 'all', name: '📦 Tất cả', desc: 'Import toàn bộ dữ liệu' },
         { id: 'users', name: '👤 Người dùng', desc: 'Import danh sách người dùng' },
-        { id: 'tournaments', name: '🏆 Giải đấu', desc: 'Import danh sách giải đấu' },
         { id: 'teams', name: '👥 Đội tuyển', desc: 'Import danh sách đội' },
         { id: 'players', name: '🏃 Cầu thủ', desc: 'Import danh sách cầu thủ' },
         { id: 'groups', name: '📊 Bảng đấu', desc: 'Import cấu hình bảng' },
-        { id: 'courts', name: '🏟️ Sân bãi', desc: 'Import danh sách sân' },
         { id: 'matches', name: '⚡ Trận đấu', desc: 'Import lịch thi đấu' }
     ];
+
 
     return (
         <div className="import-manager">
@@ -263,10 +276,12 @@ const ImportManager = () => {
                 }
             `}</style>
 
+
             <div className="import-header">
                 <h1>📥 Quản lý Import dữ liệu</h1>
                 <p>Import dữ liệu hàng loạt từ file Excel vào hệ thống</p>
             </div>
+
 
             <div className="import-tabs">
                 {importTypes.map(type => (
@@ -280,8 +295,9 @@ const ImportManager = () => {
                 ))}
             </div>
 
+
             <div className="import-card">
-                <div 
+                <div
                     className={`dropzone ${file ? 'has-file' : ''}`}
                     onClick={() => document.getElementById('excel-file-input').click()}
                     onDragOver={(e) => e.preventDefault()}
@@ -310,6 +326,7 @@ const ImportManager = () => {
                     />
                 </div>
 
+
                 {file && (
                     <div className="file-info">
                         <span>📄 {file.name}</span>
@@ -317,15 +334,21 @@ const ImportManager = () => {
                     </div>
                 )}
 
+
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
                     <button className="btn-secondary" onClick={downloadTemplate}>
-                        📥 Tải file mẫu
+                        📥 Tải file mẫu (trống)
+                    </button>
+                    <button className="btn-secondary" onClick={downloadExport}>
+                        📊 Xuất dữ liệu hiện tại
                     </button>
                 </div>
+
 
                 <button className="btn-primary" onClick={handleImport} disabled={!file || uploading}>
                     {uploading ? '⏳ Đang xử lý...' : '🚀 Import dữ liệu'}
                 </button>
+
 
                 {message && (
                     <div className={`message ${message.type}`}>
@@ -333,6 +356,7 @@ const ImportManager = () => {
                     </div>
                 )}
             </div>
+
 
             <div className="info-box">
                 <h3 className="info-title">📌 Lưu ý khi import:</h3>
@@ -348,4 +372,6 @@ const ImportManager = () => {
     );
 };
 
+
 export default ImportManager;
+

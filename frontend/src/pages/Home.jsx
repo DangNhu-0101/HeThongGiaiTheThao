@@ -739,7 +739,7 @@ export default function Home() {
             <div style={{ fontSize: 64, marginBottom: 20 }}>⚠️</div>
             <h2 style={{ color: 'var(--logo-red)', marginBottom: 16 }}>Có lỗi xảy ra</h2>
             <p style={{ color: '#5a6a7a', marginBottom: 24 }}>{error}</p>
-            <Link to="/tournaments" className="hero-cta" style={{ display: 'inline-flex' }}>
+            <Link to="/" className="hero-cta" style={{ display: 'inline-flex' }}>
               ← Quay lại danh sách giải
             </Link>
           </div>
@@ -758,7 +758,7 @@ export default function Home() {
             <div style={{ fontSize: 64, marginBottom: 20 }}>🏓</div>
             <h2 style={{ color: 'var(--ocean-deep)', marginBottom: 16 }}>Không tìm thấy giải đấu</h2>
             <p style={{ color: '#5a6a7a', marginBottom: 24 }}>Giải đấu bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
-            <Link to="/tournaments" className="hero-cta" style={{ display: 'inline-flex' }}>
+            <Link to="/" className="hero-cta" style={{ display: 'inline-flex' }}>
               ← Xem danh sách giải đấu
             </Link>
           </div>
@@ -801,6 +801,9 @@ export default function Home() {
 
           <Link to={`/register-team?tournament=${tournamentId}`} className="hero-cta">
             ✦ Đăng ký tham gia ngay
+          </Link>
+          <Link to={`/tournaments/${tournamentId}/overview`} className="hero-cta" style={{ marginLeft: 16, background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+            Xem tổng quan giải đấu
           </Link>
         </section>
 
