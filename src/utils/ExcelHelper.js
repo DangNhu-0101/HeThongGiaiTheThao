@@ -16,14 +16,14 @@ export const SHEET_MAPPINGS = {
             status: ['active', 'inactive', 'banned']
         }
     },
-    'Đội': {
+   'Đội': {
         model: 'Team',
         fields: ['name', 'tournamentName', 'sportType', 'categoryId', 'ownerUsername', 'members', 'status'],
         required: ['name', 'tournamentName', 'sportType', 'ownerUsername'],
         validation: {
-            sportType: ['Pickleball', 'Tennis', 'Badminton', 'Soccer'],
+            sportType: ['Pickleball', 'Tennis', 'Badminton', 'Soccer', 'Volleyball', 'Basketball'],
             status: ['pending', 'active', 'inactive']
-        }
+            }
     },
     'Bảng': {
         model: 'Group',

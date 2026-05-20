@@ -95,46 +95,42 @@ export const importTeams = async (rows, session) => {
         const tournamentId = await getTournamentIdByName(row.tournamentName, session);
         const ownerId = await getUserIdByUsername(row.ownerUsername, session);
 
-
         // Tạo team
         const [team] = await Team.create([{
-            name: row.name,
+            name: row.name,                          // DÙNG name
             tournamentId,
-            sportType: row.sportType,
-            categoryId: row.categoryId,
+            sportCategory: row.sportType,            
             createdBy: ownerId,
-            status: row.status || 'pending'
+            ownerId: ownerId,                        
+            status: 'pending',                       // SỬA: 'pending' thay vì 'active'
+            isPaid: false
         }], { session });
-
 
         // Tạo member cho chủ đội (Captain)
         await Member.create([{
             teamId: team._id,
             userId: ownerId,
             role: 'Captain',
-            status: 'Active',
+            status: 'active',
             joinedAt: new Date()
         }], { session });
-
 
         // Xử lý danh sách thành viên (members)
         if (row.members) {
             const memberUsernames = row.members.split(/[,\n]+/).map(s => s.trim()).filter(s => s);
             for (const username of memberUsernames) {
                 const userId = await getUserIdByUsername(username, session);
-                // Tránh thêm trùng với owner (nếu owner cũng nằm trong danh sách)
                 if (userId.toString() !== ownerId.toString()) {
                     await Member.create([{
                         teamId: team._id,
                         userId,
                         role: 'Member',
-                        status: 'Active',
+                        status: 'active',
                         joinedAt: new Date()
                     }], { session });
                 }
             }
         }
-
 
         created.push(team);
     }
