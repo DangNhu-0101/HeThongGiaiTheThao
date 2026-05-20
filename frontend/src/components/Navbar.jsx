@@ -4,24 +4,23 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axiosConfig';
 
 const NAV_LINKS = [
-  { to: '/',          label: 'Trang chủ'     },
- 
+  { to: '/', label: 'Trang chủ' },
 ];
 
 /* Menu dropdown theo role */
 const USER_MENU = {
   player: [
-    { to: '/profile',       label: 'Hồ sơ'   },
-    { to: '/register-team', label: 'Đăng ký đội'  },
-    { to: '/my-teams',      label: 'Quản lý đội'  },
+    { to: '/profile', label: 'Hồ sơ' },
+    { to: '/register-team', label: 'Đăng ký đội' },
+    { to: '/my-teams', label: 'Quản lý đội' },
   ],
   referee: [
-    { to: '/profile',  label: 'Hồ sơ'             },
-    { to: '/referee',  label: 'Khu vực Trọng tài'  },
+    { to: '/profile', label: 'Hồ sơ' },
+    { to: '/referee', label: 'Khu vực Trọng tài' },
   ],
   org: [
-    { to: '/admin',    label: 'Quản lý tổ chức'    },
-    { to: '/profile',  label: 'Hồ sơ'              },
+    { to: '/admin', label: 'Quản lý tổ chức' },
+    { to: '/profile', label: 'Hồ sơ' },
   ],
 };
 
@@ -31,6 +30,7 @@ const IMAGE_BASE = 'http://localhost:5001/';
 const DEFAULT_LOGO = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'%3E%3Crect width='34' height='34' rx='8' fill='%2302457A'/%3E%3Ccircle cx='17' cy='17' r='7' fill='none' stroke='%2397CADB' stroke-width='2'/%3E%3Ccircle cx='17' cy='17' r='2.5' fill='%2397CADB'/%3E%3Cline x1='17' y1='8' x2='17' y2='12.5' stroke='%2397CADB' stroke-width='1.5'/%3E%3Cline x1='17' y1='21.5' x2='17' y2='26' stroke='%2397CADB' stroke-width='1.5'/%3E%3Cline x1='8' y1='17' x2='12.5' y2='17' stroke='%2397CADB' stroke-width='1.5'/%3E%3Cline x1='21.5' y1='17' x2='26' y2='17' stroke='%2397CADB' stroke-width='1.5'/%3E%3C/svg%3E`;
 
 const CSS = `
+  /* CSS giữ nguyên như cũ */
   :root {
     --ocean-deep:    #02457A;
     --ocean-mid:     #018ABE;
@@ -79,19 +79,9 @@ const CSS = `
   /* RIGHT ZONE */
   .nb-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
-  /* QUICK CHIPS (referee / org) */
-  .nb-chip {
-    text-decoration: none; font-size: 12px; font-weight: 600;
-    padding: 6px 14px; border-radius: 8px; border: 1px solid transparent;
-    white-space: nowrap; transition: opacity .15s, transform .15s;
-  }
-  .nb-chip:hover { opacity: .85; transform: translateY(-1px); }
-  .nb-chip.warn { background: rgba(189,0,20,.08); color: var(--logo-red); border-color: rgba(189,0,20,.18); }
-  .nb-chip.dang { background: rgba(189,0,20,.08); color: var(--logo-red); border-color: rgba(189,0,20,.18); }
-
   .nb-sep { width: 1px; height: 20px; background: rgba(2,69,122,.12); flex-shrink: 0; }
 
-  /* ── BELL ── */
+  /* BELL */
   .nb-bell-wrap { position: relative; flex-shrink: 0; }
   .nb-bell-btn {
     width: 36px; height: 36px; border-radius: 50%;
@@ -153,9 +143,8 @@ const CSS = `
     padding: 9px 15px; border-top: 1px solid rgba(2,69,122,.08); text-align: center;
   }
   .nb-notif-foot a { font-size: 12px; font-weight: 600; color: var(--ocean-mid); text-decoration: none; }
-  .nb-notif-foot a:hover { text-decoration: underline; }
 
-  /* ── USER BUTTON ── */
+  /* USER BUTTON */
   .nb-user-wrap { position: relative; flex-shrink: 0; }
   .nb-user-btn {
     display: flex; align-items: center; gap: 8px;
@@ -275,18 +264,19 @@ const CaretSVG = ({ open }) => (
    MAIN
 ════════════════════════════════════════════ */
 export default function Navbar() {
-  const { user, logout }      = useAuth();
-  const location              = useLocation();
-  const navigate              = useNavigate();
+  const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [mobOpen,     setMobOpen]     = useState(false);
-  const [userOpen,    setUserOpen]    = useState(false);
-  const [notifOpen,   setNotifOpen]   = useState(false);
-  const [notifs,      setNotifs]      = useState([]);
-  const [logoSrc,     setLogoSrc]     = useState(null);
-  const [playerName,  setPlayerName]  = useState('');
+  const [mobOpen, setMobOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [logoSrc, setLogoSrc] = useState(null);
+  const [playerName, setPlayerName] = useState('');
+  const [orgName, setOrgName] = useState(''); // Thêm state cho tên tổ chức
 
-  const userRef  = useRef(null);
+  const userRef = useRef(null);
   const notifRef = useRef(null);
 
   const act = path => path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
@@ -317,16 +307,50 @@ export default function Navbar() {
     fetchTournamentLogo();
   }, []);
 
-  /* fetch player name nếu là player */
+  /* fetch user info theo role */
   useEffect(() => {
-    if (!user || user.role !== 'player') return;
-    api.get('/users/profile')
-      .then(res => {
-        if (res.data?.data?.name) {
-          setPlayerName(res.data.data.name);
-        }
-      })
-      .catch(() => {});
+    if (!user) return;
+
+    // Nếu là player, lấy tên từ profile
+    if (user.role === 'player') {
+      api.get('/users/profile')
+        .then(res => {
+          if (res.data?.data?.name) {
+            setPlayerName(res.data.data.name);
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Nếu là tổ chức (org), lấy tên tổ chức
+    if (user.role === 'org') {
+      // Trường hợp 1: user có sẵn organizationName
+      if (user.organizationName) {
+        setOrgName(user.organizationName);
+      }
+      // Trường hợp 2: user có organizationId, fetch từ API
+      if (user.organizationId) {
+        api.get(`/organizations/${user.organizationId}`)
+          .then(res => {
+            if (res.data?.data?.name) {
+              setOrgName(res.data.data.name);
+            }
+          })
+          .catch(err => console.error('Lỗi fetch org:', err));
+      }
+      // Trường hợp 3: dùng tournament name (fallback)
+      if (!user.organizationName && !user.organizationId) {
+        api.get('/tournaments')
+          .then(res => {
+            const tournaments = res.data?.data || [];
+            const active = tournaments.find(t => t.status === 'upcoming') || tournaments[0];
+            if (active?.name) {
+              setOrgName(active.name);
+            }
+          })
+          .catch(() => {});
+      }
+    }
   }, [user]);
 
   /* fetch notifications */
@@ -340,7 +364,7 @@ export default function Navbar() {
   /* outside click */
   useEffect(() => {
     const h = e => {
-      if (userRef.current  && !userRef.current.contains(e.target))  setUserOpen(false);
+      if (userRef.current && !userRef.current.contains(e.target)) setUserOpen(false);
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
     };
     document.addEventListener('mousedown', h);
@@ -348,19 +372,35 @@ export default function Navbar() {
   }, []);
 
   const markAllRead = async () => {
-    try { await api.patch('/notifications/mark-all-read'); } catch {}
+    try { await api.patch('/notifications/mark-all-read'); } catch { }
     setNotifs(ns => ns.map(n => ({ ...n, read: true })));
   };
 
   const clickNotif = async n => {
     if (!n.read) {
-      try { await api.patch(`/notifications/${n._id}/read`); } catch {}
+      try { await api.patch(`/notifications/${n._id}/read`); } catch { }
       setNotifs(ns => ns.map(x => x._id === n._id ? { ...x, read: true } : x));
     }
     if (n.link) { navigate(n.link); setNotifOpen(false); }
   };
 
-  const displayName = playerName || user?.username || 'Người dùng';
+  // Lấy tên hiển thị theo role
+  const displayName = (() => {
+    if (!user) return '';
+    if (user.role === 'org') return orgName || user.organizationName || user.username || 'Tổ chức';
+    if (user.role === 'player') return playerName || user.username || 'Vận động viên';
+    if (user.role === 'referee') return user.username || 'Trọng tài';
+    return user.username || 'Người dùng';
+  })();
+
+  // Lấy role hiển thị tiếng Việt
+  const displayRole = (() => {
+    if (!user) return '';
+    if (user.role === 'org') return 'Tổ chức';
+    if (user.role === 'player') return 'Vận động viên';
+    if (user.role === 'referee') return 'Trọng tài';
+    return user.role;
+  })();
 
   return (
     <>
@@ -391,13 +431,11 @@ export default function Navbar() {
 
           {/* RIGHT */}
           <div className="nb-right">
-
-            
             {user && <div className="nb-sep" />}
 
             {!user ? (
               <>
-                <Link to="/login"    className="nb-login">Đăng nhập</Link>
+                <Link to="/login" className="nb-login">Đăng nhập</Link>
                 <Link to="/register" className="nb-register">Đăng ký</Link>
               </>
             ) : (
@@ -453,25 +491,26 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* USER DROPDOWN */}
+                {/* USER DROPDOWN - ĐÃ SỬA */}
                 <div className="nb-user-wrap" ref={userRef}>
                   <button
                     className="nb-user-btn"
                     onClick={() => { setUserOpen(o => !o); setNotifOpen(false); }}
                   >
                     <div className="nb-avatar">
-                      {user.avatar
-                        ? <img
-                            src={IMAGE_BASE + user.avatar.replace(/\\/g, '/')}
-                            alt=""
-                            onError={e => { e.currentTarget.style.display = 'none'; }}
-                          />
-                        : (name || 'U').charAt(0).toUpperCase()
-                      }
+                      {user.avatar ? (
+                        <img
+                          src={IMAGE_BASE + user.avatar.replace(/\\/g, '/')}
+                          alt=""
+                          onError={e => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        (displayName || 'U').charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
-                      <div className="nb-uname">{name}</div>
-                      <div className="nb-urole">{user.role}</div>
+                      <div className="nb-uname">{displayName}</div>
+                      <div className="nb-urole">{displayRole}</div>
                     </div>
                     <CaretSVG open={userOpen} />
                   </button>
@@ -479,13 +518,14 @@ export default function Navbar() {
                   {userOpen && (
                     <div className="nb-user-dd">
                       <div className="nb-dd-head">
-                        <div className="nb-dd-name">{name}</div>
-                        <span className="nb-dd-role">{user.role}</span>
+                        <div className="nb-dd-name">{displayName}</div>
+                        <span className="nb-dd-role">{displayRole}</span>
                       </div>
                       <div className="nb-dd-list">
                         {menuItems.map(({ to, label }) => (
                           <Link
-                            key={to} to={to}
+                            key={to}
+                            to={to}
                             className="nb-dd-item"
                             onClick={() => setUserOpen(false)}
                           >
@@ -516,9 +556,12 @@ export default function Navbar() {
         {/* MOBILE MENU */}
         <div className={`nb-mob${mobOpen ? ' open' : ''}`}>
           {NAV_LINKS.map(({ to, label }) => (
-            <Link key={to} to={to}
+            <Link
+              key={to}
+              to={to}
               className={`nb-mob-link${act(to) ? ' act' : ''}`}
-              onClick={() => setMobOpen(false)}>
+              onClick={() => setMobOpen(false)}
+            >
               {label}
             </Link>
           ))}
@@ -527,7 +570,9 @@ export default function Navbar() {
             <>
               <div className="nb-mob-div" />
               {menuItems.map(({ to, label }) => (
-                <Link key={to} to={to} className="nb-mob-link" onClick={() => setMobOpen(false)}>{label}</Link>
+                <Link key={to} to={to} className="nb-mob-link" onClick={() => setMobOpen(false)}>
+                  {label}
+                </Link>
               ))}
               <Link to="/notifications" className="nb-mob-link" onClick={() => setMobOpen(false)}>
                 Thông báo{unread > 0 ? ` (${unread})` : ''}
@@ -538,14 +583,14 @@ export default function Navbar() {
               </button>
             </>
           )}
-
+{/* 
           {!user && (
             <>
               <div className="nb-mob-div" />
-              <Link to="/login"    className="nb-mob-link" onClick={() => setMobOpen(false)}>Đăng nhập</Link>
+              <Link to="/login" className="nb-mob-link" onClick={() => setMobOpen(false)}>Đăng nhập</Link>
               <Link to="/register" className="nb-mob-link" onClick={() => setMobOpen(false)}>Đăng ký</Link>
             </>
-          )}
+          )} */}
         </div>
       </nav>
     </>

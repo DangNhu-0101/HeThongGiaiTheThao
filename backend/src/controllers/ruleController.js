@@ -14,20 +14,40 @@ import Match from '../models/matches.js';
 import Team from '../models/teams.js';
 import { initializeSportStructure } from '../services/tournamentInstanceService.js';
 
+
 export const getBaseRules = async (req, res) => {
     try {
-        const { sport } = req.query;
-        let filter = {};
-        if (sport) filter.sport = { $regex: new RegExp(`^${sport}$`, 'i') };
-
-        const rules = await BaseRule.find(filter)
-            .populate('tournamentStructure.stages')
-            .populate('tournamentStructure.scoringRules')
-            .lean();
-
-        return res.status(200).json({ success: true, count: rules.length, data: rules });
+        console.log('🔍 getBaseRules called');
+        
+        // Query từ BaseRule collection
+        const baseRules = await BaseRule.find({}).lean();
+        console.log(`✅ Found ${baseRules.length} base rules`);
+        
+        // Nếu không có BaseRule, thử query từ Rule model cũ
+        if (baseRules.length === 0) {
+            console.log('🔄 No BaseRule found, trying Rule model...');
+            const rules = await Rule.find({}).lean();
+            console.log(`✅ Found ${rules.length} rules from old model`);
+            
+            return res.status(200).json({ 
+                success: true, 
+                data: rules,
+                message: 'Lấy từ Rule model cũ' 
+            });
+        }
+        
+        res.status(200).json({ 
+            success: true, 
+            data: baseRules 
+        });
+        
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        console.error('❌ getBaseRules error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message,
+            data: [] 
+        });
     }
 };
 

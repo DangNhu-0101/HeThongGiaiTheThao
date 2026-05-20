@@ -10,6 +10,7 @@ import authRoute from './routes/authRoute.js';
 import userRoute from './routes/userRoute.js';
 import ruleRoute from './routes/ruleRoute.js';
 import tournamentRoute from './routes/tournamentRoute.js';
+import tournamentAutoRoute from './routes/tournamentAutoRoutes.js';
 import stageRoutes from './routes/stageRoutes.js';
 import refereeRoute from './routes/refereeRoute.js';
 import notificationRoute from './routes/notificationRoute.js';
@@ -56,6 +57,7 @@ app.use('/api/xlsx', xlsxRoute);
 app.use('/api/teams', teamRoute);
 // Lưu ý: Đổi tên cho khớp với Frontend đang gọi (/api/tournaments)
 app.use('/api/tournaments', tournamentRoute);
+app.use('/api/tournament-auto', tournamentAutoRoute); // Route tự động hóa giải đấu
 app.use('/api/stages', stageRoutes);
 app.use('/api/referees', refereeRoute);
 app.use('/api/courts', courtRoute);

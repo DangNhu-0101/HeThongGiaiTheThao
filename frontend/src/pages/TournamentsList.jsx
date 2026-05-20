@@ -474,38 +474,9 @@ const TournamentsList = () => {
                   
                   <div className="tournament-content">
                     <h3 className="tournament-name">{tournament.name}</h3>
-                    {tournament.slogan && (
-                      <div className="tournament-slogan">"{tournament.slogan}"</div>
-                    )}
-                    
-                    <div className="tournament-info">
-                      <div className="info-row">
-                        <span className="info-icon">📅</span>
-                        <span className="info-text">
-                          {formatDate(tournament.timeLine?.tournamentStart)} - {formatDate(tournament.timeLine?.tournamentEnd)}
-                        </span>
-                      </div>
-                      
-                      <div className="info-row">
-                        <span className="info-icon">📍</span>
-                        <span className="info-text">{tournament.location || 'Đang cập nhật'}</span>
-                      </div>
-                      
-                      <div className="info-row">
-                        <span className="info-icon">👥</span>
-                        <span className="info-text">{tournament.organizer?.name || 'IT Vũng Tàu Group'}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="sports-badges">
-                      {tournament.sportType?.slice(0, 3).map((sport, idx) => (
-                        <span key={idx} className="sport-badge">{sport}</span>
-                      ))}
-                      {tournament.sportType?.length > 3 && (
-                        <span className="sport-badge">+{tournament.sportType.length - 3}</span>
-                      )}
-                    </div>
+
                   </div>
+                  
                 </div>
               ))}
             </div>

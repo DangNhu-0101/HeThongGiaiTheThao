@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../api/axiosConfig';
+import { useAuth } from '../../../context/AuthContext';
 
 const UserListView = () => {
     const [users, setUsers] = useState([]);

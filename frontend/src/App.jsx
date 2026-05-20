@@ -45,7 +45,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--bg-light)' }}>
         <div className="p-10 text-center">
           <div className="skeleton" style={{ width: 200, height: 200, borderRadius: '50%', margin: '0 auto 20px' }} />
-          <p style={{ color: 'var(--ocean-deep)', fontFamily: 'var(--font-title)' }}>
+          <p style={{ color: 'var(--ocean-deep)'}}>
             Đang tải dữ liệu ...
           </p>
         </div>

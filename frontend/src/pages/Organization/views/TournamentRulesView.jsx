@@ -700,9 +700,9 @@ const [ruleDescription, setRuleDescription] = useState('');     // Luật thi đ
           )}
 
         <div className="rv-panel" style={{marginBottom: 20}}>
-  <div className="rv-panel-body">
+  <div className="rv-panel-body" style={{gap: 16, background: '#fff'}}>
     <div className="rv-field">
-      <label className="rv-label">Thể thức thi đấu</label>
+      <label className="rv-stage-name">Thể thức thi đấu</label>
       <textarea 
         className="rv-input" 
         rows="2"
@@ -713,7 +713,7 @@ const [ruleDescription, setRuleDescription] = useState('');     // Luật thi đ
       />
     </div>
     <div className="rv-field" style={{marginTop: 8}}>
-      <label className="rv-label">Luật thi đấu</label>
+      <div className="rv-stage-name">Luật thi đấu</div>
       <textarea 
         className="rv-input" 
         rows="3"
@@ -800,7 +800,9 @@ const StageNode = ({ stage, depth, stageIndex, onUpdate, onUpdateBranch, onToggl
                 <option value="KNOCKOUT">Loại trực tiếp</option>
               </select>
             </div>
-            {!isGroup && (
+            
+             {/*  KNOCKOUT */}
+             {!isGroup && (
               <>
                 <div className="rv-field">
                   <label className="rv-label">Vòng knockout</label>
@@ -818,7 +820,18 @@ const StageNode = ({ stage, depth, stageIndex, onUpdate, onUpdateBranch, onToggl
                 </div>
               </>
             )}
-          </div>
+            </div>
+            {/* END META FIELDS */}
+
+            <div style={{flex:1}} />
+            {/* MATCH RULES */}
+          <MatchPanel stage={stage} onUpdate={onUpdate} />
+          
+          {/* RANKING */}
+              <RankingPanel stage={stage} onUpdate={onUpdate} onToggleCriteria={onToggleCriteria} onMovePriority={onMovePriority} />
+
+            
+          
 
           {/* ── GROUP STAGE ── */}
           {isGroup && (
@@ -854,8 +867,7 @@ const StageNode = ({ stage, depth, stageIndex, onUpdate, onUpdateBranch, onToggl
                 </div>
               </div>
 
-              {/* RANKING */}
-              <RankingPanel stage={stage} onUpdate={onUpdate} onToggleCriteria={onToggleCriteria} onMovePriority={onMovePriority} />
+              
             </>
           )}
 
@@ -888,11 +900,14 @@ const StageNode = ({ stage, depth, stageIndex, onUpdate, onUpdateBranch, onToggl
 
               {/* WILDCARD — chỉ KNOCKOUT */}
               <WildcardPanel stage={stage} onUpdate={onUpdate} onToggleCriteria={onToggleCriteria} onMovePriority={onMovePriority} />
+               <button className="rv-add-sub-btn" onClick={() => onAddSubstage(stage.id)}>
+            + Thêm vòng sau
+          </button> 
             </>
           )}
+          {/* END NHÁNH / KNOCKOUT */}
 
-          {/* MATCH RULES */}
-          <MatchPanel stage={stage} onUpdate={onUpdate} />
+          
 
           {/* SUBSTAGES */}
           {stage.substages?.length > 0 && (
@@ -910,10 +925,7 @@ const StageNode = ({ stage, depth, stageIndex, onUpdate, onUpdateBranch, onToggl
             </div>
           )}
 
-          <button className="rv-add-sub-btn" onClick={() => onAddSubstage(stage.id)}>
-            + Thêm vòng sau
-          </button>
-
+         
         </div>
       )}
     </div>
