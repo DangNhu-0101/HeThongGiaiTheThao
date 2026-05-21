@@ -102,7 +102,7 @@ export const createSponsor = async (req, res) => {
             sponsorshipType: sponsorshipType || "Money",
             amount,
             contactPerson: contactPerson || { name: "", phone: "", email: "" },
-            status: status || "active"
+            status: status || "Active"
         });
 
         return res.status(201).json({
@@ -164,7 +164,7 @@ export const deactivateSponsor = async (req, res) => {
             return res.status(404).json({ success: false, message: "Nhà tài trợ không tồn tại" });
         }
 
-        sponsor.status = 'inactive';
+        sponsor.status = 'inActive';
         await sponsor.save();
 
         return res.status(200).json({
@@ -190,7 +190,7 @@ export const activateSponsor = async (req, res) => {
             return res.status(404).json({ success: false, message: "Nhà tài trợ không tồn tại" });
         }
 
-        sponsor.status = 'active';
+        sponsor.status = 'Active';
         await sponsor.save();
 
         return res.status(200).json({

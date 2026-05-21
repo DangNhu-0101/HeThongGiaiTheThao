@@ -26,7 +26,7 @@ const memberSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['Invited', 'Pending', 'Rejected','active'],
+        enum: ['Invited', 'Pending', 'Rejected','Active'],
         default: 'Invited'
     },
 

@@ -13,7 +13,7 @@ export const SHEET_MAPPINGS = {
             role: ['player', 'referee', 'org'],
             gender: ['male', 'female', 'other'],
             skillLevel: ['1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0'],
-            status: ['active', 'inactive', 'banned']
+            status: ['Active', 'inActive', 'banned']
         }
     },
    'Đội': {
@@ -22,7 +22,7 @@ export const SHEET_MAPPINGS = {
         required: ['name', 'tournamentName', 'sportType', 'ownerUsername'],
         validation: {
             sportType: ['Pickleball', 'Tennis', 'Badminton', 'Soccer', 'Volleyball', 'Basketball'],
-            status: ['pending', 'active', 'inactive']
+            status: ['pending', 'Active', 'inActive']
             }
     },
     'Bảng': {

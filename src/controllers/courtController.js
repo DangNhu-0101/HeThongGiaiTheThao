@@ -116,7 +116,7 @@ export const updateCourtStatus = async (req, res) => {
         const { courtId } = req.params;
         const { status } = req.body;
 
-        const allowedStatus = ['empty', 'busy', 'maintenance', 'inactive'];
+        const allowedStatus = ['empty', 'busy', 'maintenance', 'inActive'];
         if (!status || !allowedStatus.includes(status)) {
             return res.status(400).json({ success: false, message: "Trạng thái không hợp lệ" });
         }

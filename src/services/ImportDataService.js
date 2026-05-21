@@ -52,7 +52,7 @@ export const importUsersWithPlayers = async (rows, session) => {
             phoneNumber: row.phoneNumber,
             hashedPassword: hashed,
             role: row.role,
-            status: row.status || 'active'
+            status: row.status || 'Active'
         }], { session });
         created.push(user);
 
@@ -102,7 +102,7 @@ export const importTeams = async (rows, session) => {
             sportCategory: row.sportType,            
             createdBy: ownerId,
             ownerId: ownerId,                        
-            status: 'pending',                       // SỬA: 'pending' thay vì 'active'
+            status: 'pending',                       // SỬA: 'pending' thay vì 'Active'
             isPaid: false
         }], { session });
 
@@ -111,7 +111,7 @@ export const importTeams = async (rows, session) => {
             teamId: team._id,
             userId: ownerId,
             role: 'Captain',
-            status: 'active',
+            status: 'Active',
             joinedAt: new Date()
         }], { session });
 
@@ -125,7 +125,7 @@ export const importTeams = async (rows, session) => {
                         teamId: team._id,
                         userId,
                         role: 'Member',
-                        status: 'active',
+                        status: 'Active',
                         joinedAt: new Date()
                     }], { session });
                 }

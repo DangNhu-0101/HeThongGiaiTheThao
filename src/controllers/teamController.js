@@ -14,18 +14,47 @@ import { handleCreateInvitation } from '../utils/invitationHelper.js';
 const checkCaptainOrCreator = async (teamId, userId, session = null) => {
     const team = await Team.findById(teamId).session(session);
     if (!team) throw new Error('Đội không tồn tại');
-    if (team.createdBy?.toString() === userId) return true;
+    if (team.ownerId?.toString() === userId) return true;
     const member = await Member.findOne({ teamId, userId, role: 'Captain', status: 'Active' }).session(session);
     return !!member;
+};
+
+// Helper function to get required players by category
+const getRequiredPlayersByCategory = async (tournamentId, sportType, categoryId) => {
+    try {
+        // Tìm base rule cho tournament và sport
+        const baseRule = await BaseRule.findOne({ 
+            tournamentId: tournamentId, 
+            sport: sportType 
+        }).populate('tournamentStructure.categories');
+        
+        if (baseRule && baseRule.tournamentStructure?.categories) {
+            // Tìm category phù hợp
+            for (const catRule of baseRule.tournamentStructure.categories) {
+                if (catRule.categories && catRule.categories.length > 0) {
+                    const foundCat = catRule.categories.find(c => c.id === categoryId || c.name === categoryId);
+                    if (foundCat && foundCat.minPlayers) {
+                        return foundCat.minPlayers;
+                    }
+                }
+            }
+        }
+        
+        // Default: 5 players if no rule found
+        return 5;
+    } catch (error) {
+        console.error("Error getting required players:", error);
+        return 5;
+    }
 };
 
 const checkTeamLimit = async (teamId, session) => {
     const team = await Team.findById(teamId).session(session);
     if (!team) {
-        return res.status(404).json({ success: false, message: 'Đội không tồn tại' });
+        throw new Error('Đội không tồn tại');
     }
     const required = await getRequiredPlayersByCategory(team.tournamentId, team.sportType, team.categoryId);
-    const current = await Member.countDocuments({ teamId, status: 'active' }).session(session);
+    const current = await Member.countDocuments({ teamId, status: 'Active' }).session(session);
     if (current >= required) {
         throw new Error(`Đội đã đủ ${required} thành viên (category ${team.categoryId})`);
     }
@@ -38,10 +67,10 @@ export const createTeam = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const { teamName, tournamentId, sportType, logo } = req.body;
+        const { name, tournamentId, sportType, logo } = req.body;
         const userId = req.user.id;
 
-        if (!teamName || !tournamentId) {
+        if (!name || !tournamentId) {
             return res.status(400).json({ success: false, message: 'Thiếu tên đội hoặc tournamentId' });
         }
 
@@ -51,17 +80,17 @@ export const createTeam = async (req, res) => {
             throw new Error('Giải đấu đã bắt đầu, không thể tạo đội mới');
         }
 
-        const existing = await Team.findOne({ teamName, tournamentId }).session(session);
+        const existing = await Team.findOne({ name, tournamentId }).session(session);
         if (existing) throw new Error('Tên đội đã tồn tại trong giải đấu này');
 
         const [newTeam] = await Team.create([{
-            teamName,
+            name,
             tournamentId,
             sportType: sportType || tournament.sport,
-            createdBy: userId,
+            ownerId: userId,
             logo: logo || '',
             isPaid: false,
-            status: 'active'
+            status: 'Active'
         }], { session });
 
         await Member.create([{
@@ -86,7 +115,7 @@ export const createTeam = async (req, res) => {
 export const updateTeam = async (req, res) => {
     try {
         const { id } = req.params;
-        const { teamName, logo, sportType, status } = req.body;
+        const { name, logo, sportType, status } = req.body;
         const userId = req.user.id;
 
         const hasPerm = await checkCaptainOrCreator(id, userId);
@@ -95,7 +124,7 @@ export const updateTeam = async (req, res) => {
         const team = await Team.findById(id);
         if (!team) return res.status(404).json({ success: false, message: 'Đội không tồn tại' });
 
-        if (teamName) team.teamName = teamName;
+        if (name) team.name = name;
         if (logo !== undefined) team.logo = logo;
         if (sportType) team.sportType = sportType;
         if (status) team.status = status;
@@ -107,44 +136,52 @@ export const updateTeam = async (req, res) => {
     }
 };
 
-// 3. Xóa đội (soft delete, chỉ khi chưa có trận đấu)
+// 3. Xóa đội 
 export const deleteTeam = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
     try {
         const { id } = req.params;
-        const userId = req.user.id;
-
-        const team = await Team.findById(id).session(session);
-        if (!team) throw new Error('Đội không tồn tại');
-        const hasPerm = await checkCaptainOrCreator(id, userId, session);
-        if (!hasPerm) throw new Error('Không có quyền xóa đội');
-
-        // Kiểm tra ràng buộc với match (nếu có)
-        // const matchExists = await Match.findOne({ $or: [{ team1: id }, { team2: id }] }).session(session);
-        // if (matchExists) throw new Error('Đội đã tham gia thi đấu, không thể xóa');
-
-        team.status = 'inactive';
-        await team.save({ session });
-        await Member.updateMany({ teamId: id }, { status: 'Left' }, { session });
-
-        await session.commitTransaction();
-        return res.status(200).json({ success: true, message: 'Đã vô hiệu hóa đội' });
+        
+        // Tìm team
+        const team = await Team.findById(id);
+        if (!team) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Đội không tồn tại' 
+            });
+        }
+        
+  
+        
+        // Xóa team trực tiếp (hard delete)
+        await Team.findByIdAndDelete(id);
+        
+        // Xóa tất cả members của team
+        await Member.deleteMany({ teamId: id });
+        
+  
+        
+        return res.status(200).json({ 
+            success: true, 
+            message: 'Đã xóa đội thành công',
+            data: { teamId: id, teamName: team.name }
+        });
+        
     } catch (error) {
-        await session.abortTransaction();
-        return res.status(400).json({ success: false, message: error.message });
-    } finally {
-        session.endSession();
+        console.error(' Error in deleteTeam:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message,
+            stack: error.stack 
+        });
     }
 };
-
 // ======================== MEMBER MANAGEMENT ========================
-// 4. Lấy danh sách đội mà user đang tham gia (active)
+// 4. Lấy danh sách đội mà user đang tham gia (Active)
 export const getUserTeams = async (req, res) => {
     try {
         const userId = req.user.id;
         const members = await Member.find({ userId, status: 'Active' }).populate('teamId').lean();
-        const teams = members.map(m => m.teamId).filter(t => t && t.status === 'active');
+        const teams = members.map(m => m.teamId).filter(t => t && t.status === 'Active');
         return res.status(200).json({ success: true, data: teams });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -172,6 +209,7 @@ export const getTeamDetail = async (req, res) => {
 };
 
 // 6. Danh sách đội theo giải đấu (có filter)
+
 export const getTeamsByTournament = async (req, res) => {
     try {
         const { tournamentId } = req.params;
@@ -179,13 +217,17 @@ export const getTeamsByTournament = async (req, res) => {
         const filter = { tournamentId };
         if (status) filter.status = status;
 
-        const teams = await Team.find(filter).populate('createdBy', 'name').lean();
+        // SỬA: Bỏ .populate('ownerId') vì không có field này
+        const teams = await Team.find(filter).lean();
+        
         const teamsWithCount = await Promise.all(teams.map(async (team) => ({
             ...team,
             memberCount: await Member.countDocuments({ teamId: team._id, status: 'Active' })
         })));
+        
         return res.status(200).json({ success: true, data: teamsWithCount });
     } catch (error) {
+        console.error("Error in getTeamsByTournament:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -255,7 +297,7 @@ export const transferCaptaincy = async (req, res) => {
         if (!currentCaptain) throw new Error('Chỉ đội trưởng hiện tại mới thực hiện được');
 
         const newCaptain = await Member.findOne({ teamId, userId: newCaptainUserId, status: 'Active' }).session(session);
-        if (!newCaptain) throw new Error('Thành viên mới không tồn tại hoặc chưa active');
+        if (!newCaptain) throw new Error('Thành viên mới không tồn tại hoặc chưa Active');
 
         currentCaptain.role = 'Member';
         newCaptain.role = 'Captain';
@@ -390,16 +432,13 @@ export const requestToJoinTeam = async (req, res) => {
         const userId = req.user.id;
 
         const team = await Team.findById(teamId).session(session);
-        if (!team || team.status !== 'active') throw new Error('Đội không hợp lệ');
+        if (!team || team.status !== 'Active') throw new Error('Đội không hợp lệ');
 
         const existing = await Member.findOne({ teamId, userId }).session(session);
         if (existing && existing.status === 'Active') throw new Error('Bạn đã là thành viên');
         if (existing && existing.status === 'Requested') throw new Error('Yêu cầu của bạn đang chờ duyệt');
 
-        // Kiểm tra giới hạn thành viên hiện tại
         await checkTeamLimit(teamId, session);
-
-        const invitation = await handleCreateInvitation(userId, null, teamId, 'player_request', session);
 
         const captainMember = await Member.findOne({ teamId, role: 'Captain', status: 'Active' }).session(session);
         if (!captainMember) throw new Error('Đội chưa có đội trưởng');
@@ -523,11 +562,27 @@ export const updatePaymentStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { isPaid } = req.body;
-        const team = await Team.findByIdAndUpdate(id, { isPaid }, { new: true });
-        if (!team) return res.status(404).json({ success: false, message: 'Đội không tồn tại' });
-        return res.status(200).json({ success: true, message: `Cập nhật thanh toán thành ${isPaid ? 'đã đóng' : 'chưa đóng'}`, data: team });
+        
+        const team = await Team.findById(id);
+        if (!team) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
+        }
+        
+        team.isPaid = isPaid;
+        if (isPaid) {
+            team.paidAt = new Date();
+            team.status = 'confirmed';
+        } else {
+            team.paidAt = null;
+            team.status = 'pending';
+        }
+        
+        await team.save();
+        
+        res.json({ success: true, data: team });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        console.error("Error in updatePaymentStatus:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -539,7 +594,7 @@ export const searchUsers = async (req, res) => {
         }
 
         const users = await User.find({
-            role: 'player', // Chỉ tìm cầu thủ
+            role: 'player',
             $or: [
                 { name: { $regex: keyword, $options: 'i' } },
                 { email: { $regex: keyword, $options: 'i' } },
@@ -558,64 +613,57 @@ export const registerFlow = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const { tournamentId, sport, categoryId, regMode, teamName, invitedUserIds } = req.body;
+        const { tournamentId, sport, categoryId, regMode, name, invitedUserIds } = req.body;
         const userId = req.user.id;
 
-        // 1. Kiểm tra giải đấu
         const tournament = await Tournament.findById(tournamentId).session(session);
         if (!tournament) throw new Error('Giải đấu không tồn tại');
         if (tournament.status !== 'upcoming') throw new Error('Giải đấu đã bắt đầu hoặc kết thúc, không thể đăng ký');
 
-        // 2. Kiểm tra cấu hình môn thể thao
         const sportConfig = tournament.sportsConfig?.find(s => s.sport === sport);
         if (!sportConfig) throw new Error(`Môn thể thao ${sport} không có trong giải đấu`);
 
         let newTeam;
         let fee = sportConfig.feeEntry || 0;
 
-        // 3. Xử lý theo chế độ đăng ký
         if (regMode === 'solo') {
-            // Đăng ký cá nhân (tạo đội 1 người)
             const soloTeamName = `${req.user.name || 'VĐV'} - ${sport} ${categoryId || ''}`;
             [newTeam] = await Team.create([{
-                teamName: soloTeamName,
+                name: soloTeamName,
                 tournamentId,
                 sportType: sport,
-                createdBy: userId,
-                status: 'active',
+                ownerId: userId,
+                status: 'Active',
                 isPaid: false
             }], { session });
         }
         else if (regMode === 'create') {
-            // Tạo đội mới và mời thành viên
-            if (!teamName) throw new Error('Tên đội không được để trống');
+            if (!name) throw new Error('Tên đội không được để trống');
             [newTeam] = await Team.create([{
-                teamName,
+                name,
                 tournamentId,
                 sportType: sport,
-                createdBy: userId,
-                status: 'active',
+                ownerId: userId,
+                status: 'Active',
                 isPaid: false
             }], { session });
         }
         else if (regMode === 'random') {
-            // Ghép ngẫu nhiên: tạo đội tạm, chờ ghép sau
             [newTeam] = await Team.create([{
-                teamName: `Random_${Date.now()}_${userId.slice(-4)}`,
+                name: `Random_${Date.now()}_${userId.slice(-4)}`,
                 tournamentId,
                 sportType: sport,
-                createdBy: userId,
+                ownerId: userId,
                 status: 'pending',
                 isPaid: false
             }], { session });
-            fee = Math.floor(fee / 2); // giảm 50% lệ phí cho chế độ random
+            fee = Math.floor(fee / 2);
         } else {
             throw new Error('Chế độ đăng ký không hợp lệ');
         }
 
         const teamId = newTeam._id;
 
-        // 4. Thêm người tạo là đội trưởng (Captain)
         await Member.create([{
             teamId,
             userId,
@@ -624,7 +672,6 @@ export const registerFlow = async (req, res) => {
             joinedAt: new Date()
         }], { session });
 
-        // 5. Mời đồng đội (nếu có)
         if (invitedUserIds && invitedUserIds.length > 0) {
             for (const invitedId of invitedUserIds) {
                 await handleCreateInvitation(userId, invitedId, teamId, 'captain_invite', session);
@@ -637,7 +684,7 @@ export const registerFlow = async (req, res) => {
             success: true,
             message: 'Đăng ký thành công',
             teamId: teamId,
-            teamName: newTeam.teamName,
+            name: newTeam.name,
             fee: fee
         });
     } catch (error) {
@@ -667,69 +714,60 @@ export const mergeTeam = async (req, res) => {
             const categoryId = category.id;
             const requiredPlayers = category.minPlayers;
 
-            // Lấy các team thuộc giải, cùng sport và category, chưa bị xóa (status active hoặc pending)
             const teams = await Team.find({
                 tournamentId,
-                sportCategory: `${sportType} - ${categoryId}`,
+                sportType: sportType,
                 status: { $in: ['pending', 'confirmed'] }
             }).session(session);
 
-            // Lọc ra các team có số lượng member < requiredPlayers
             const incompleteTeams = [];
             for (const team of teams) {
-                const memberCount = await Member.countDocuments({ teamId: team._id, status: 'active' }).session(session);
+                const memberCount = await Member.countDocuments({ teamId: team._id, status: 'Active' }).session(session);
                 if (memberCount < requiredPlayers) {
                     incompleteTeams.push({ team, memberCount, needed: requiredPlayers - memberCount });
                 }
             }
 
-            if (incompleteTeams.length < 2) continue; // cần ít nhất 2 team để ghép
+            if (incompleteTeams.length < 2) continue;
 
-            // Xáo trộn
             for (let i = incompleteTeams.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [incompleteTeams[i], incompleteTeams[j]] = [incompleteTeams[j], incompleteTeams[i]];
             }
 
-            // Tiến hành ghép cặp
             let i = 0;
             while (i < incompleteTeams.length - 1) {
                 const teamA = incompleteTeams[i].team;
                 const teamB = incompleteTeams[i + 1].team;
                 const totalMembers = incompleteTeams[i].memberCount + incompleteTeams[i + 1].memberCount;
                 if (totalMembers <= requiredPlayers) {
-                    // Gộp teamB vào teamA
-                    const membersOfB = await Member.find({ teamId: teamB._id, status: 'active' }).session(session);
+                    const membersOfB = await Member.find({ teamId: teamB._id, status: 'Active' }).session(session);
                     for (const member of membersOfB) {
-                        // Cập nhật member sang teamA
                         member.teamId = teamA._id;
                         member.joinedAt = new Date();
                         await member.save({ session });
                     }
-                    // Xóa teamB
                     await Team.findByIdAndDelete(teamB._id).session(session);
-                    // Cập nhật lại memberCount của teamA sau khi gộp
-                    const newCount = await Member.countDocuments({ teamId: teamA._id, status: 'active' }).session(session);
+                    const newCount = await Member.countDocuments({ teamId: teamA._id, status: 'Active' }).session(session);
                     if (newCount === requiredPlayers) {
                         teamA.status = 'confirmed';
                         await teamA.save({ session });
                     }
                     allMergedTeams.push({ team: teamA, fromTeams: [teamA._id, teamB._id] });
                 } else {
-                    // Nếu tổng số lượng vượt quá yêu cầu, ta chỉ lấy một phần member từ teamB
                     const needFromB = requiredPlayers - incompleteTeams[i].memberCount;
                     if (needFromB > 0) {
-                        const membersOfB = await Member.find({ teamId: teamB._id, status: 'active' }).session(session).limit(needFromB);
+                        const membersOfB = await Member.find({ teamId: teamB._id, status: 'Active' }).session(session).limit(needFromB);
                         for (const member of membersOfB) {
                             member.teamId = teamA._id;
                             member.joinedAt = new Date();
                             await member.save({ session });
                         }
-                        const remaining = await Member.countDocuments({ teamId: teamB._id, status: 'active' }).session(session);
+                        const remaining = await Member.countDocuments({ teamId: teamB._id, status: 'Active' }).session(session);
                         if (remaining === 0) {
                             await Team.findByIdAndDelete(teamB._id).session(session);
                         }
-                        const newCount = await Member.countDocuments({ teamId: teamA._id, status: 'active' }).session(session);
+                        const newCount = await Member.countDocuments({ teamId: teamA._id, status: 'Active' }).session(session);
                         if (newCount === requiredPlayers) {
                             teamA.status = 'confirmed';
                             await teamA.save({ session });
@@ -748,5 +786,60 @@ export const mergeTeam = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     } finally {
         session.endSession();
+    }
+};
+
+// 19. Cập nhật trạng thái nhà tài trợ
+export const updateSponsorStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isSponsor } = req.body;
+        let { isPaid } = req.body;
+        const userId = req.user.id;
+        
+        // Kiểm tra quyền
+        const user = await User.findById(userId);
+        const isAuthorized = user && ( user.role === 'org' || user.role === 'Organization');
+        
+        if (!isAuthorized) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Chỉ tổ chức mới được cập nhật trạng thái nhà tài trợ' 
+            });
+        }
+        
+        const team = await Team.findById(id);
+        if (!team) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Không tìm thấy đội' 
+            });
+        }
+        
+        team.isSponsor = isSponsor;
+        
+        
+        if (isSponsor) {
+            isPaid = false;
+            team.status = 'confirmed';
+        } else {
+            isPaid = false;
+            team.status = 'pending';
+        }
+        
+        await team.save();
+        
+        
+        res.json({ 
+            success: true, 
+            data: team,
+            message: isSponsor ? 'Đã duyệt nhà tài trợ' : 'Đã hủy duyệt nhà tài trợ'
+        });
+    } catch (error) {
+        console.error("Error in updateSponsorStatus:", error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
     }
 };

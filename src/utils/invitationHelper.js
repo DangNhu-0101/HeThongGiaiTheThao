@@ -13,7 +13,7 @@ export const handleCreateInvitation = async (senderId, receiverId, teamId, invit
         throw new Error('Người dùng này không phải là Cầu thủ, không thể mời vào đội.');
     }
 
-    // Kiểm tra thành viên active hoặc pending?
+    // Kiểm tra thành viên Active hoặc pending?
     const existingMember = await Member.findOne({ teamId, userId: receiverId }).session(session);
     if (existingMember && existingMember.status === 'Active') {
         throw new Error('Người dùng đã là thành viên chính thức của đội.');
