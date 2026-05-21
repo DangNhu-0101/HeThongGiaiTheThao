@@ -199,13 +199,13 @@ const TournamentManagementView = () => {
           color: var(--ocean-deep);
         }
 
-        .filter-tab.active {
+        .filter-tab.Active {
           background: var(--ocean-mid);
           border-color: var(--ocean-mid);
           color: white;
         }
 
-        .filter-tab:hover:not(.active) {
+        .filter-tab:hover:not(.Active) {
           background: var(--sky-mist);
         }
 
@@ -532,25 +532,25 @@ const TournamentManagementView = () => {
         <div className="filter-bar">
           <div className="filter-tabs">
             <button 
-              className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
+              className={`filter-tab ${filter === 'all' ? 'Active' : ''}`}
               onClick={() => setFilter('all')}
             >
               Tất cả
             </button>
             <button 
-              className={`filter-tab ${filter === 'upcoming' ? 'active' : ''}`}
+              className={`filter-tab ${filter === 'upcoming' ? 'Active' : ''}`}
               onClick={() => setFilter('upcoming')}
             >
               Sắp diễn ra
             </button>
             <button 
-              className={`filter-tab ${filter === 'ongoing' ? 'active' : ''}`}
+              className={`filter-tab ${filter === 'ongoing' ? 'Active' : ''}`}
               onClick={() => setFilter('ongoing')}
             >
               Đang diễn ra
             </button>
             <button 
-              className={`filter-tab ${filter === 'completed' ? 'active' : ''}`}
+              className={`filter-tab ${filter === 'completed' ? 'Active' : ''}`}
               onClick={() => setFilter('completed')}
             >
               Đã kết thúc

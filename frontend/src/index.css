@@ -251,12 +251,12 @@ h1, h2, h3, h4 {
   font-family: var(--font-title); background: transparent;
   color: var(--ocean-deep);
 }
-.tab-btn.active {
+.tab-btn.Active {
   background-color: var(--ocean-mid); color: white;
   border-color: var(--ocean-mid);
   box-shadow: 0 4px 15px rgba(1, 138, 190, 0.3);
 }
-.tab-btn:not(.active) {
+.tab-btn:not(.Active) {
   background-color: var(--bg-white); color: var(--ocean-deep);
 }
 .table-grid {
@@ -343,7 +343,7 @@ h1, h2, h3, h4 {
   text-decoration: none; color: var(--ocean-deep); font-weight: 600;
   transition: 0.2s; font-size: 1.05rem;
 }
-.nav-link:hover, .nav-link.active { color: var(--ocean-mid); }
+.nav-link:hover, .nav-link.Active { color: var(--ocean-mid); }
 
 .nav-btn {
   padding: 8px 20px; border-radius: 8px; font-weight: bold;
@@ -711,13 +711,13 @@ h1, h2, h3, h4 {
   transition: all 0.3s;
 }
 
-.register-step-number-active {
+.register-step-number-Active {
   background: var(--ocean-mid);
   color: white;
   box-shadow: 0 0 10px rgba(1, 138, 190, 0.5);
 }
 
-.register-step-number-inactive {
+.register-step-number-inActive {
   background: var(--sky-mist);
   color: var(--ocean-deep);
 }
@@ -728,11 +728,11 @@ h1, h2, h3, h4 {
   text-transform: uppercase;
 }
 
-.register-step-label-active {
+.register-step-label-Active {
   color: var(--ocean-mid);
 }
 
-.register-step-label-inactive {
+.register-step-label-inActive {
   color: var(--ocean-pale);
 }
 
@@ -743,11 +743,11 @@ h1, h2, h3, h4 {
   transition: all 0.3s;
 }
 
-.register-progress-line-active {
+.register-progress-line-Active {
   background: var(--ocean-mid);
 }
 
-.register-progress-line-inactive {
+.register-progress-line-inActive {
   background: var(--sky-mist);
 }
 

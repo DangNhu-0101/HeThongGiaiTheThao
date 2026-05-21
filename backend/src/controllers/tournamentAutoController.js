@@ -40,7 +40,7 @@ export const initializeTournamentFromStageRule = async (req, res) => {
         const teams = await Team.find({ 
             tournamentId, 
             sportCategory: stageRule.sportType,
-            status: { $in: ['validated', 'confirmed', 'active'] } 
+            status: { $in: ['validated', 'confirmed', 'Active'] } 
         }).lean();
         
         if (teams.length < 2) {

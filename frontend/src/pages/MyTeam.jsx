@@ -9,7 +9,7 @@ const CATEGORY_MAPPER = {
 
 const MyTeams = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('my-teams');
+    const [ActiveTab, setActiveTab] = useState('my-teams');
     const [teams, setTeams] = useState([]);
     const [sentInvites, setSentInvites] = useState([]);
     const [receivedInvites, setReceivedInvites] = useState([]);
@@ -233,7 +233,7 @@ const MyTeams = () => {
                     }
                 }
 
-                .myteams-tab-active {
+                .myteams-tab-Active {
                     background: #06b6d4;
                     color: #000;
                 }
@@ -456,20 +456,20 @@ const MyTeams = () => {
 
                 <div className="myteams-tabs">
                     <button onClick={() => setActiveTab('my-teams')}
-                        className={`myteams-tab ${activeTab === 'my-teams' ? 'myteams-tab-active' : ''}`}>
+                        className={`myteams-tab ${ActiveTab === 'my-teams' ? 'myteams-tab-Active' : ''}`}>
                         Đội của tôi ({teams.length})
                     </button>
                     <button onClick={() => setActiveTab('received')}
-                        className={`myteams-tab ${activeTab === 'received' ? 'myteams-tab-active' : ''}`}>
+                        className={`myteams-tab ${ActiveTab === 'received' ? 'myteams-tab-Active' : ''}`}>
                         Lời mời nhận ({receivedInvites.length})
                     </button>
                     <button onClick={() => setActiveTab('invites')}
-                        className={`myteams-tab ${activeTab === 'invites' ? 'myteams-tab-active' : ''}`}>
+                        className={`myteams-tab ${ActiveTab === 'invites' ? 'myteams-tab-Active' : ''}`}>
                         Đã gửi ({sentInvites.length})
                     </button>
                 </div>
 
-                {activeTab === 'my-teams' && (
+                {ActiveTab === 'my-teams' && (
                     <div className="myteams-grid">
                         {teams.length === 0 ? (
                             <div className="myteams-empty">
@@ -503,7 +503,7 @@ const MyTeams = () => {
                     </div>
                 )}
 
-                {activeTab === 'received' && (
+                {ActiveTab === 'received' && (
                     <div className="space-y-4">
                         {receivedInvites.length === 0 ? (
                             <div className="myteams-empty">
@@ -539,7 +539,7 @@ const MyTeams = () => {
                     </div>
                 )}
 
-                {activeTab === 'invites' && (
+                {ActiveTab === 'invites' && (
                     <div className="space-y-4">
                         {sentInvites.length === 0 ? (
                             <div className="myteams-empty">

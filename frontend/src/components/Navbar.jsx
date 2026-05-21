@@ -287,18 +287,18 @@ export default function Navbar() {
   useEffect(() => {
     const fetchTournamentLogo = async () => {
       try {
-        const stored = localStorage.getItem('activeTournamentLogo');
+        const stored = localStorage.getItem('ActiveTournamentLogo');
         if (stored) {
           setLogoSrc(IMAGE_BASE + stored.replace(/\\/g, '/'));
           return;
         }
         const res = await api.get('/tournaments');
         const tournaments = res.data?.data || [];
-        const active = tournaments.find(t => t.status === 'upcoming') || tournaments[0];
-        if (active?.logo) {
-          const logoUrl = IMAGE_BASE + active.logo.replace(/\\/g, '/');
+        const Active = tournaments.find(t => t.status === 'upcoming') || tournaments[0];
+        if (Active?.logo) {
+          const logoUrl = IMAGE_BASE + Active.logo.replace(/\\/g, '/');
           setLogoSrc(logoUrl);
-          localStorage.setItem('activeTournamentLogo', active.logo);
+          localStorage.setItem('ActiveTournamentLogo', Active.logo);
         }
       } catch (err) {
         console.error('Lỗi load logo:', err);
@@ -343,9 +343,9 @@ export default function Navbar() {
         api.get('/tournaments')
           .then(res => {
             const tournaments = res.data?.data || [];
-            const active = tournaments.find(t => t.status === 'upcoming') || tournaments[0];
-            if (active?.name) {
-              setOrgName(active.name);
+            const Active = tournaments.find(t => t.status === 'upcoming') || tournaments[0];
+            if (Active?.name) {
+              setOrgName(Active.name);
             }
           })
           .catch(() => {});

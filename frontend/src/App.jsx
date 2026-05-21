@@ -28,11 +28,14 @@ import DashboardView from './pages/Organization/views/DashboardView';
 import TournamentManagementView from './pages/Organization/views/TournamentManagementView';
 import TournamentRulesView from './pages/Organization/views/TournamentRulesView';
 import TournamentDetailView from './pages/Organization/views/TournamentDetailView';
-import MatchView from './pages/Organization/views/MatchView';
+
 import TeamView from './pages/Organization/views/TeamView';
 import CourtView from './pages/Organization/views/CourtView';
 import FinanceView from './pages/Organization/views/FinanceView';
 import UserListView from './pages/Organization/views/UserListView';
+
+import MatchView from './pages/Matches/MatchView';
+
 
 
 

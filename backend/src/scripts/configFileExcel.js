@@ -55,7 +55,7 @@ async function generate() {
     addValidation(wsUser, 'E', ['player', 'referee', 'org']);
     addValidation(wsUser, 'H', ['male', 'female', 'other']);
     addValidation(wsUser, 'I', ['1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0']);
-    addValidation(wsUser, 'J', ['active', 'inactive', 'banned']);
+    addValidation(wsUser, 'J', ['Active', 'inActive', 'banned']);
 
 
  
@@ -74,7 +74,7 @@ async function generate() {
     ];
     styleHeader(wsTeam);
     addValidation(wsTeam, 'C', ['Pickleball', 'Tennis', 'Badminton', 'Soccer', 'Volleyball', 'Basketball']);
-    addValidation(wsTeam, 'G', ['pending', 'active', 'inactive']);
+    addValidation(wsTeam, 'G', ['pending', 'Active', 'inActive']);
 
 
     // Sheet 4: Bảng
@@ -134,10 +134,10 @@ async function generate() {
         'Role: player, referee, org',
         'Gender: male, female, other',
         'SkillLevel: 1.0 → 5.0 (cách 0.5)',
-        'Status (User): active, inactive, banned',
-        'Status (Team): pending, active, inactive',
+        'Status (User): Active, inActive, banned',
+        'Status (Team): pending, Active, inActive',
         'Status (Group): pending, progress, completed',
-        'Status (Court): empty, busy, maintenance, inactive',
+        'Status (Court): empty, busy, maintenance, inActive',
         'Status (Match): SCHEDULED, IN_PROGRESS, COMPLETED, CANCELED'
     ];
     lines.forEach(l => wsGuide.addRow([l]));

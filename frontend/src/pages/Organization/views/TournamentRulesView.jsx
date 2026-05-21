@@ -54,12 +54,12 @@ const CSS = `
     cursor: pointer; white-space: nowrap;
     transition: all 0.15s;
   }
-  .rv-sport-tab.active {
+  .rv-sport-tab.Active {
     background: var(--ocean-mid);
     border-color: var(--ocean-mid);
     color: #fff;
   }
-  .rv-sport-tab:hover:not(.active) { border-color: var(--ocean-mid); color: var(--ocean-deep); }
+  .rv-sport-tab:hover:not(.Active) { border-color: var(--ocean-mid); color: var(--ocean-deep); }
 
   /* STAGE COUNT CONTROL */
   .rv-stage-ctrl {
@@ -691,7 +691,7 @@ const [ruleDescription, setRuleDescription] = useState('');     // Luật thi đ
           {tournament.sportsConfig?.length > 1 && (
             <div className="rv-sport-tabs">
               {tournament.sportsConfig.map((s, i) => (
-                <button key={i} className={`rv-sport-tab${selectedSport === s.sport ? ' active' : ''}`}
+                <button key={i} className={`rv-sport-tab${selectedSport === s.sport ? ' Active' : ''}`}
                   onClick={() => setSelectedSport(s.sport)}>
                   {s.sport}
                 </button>

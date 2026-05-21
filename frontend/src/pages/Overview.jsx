@@ -182,23 +182,23 @@ const StandingsSection = ({ tournamentId }) => {
             <style>{`
                 .standings-container { max-width: 1200px; margin: 0 auto; padding: 0; font-family: 'Inter', sans-serif; }
                 .standings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 30px; }
-                .standings-card { border-top: 5px solid #84cc16; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
+                .standings-card { border-top: 5px solid #018ABE; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
                 .standings-card-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; cursor: pointer; gap: 12px; }
-                .standings-group-name { margin: 0; color: #166534; font-size: 1.2rem; font-weight: 700; }
-                .standings-toggle { color: #16a34a; font-weight: 700; font-size: 0.8rem; }
+                .standings-group-name { margin: 0; color: #02457A; font-size: 1.2rem; font-weight: 700; }
+                .standings-toggle { color: #018ABE; font-weight: 700; font-size: 0.8rem; }
                 .standings-table { width: 100%; border-collapse: collapse; text-align: center; }
                 .standings-table thead { background: #f1f5f9; font-weight: 700; color: #475569; }
                 .standings-table th, .standings-table td { padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 0.8rem; }
                 .standings-team-name { text-align: left; font-weight: 700; color: #0f172a; }
-                .standings-points { font-weight: 800; font-size: 1rem; color: #166534; }
+                .standings-points { font-weight: 800; font-size: 1rem; color: #02457A; }
                 .standings-matches-section { padding: 15px; background: #f8fafc; }
-                .standings-matches-title { color: #047857; margin-bottom: 15px; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; font-size: 0.9rem; }
+                .standings-matches-title { color: #018ABE; margin-bottom: 15px; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; font-size: 0.9rem; }
                 .standings-match-item { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 12px; margin-bottom: 8px; border-radius: 5px; border: 1px solid #e2e8f0; gap: 12px; }
                 .standings-match-time { font-size: 0.7rem; color: #64748b; min-width: 100px; }
                 .standings-match-court { font-weight: 700; color: #0f172a; }
                 .standings-match-team { flex: 1; font-weight: 500; color: #0f172a; }
                 .standings-match-score { background: #f1f5f9; padding: 4px 12px; border-radius: 15px; font-weight: 700; min-width: 65px; text-align: center; font-size: 0.8rem; }
-                .standings-match-score-finished { background: #1e293b; color: #84cc16; }
+                .standings-match-score-finished { background: #1e293b; color: #97CADB; }
             `}</style>
 
             <div className="standings-grid">
@@ -219,11 +219,10 @@ const StandingsSection = ({ tournamentId }) => {
                             </thead>
                             <tbody>
                                 {standingsData[groupName].map((item, idx) => (
-                                    <tr key={item.teamId} style={{ background: idx === 0 ? "#f0fdf4" : "#fff" }}>
+                                    <tr key={item.teamId} style={{ background: idx === 0 ? "#D6E7EE" : "#fff" }}>
                                         <td>{idx + 1}</td>
                                         <td className="standings-team-name">
-                                            {item.teamName} {idx === 0 && <span style={{ fontSize: '0.65rem', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px' }}>TOP</span>}
-                                        </td>
+                                            {item.teamName} {idx === 0 && <span style={{ fontSize: '0.65rem', background: '#018ABE', color: '#fff', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px' }}>TOP</span>}                                        </td>
                                         <td>{item.played}</td>
                                         <td>{item.wins}</td>
                                         <td>{item.losses}</td>
@@ -509,7 +508,7 @@ const FixturesSection = ({ tournamentId }) => {
     const getBorderColor = (status) => {
         if (status === 'Live') return '#BD0014';
         if (status === 'Finished') return '#02457A';
-        return '#14b8a6';
+        return '#30C2DC';
     };
 
     if (isLoading || filteredMatches.length === 0) {
@@ -571,7 +570,7 @@ const FixturesSection = ({ tournamentId }) => {
 ════════════════════════════════════════════ */
 const Overview = () => {
     const { id: urlId } = useParams();
-    const tournamentId = urlId || localStorage.getItem('activeTournamentId');
+    const tournamentId = urlId || localStorage.getItem('ActiveTournamentId');
 
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px', display: 'flex', flexDirection: 'column', gap: '60px', background: '#e0f2fe' }}>

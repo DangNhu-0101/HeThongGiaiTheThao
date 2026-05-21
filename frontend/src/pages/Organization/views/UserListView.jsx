@@ -196,8 +196,8 @@ const UserListView = () => {
                     margin-left: 6px;
                 }
 
-                .ul-status-active { color: #16a34a; font-weight: 600; }
-                .ul-status-inactive { color: #dc2626; font-weight: 600; }
+                .ul-status-Active { color: #16a34a; font-weight: 600; }
+                .ul-status-inActive { color: #dc2626; font-weight: 600; }
                 .ul-status-banned { color: #9333ea; font-weight: 600; }
             `}</style>
 
@@ -256,8 +256,8 @@ const UserListView = () => {
                                                 </span>
                                             </td>
                                             <td data-label="Trạng thái">
-                                                <span className={`ul-status-${u.playerStatus || u.status || 'active'}`}>
-                                                    {u.playerStatus || u.status || 'active'}
+                                                <span className={`ul-status-${u.playerStatus || u.status || 'Active'}`}>
+                                                    {u.playerStatus || u.status || 'Active'}
                                                 </span>
                                             </td>
                                         </tr>

@@ -22,6 +22,26 @@ const teamSchema = new mongoose.Schema({
         type: String,
         required: true 
     },
+    
+    isSponsor:{
+        type: Boolean,
+        default: false
+    },
+    isPaid: {
+        type: Boolean,
+        default: false
+    },
+    
+    paidAt: {
+        type: Date,
+        default: null
+    },
+    
+    transactionId: {
+        type: String,
+        default: ''
+    },
+    
     group: { type: String, default: '' },
     status: {
         type: String,
@@ -29,6 +49,7 @@ const teamSchema = new mongoose.Schema({
         default: 'pending'
     },
 }, { timestamps: true });
+
 
 const Team = mongoose.model("Team", teamSchema);
 export default Team;

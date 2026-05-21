@@ -133,13 +133,13 @@ const Register = () => {
                 
                 <div className="register-progress">
                     <div className="register-step">
-                        <div className={`register-step-number ${step >= 1 ? 'register-step-number-active' : 'register-step-number-inactive'}`}>1</div>
-                        <span className={`register-step-label ${step >= 1 ? 'register-step-label-active' : 'register-step-label-inactive'}`}>Tài khoản</span>
+                        <div className={`register-step-number ${step >= 1 ? 'register-step-number-Active' : 'register-step-number-inActive'}`}>1</div>
+                        <span className={`register-step-label ${step >= 1 ? 'register-step-label-Active' : 'register-step-label-inActive'}`}>Tài khoản</span>
                     </div>
-                    <div className={`register-progress-line ${step >= 2 ? 'register-progress-line-active' : 'register-progress-line-inactive'}`}></div>
+                    <div className={`register-progress-line ${step >= 2 ? 'register-progress-line-Active' : 'register-progress-line-inActive'}`}></div>
                     <div className="register-step">
-                        <div className={`register-step-number ${step === 2 ? 'register-step-number-active' : 'register-step-number-inactive'}`}>2</div>
-                        <span className={`register-step-label ${step === 2 ? 'register-step-label-active' : 'register-step-label-inactive'}`}>Hồ sơ</span>
+                        <div className={`register-step-number ${step === 2 ? 'register-step-number-Active' : 'register-step-number-inActive'}`}>2</div>
+                        <span className={`register-step-label ${step === 2 ? 'register-step-label-Active' : 'register-step-label-inActive'}`}>Hồ sơ</span>
                     </div>
                 </div>
 

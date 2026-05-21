@@ -26,8 +26,8 @@ const playerSchema = new moogoose.Schema({
 
     status: {
         type: String,
-        enum: ['active', 'injured', 'unavailable', 'deleted'],
-        default: 'active'
+        enum: ['Active', 'injured', 'unavailable', 'deleted'],
+        default: 'Active'
     }
     
 }, { timestamps: true });

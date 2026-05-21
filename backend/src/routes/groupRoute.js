@@ -10,12 +10,11 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-router.post('/initialize/:tournamentId', protectedRoute('org'), initializeTournament);
-router.post('/:groupId/sort-ranking', protectedRoute('org'), sortRankingInGroup);
-router.post('/:groupId/add-team', protectedRoute('org'), addTeamToGroup);
-router.post('/:groupId/update-status', protectedRoute('org'), updateGroupStatus);
 router.post('/assign-teams', protectedRoute('org'), assignExistingTeamsToGroups);
-
+router.post('/initialize/:tournamentId', protectedRoute('org'), initializeTournament);
+router.get('/:groupId/ranking', sortRankingInGroup);
+router.post('/:groupId/add-team', protectedRoute('org'), addTeamToGroup);
+router.patch('/:groupId/status', protectedRoute('org'), updateGroupStatus);
 
 
 

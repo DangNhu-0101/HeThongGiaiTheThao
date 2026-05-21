@@ -6,7 +6,7 @@ const Notifications = () => {
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeQR, setActiveQR] = useState(null);
+    const [ActiveQR, setActiveQR] = useState(null);
 
     const fetchNotifications = async () => {
         try {
@@ -404,14 +404,14 @@ const Notifications = () => {
                                                 SỐ TIỀN: {notif.metadata?.amount?.toLocaleString()} VNĐ
                                             </span>
                                             <button 
-                                                onClick={() => setActiveQR(activeQR === notif._id ? null : notif._id)}
+                                                onClick={() => setActiveQR(ActiveQR === notif._id ? null : notif._id)}
                                                 className="notify-btn-qr"
                                             >
-                                                {activeQR === notif._id ? 'ĐÓNG MÃ' : 'QUÉT MÃ QR'}
+                                                {ActiveQR === notif._id ? 'ĐÓNG MÃ' : 'QUÉT MÃ QR'}
                                             </button>
                                         </div>
 
-                                        {activeQR === notif._id && (
+                                        {ActiveQR === notif._id && (
                                             <div className="notify-qr-container">
                                                 <img 
                                                     src={notif.metadata?.paymentQR || `https://img.vietqr.io/image/mbbank-0901234567-compact.png?amount=${notif.metadata?.amount}&addInfo=${notif.metadata?.paymentContent}`} 

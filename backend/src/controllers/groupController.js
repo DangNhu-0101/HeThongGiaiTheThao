@@ -1,7 +1,12 @@
+import mongoose from 'mongoose';
 import Group from '../models/groups.js';
-import { sortStandings } from '../utils/standingsHelper.js';
+import Team from '../models/teams.js';
+import Match from '../models/matches.js';
+import StageRule from '../models/rules/stageRules.js';
+import Bracket from '../models/rules/brackets.js';
 import { assignTeamsToGroups } from '../utils/groupAssignerHelper.js';
-
+import { createRoundRobinMatches } from '../utils/matchScheduleHelper.js';
+import { updateStandingsAfterMatch } from '../utils/standingHelper.js';
 export const sortRankingInGroup = async (req, res) => {
     try {
         const { groupId } = req.params;
@@ -62,40 +67,42 @@ export const assignExistingTeamsToGroups = async (req, res) => {
     session.startTransaction();
     try {
         const { tournamentId, sportType, method = 'random' } = req.body;
-        // Lấy tất cả team active của giải
-        const teams = await Team.find({ tournamentId, sportType, status: 'active' }).select('_id');
+        
+        const teams = await Team.find({ 
+            tournamentId: new mongoose.Types.ObjectId(tournamentId),
+            status: { $in: ['validated', 'confirmed', 'pending'] }
+        }).select('_id').session(session);
+        
         const teamIds = teams.map(t => t._id);
         if (!teamIds.length) {
+            await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'Không có team nào' });
         }
 
-        // Lấy danh sách group của giải (đã tạo rỗng)
-        const groups = await Group.find({ tournamentId, sport: sportType }).sort({ name: 1 });
+        const groups = await Group.find({ tournamentId, sport: sportType }).sort({ name: 1 }).session(session);
         if (!groups.length) {
-            return res.status(400).json({ success: false, message: 'Chưa có group nào, hãy tạo group trước' });
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: 'Chưa có group nào' });
         }
 
-        // Phân bố team vào groups
         const assignedGroups = await assignTeamsToGroups(teamIds, groups.length, method);
 
-        // Cập nhật từng group
         for (let i = 0; i < groups.length; i++) {
             const group = groups[i];
-            const teamIdsForGroup = assignedGroups[i];
+            const teamIdsForGroup = assignedGroups[i] || [];
             group.teamInGroup = teamIdsForGroup;
-            // Tạo lại standings array cho group (nếu cần)
             group.standings = teamIdsForGroup.map(teamId => ({
                 teamId,
                 played: 0, wins: 0, draws: 0, losses: 0,
                 goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0
             }));
             await group.save({ session });
-            // Cập nhật trường group cho từng team
             await Team.updateMany({ _id: { $in: teamIdsForGroup } }, { group: group.name }, { session });
         }
 
         await session.commitTransaction();
-        res.json({ success: true, message: 'Phân bố team vào bảng thành công' });
+        res.json({ success: true, message: 'Phân bố team vào bảng thành công', groups });
+        
     } catch (error) {
         await session.abortTransaction();
         res.status(500).json({ success: false, message: error.message });
@@ -182,7 +189,7 @@ export const initializeTournament = async (req, res) => {
         const teams = await Team.find({
             tournamentId,
             sportCategory: sportType,
-            status: { $in: ['validated', 'confirmed', 'pending', 'active'] }
+            status: { $in: ['validated', 'confirmed', 'pending', 'Active'] }
         }).lean();
 
         console.log(`✅ Tìm thấy ${teams.length} đội`);

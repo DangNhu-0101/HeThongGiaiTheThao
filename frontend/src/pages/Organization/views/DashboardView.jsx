@@ -478,12 +478,12 @@ const DashboardView = () => {
                     margin-bottom: 24px;
                 }
 
-                .dv-gala-active {
+                .dv-gala-Active {
                     background: linear-gradient(135deg, rgba(1, 138, 190, 0.1), rgba(2, 69, 122, 0.05));
                     border: 1px solid var(--ocean-mid);
                 }
 
-                .dv-gala-inactive {
+                .dv-gala-inActive {
                     background: var(--bg-white);
                     border: 1px solid var(--ocean-pale);
                     opacity: 0.5;
@@ -681,7 +681,7 @@ const DashboardView = () => {
                         </div>
 
                         {tournament.galaConfig && (
-                            <div className={`dv-gala-box ${tournament.galaConfig?.hasGala ? 'dv-gala-active' : 'dv-gala-inactive'}`}>
+                            <div className={`dv-gala-box ${tournament.galaConfig?.hasGala ? 'dv-gala-Active' : 'dv-gala-inActive'}`}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
                                     <h3 style={{ fontSize: '0.6rem', fontWeight: 900, color: 'var(--ocean-mid)', textTransform: 'uppercase' }}>Gala Event</h3>
                                     {tournament.galaConfig?.hasGala && <span style={{ width: 8, height: 8, background: 'var(--logo-red)', borderRadius: '50%', animation: 'pulse 1.5s ease-in-out infinite' }}></span>}

@@ -55,7 +55,7 @@ const CourtView = () => {
 
     const toggleCourtStatus = async (id, currentStatus) => {
         if (currentStatus === 'busy') return alert("Sân đang có trận đấu!");
-        const nextStatus = currentStatus === 'inactive' ? 'empty' : 'inactive';
+        const nextStatus = currentStatus === 'inActive' ? 'empty' : 'inActive';
         try {
             await api.patch(`/courts/courts/${id}/status`, { status: nextStatus });
             fetchCourts();
@@ -207,7 +207,7 @@ const CourtView = () => {
                     color: #22c55e;
                 }
 
-                .cv-status-busy, .cv-status-inactive {
+                .cv-status-busy, .cv-status-inActive {
                     color: #ef4444;
                 }
 
@@ -276,11 +276,11 @@ const CourtView = () => {
                                 <button onClick={() => handleDeleteCourt(c._id, c.name)} className="cv-delete-btn">🗑️</button>
                             </div>
                             <div className="cv-court-sports">{c.sportTypes?.join(', ')}</div>
-                            <div className={`cv-court-status ${c.status === 'empty' ? 'cv-status-empty' : 'cv-status-inactive'}`}>
+                            <div className={`cv-court-status ${c.status === 'empty' ? 'cv-status-empty' : 'cv-status-inActive'}`}>
                                 ● {c.status === 'empty' ? 'Sẵn sàng' : c.status === 'busy' ? 'Đang thi đấu' : 'Tạm ngưng'}
                             </div>
                             <button onClick={() => toggleCourtStatus(c._id, c.status)} className="cv-court-action">
-                                {c.status === 'inactive' ? "Mở lại" : c.status === 'busy' ? "Đang có trận" : "Tạm đóng"}
+                                {c.status === 'inActive' ? "Mở lại" : c.status === 'busy' ? "Đang có trận" : "Tạm đóng"}
                             </button>
                         </div>
                     ))}

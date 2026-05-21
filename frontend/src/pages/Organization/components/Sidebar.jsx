@@ -46,13 +46,13 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
     return 'global-users';
   };
 
-  const activeTab = getActiveTab();
+  const ActiveTab = getActiveTab();
 
   const handleSelectTour = (id) => {
     navigate(id ? `/admin/tournament/${id}` : '/admin');
   };
 
-  const isActive = (tab) => activeTab === tab;
+  const isActive = (tab) => ActiveTab === tab;
 
   // Đóng sidebar (dùng chung cho mobile)
   const closeSidebarOnMobile = () => {
@@ -267,7 +267,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           color: rgba(255,255,255,0.9);
           background: rgba(151,202,219,0.07);
         }
-        .sb-btn.active {
+        .sb-btn.Active {
           color: #fff;
           background: rgba(1,138,190,0.18);
           border-left-color: var(--ocean-pale, #97CADB);
@@ -279,7 +279,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           flex-shrink: 0;
           opacity: 0.7;
         }
-        .sb-btn.active .sb-btn-icon { opacity: 1; }
+        .sb-btn.Active .sb-btn-icon { opacity: 1; }
 
         .sb-btn-sub {
           padding-left: 40px;
@@ -374,7 +374,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           color: #fff;
         }
 
-        .sb-tour-active {
+        .sb-tour-Active {
           margin: 0 16px 4px;
           background: rgba(1,138,190,0.15);
           border: 1px solid rgba(1,138,190,0.3);
@@ -383,13 +383,13 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
         }
         
         @media (max-width: 768px) {
-          .sb-tour-active {
+          .sb-tour-Active {
             margin: 8px 20px;
             padding: 10px 14px;
           }
         }
         
-        .sb-tour-active-label {
+        .sb-tour-Active-label {
           font-size: 9px;
           font-weight: 700;
           color: rgba(151,202,219,0.5);
@@ -397,7 +397,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           letter-spacing: 2px;
           margin-bottom: 3px;
         }
-        .sb-tour-active-name {
+        .sb-tour-Active-name {
           font-size: 12px;
           font-weight: 600;
           color: #fff;
@@ -407,7 +407,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
         }
         
         @media (max-width: 768px) {
-          .sb-tour-active-name {
+          .sb-tour-Active-name {
             font-size: 14px;
           }
         }
@@ -441,7 +441,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
 
           <div className="sb-section-label">Hệ thống</div>
           <button
-            className={`sb-btn ${isActive('global-users') ? 'active' : ''}`}
+            className={`sb-btn ${isActive('global-users') ? 'Active' : ''}`}
             onClick={() => {
               navigate('/admin/users');
               closeSidebarOnMobile();
@@ -451,7 +451,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
             Người dùng
           </button>
           <button
-            className={`sb-btn ${isActive('global-tours') ? 'active' : ''}`}
+            className={`sb-btn ${isActive('global-tours') ? 'Active' : ''}`}
             onClick={() => {
               navigate('/admin/tournaments');
               closeSidebarOnMobile();
@@ -461,7 +461,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
             Tất cả giải đấu
           </button>
           <button
-            className={`sb-btn ${isActive('import') ? 'active' : ''}`}
+            className={`sb-btn ${isActive('import') ? 'Active' : ''}`}
             onClick={() => {
               navigate('/admin/import');
               closeSidebarOnMobile();
@@ -499,14 +499,14 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
           </div>
 
           {selectedTourId && (() => {
-            const activeTour = tournaments.find(t => t._id === selectedTourId);
+            const ActiveTour = tournaments.find(t => t._id === selectedTourId);
             return (
               <>
-                {activeTour && (
-                  <div className="sb-tour-active">
-                    <div className="sb-tour-active-label">Đang quản lý</div>
-                    <div className="sb-tour-active-name">
-                      {activeTour.displayName || activeTour.name || 'Giải đấu'}
+                {ActiveTour && (
+                  <div className="sb-tour-Active">
+                    <div className="sb-tour-Active-label">Đang quản lý</div>
+                    <div className="sb-tour-Active-name">
+                      {ActiveTour.displayName || ActiveTour.name || 'Giải đấu'}
                     </div>
                   </div>
                 )}
@@ -519,7 +519,7 @@ const Sidebar = ({ tournaments = [], onCreate }) => {
                   return (
                     <button
                       key={id}
-                      className={`sb-btn sb-btn-sub ${isActive(id) ? 'active' : ''}`}
+                      className={`sb-btn sb-btn-sub ${isActive(id) ? 'Active' : ''}`}
                       onClick={() => {
                         navigate(path);
                         closeSidebarOnMobile();

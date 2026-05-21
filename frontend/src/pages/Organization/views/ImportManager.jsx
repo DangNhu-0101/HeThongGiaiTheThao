@@ -7,7 +7,7 @@ const ImportManager = () => {
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState(null);
-    const [activeTab, setActiveTab] = useState('all');
+    const [ActiveTab, setActiveTab] = useState('all');
 
 
     const handleFileChange = (e) => {
@@ -158,7 +158,7 @@ const ImportManager = () => {
                 .import-tab:hover {
                     background: #e2e8f0;
                 }
-                .import-tab.active {
+                .import-tab.Active {
                     background: #018ABE;
                     color: white;
                 }
@@ -287,7 +287,7 @@ const ImportManager = () => {
                 {importTypes.map(type => (
                     <button
                         key={type.id}
-                        className={`import-tab ${activeTab === type.id ? 'active' : ''}`}
+                        className={`import-tab ${ActiveTab === type.id ? 'Active' : ''}`}
                         onClick={() => setActiveTab(type.id)}
                     >
                         {type.name}

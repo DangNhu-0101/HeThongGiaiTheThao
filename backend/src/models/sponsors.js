@@ -49,8 +49,8 @@ const sponsorSchema = new mongoose.Schema({
 
     status:{
         type: String,
-        enum: ['active', 'inactive'],
-        default: 'active'
+        enum: ['Active', 'inActive'],
+        default: 'Active'
     }
 
 }, {

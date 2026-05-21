@@ -287,7 +287,7 @@ const TeamDetail = () => {
                     border-radius: 20px;
                 }
 
-                .td-member-status-active {
+                .td-member-status-Active {
                     background: rgba(34,197,94,0.4);
                     color: #4ade80;
                 }
@@ -409,8 +409,8 @@ const TeamDetail = () => {
                                             {m.userId?.username || "N/A"} 
                                             {m.role === 'Captain' && <span className="td-member-role">⭐ CAPTAIN</span>}
                                         </p>
-                                        <span className={`td-member-status ${m.status === 'active' ? 'td-member-status-active' : 'td-member-status-pending'}`}>
-                                            {m.status === 'active' ? 'Thành viên' : 'Đang chờ'}
+                                        <span className={`td-member-status ${m.status === 'Active' ? 'td-member-status-Active' : 'td-member-status-pending'}`}>
+                                            {m.status === 'Active' ? 'Thành viên' : 'Đang chờ'}
                                         </span>
                                     </div>
                                 </div>

@@ -161,7 +161,7 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
     payload.append('timeClose', timeLine.tournamentEnd);
     payload.append('galaConfig', JSON.stringify(galaConfig));
 
-    const activeSports = Object.keys(sportsConfig)
+    const ActiveSports = Object.keys(sportsConfig)
       .filter(k => sportsConfig[k].selected)
       .map(k => ({
         sport: k,
@@ -170,9 +170,9 @@ const TournamentModal = ({ mode, tourId, onClose, onSuccess }) => {
         categories: sportsConfig[k].categories
       }));
 
-    if (activeSports.length === 0) { alert("Vui lòng chọn ít nhất 1 môn thi đấu!"); setLoading(false); return; }
-    payload.append('sportsConfig', JSON.stringify(activeSports));
-    payload.append('sportType', JSON.stringify(activeSports.map(s => s.sport)));
+    if (ActiveSports.length === 0) { alert("Vui lòng chọn ít nhất 1 môn thi đấu!"); setLoading(false); return; }
+    payload.append('sportsConfig', JSON.stringify(ActiveSports));
+    payload.append('sportType', JSON.stringify(ActiveSports.map(s => s.sport)));
 
     if (files.logo) payload.append('logo', files.logo);
     if (files.paymentQR) payload.append('paymentQR', files.paymentQR);

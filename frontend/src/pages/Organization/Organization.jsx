@@ -97,7 +97,7 @@ const Organization = () => {
                 {/* TRUYỀN DỮ LIỆU CHO SIDEBAR */}
                 <Sidebar 
                     tournaments={tournaments} 
-                    currentPath={location.pathname} // Thay cho activeTab cũ
+                    currentPath={location.pathname} // Thay cho ActiveTab cũ
                     onCreate={() => setShowModal('create')}
                 />
                 
