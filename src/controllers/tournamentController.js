@@ -22,14 +22,27 @@ const getVenueText = (tournament) => {
 const normalizeTournament = (tournament) => {
     const raw = tournament.toObject ? tournament.toObject() : tournament;
     const sportType = raw.sportType || [];
-    const sportsConfig = sportType.map((sport) => ({ sport }));
+    
+    // Tạo sportsConfig đầy đủ hơn
+    const sportsConfig = (raw.sportsConfig && raw.sportsConfig.length) 
+        ? raw.sportsConfig 
+        : sportType.map((sport) => ({ 
+            sport, 
+            feeEntry: 0, 
+            maxTeams: 0, 
+            categories: [],
+            categoryConfig: []
+        }));
+    
     const venue = getVenueText(raw);
+    const organization = raw.organizer || raw.organization || {};
 
     return {
         _id: raw._id,
         name: raw.name || raw.displayName,
+        displayName: raw.displayName || raw.name,
         slogan: raw.slogan || '',
-        targetAudience: raw.targetAudience || '',
+        targetAudience: raw.targetAudience || 'Tất cả vận động viên',
         description: raw.description || '',
         venue,
         location: venue,
@@ -52,9 +65,16 @@ const normalizeTournament = (tournament) => {
         },
         sportType,
         sportsConfig,
-        galaConfig: raw.galaConfig || {},
-        organization: raw.organizer,
-        organizer: raw.organizer,
+        galaConfig: raw.galaConfig || { hasGala: false, time: null, venue: '', description: '' },
+        organization: {
+            orgName: organization.orgName || organization.name || 'N/A',
+            name: organization.name || organization.orgName,
+            contactPerson: organization.contactPerson || '',
+            contactEmail: organization.contactEmail || '',
+            contactPhone: organization.contactPhone || ''
+        },
+        organizer: organization,
+        org: organization,
         finance: {
             plannedRevenue: 0,
             actualRevenue: raw.budget?.totalSponsor || 0,
@@ -67,7 +87,6 @@ const normalizeTournament = (tournament) => {
         updatedAt: raw.updatedAt
     };
 };
-
 export const getAllTournament = async (req, res) => {
     try {
         const { page = 1, limit = 10, status, sport } = req.query;
@@ -227,6 +246,7 @@ export const getTournament = async (req, res) => {
             data: normalizeTournament(tournament)
         });
     } catch (error) {
+        console.error("Error in getTournament:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };
