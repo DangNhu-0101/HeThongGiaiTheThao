@@ -16,8 +16,8 @@ const MatchCard = ({ match, onEdit, variant = 'group' }) => {
     };
 
     return (
-        <div style={{ background: bgColors[variant], color: '#fff', padding: 16, borderRadius: 12, position: 'relative' }}>
-            <div style={{ fontSize: 11, color: accentColors[variant], marginBottom: 4 }}>
+        <div style={{ background: '#D6E7EE', color: '#02457A', padding: 16, borderRadius: 12, position: 'relative' }}>
+            <div style={{ fontSize: 11, color: '#A999DC', fontWeight: 700, marginBottom: 4 }}>
                 {variant === 'knockout' ? (match.round || match.substageName) : `TRẬN ${match.matchNumber || ''}`}
             </div>
             <div style={{ fontWeight: 700 }}>
@@ -28,7 +28,7 @@ const MatchCard = ({ match, onEdit, variant = 'group' }) => {
             </div>
             {onEdit && (
                 <button onClick={() => onEdit(match)}
-                    style={{ position: 'absolute', top: 8, right: 8, background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>
+                    style={{ position: 'absolute', top: 8, right: 8, background: '#fff', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>
                     ✏️
                 </button>
             )}

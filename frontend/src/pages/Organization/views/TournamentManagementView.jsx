@@ -199,13 +199,13 @@ const TournamentManagementView = () => {
           color: var(--ocean-deep);
         }
 
-        .filter-tab.Active {
+        .filter-tab.active {
           background: var(--ocean-mid);
           border-color: var(--ocean-mid);
           color: white;
         }
 
-        .filter-tab:hover:not(.Active) {
+        .filter-tab:hover:not(.active) {
           background: var(--sky-mist);
         }
 
@@ -263,18 +263,31 @@ const TournamentManagementView = () => {
           color: #5a6a7a;
           font-weight: 600;
         }
-
-        /* Tournament Table */
         .tournament-table {
           background: var(--bg-white);
           border-radius: 20px;
-          overflow: hidden;
+          overflow-x: auto;
+          overflow-y: hidden;
           border: 1px solid rgba(1, 138, 190, 0.1);
+        }
+
+        /* QUAN TRỌNG */
+        .table-header,
+        .table-row {
+          min-width: 980px;
         }
 
         .table-header {
           display: grid;
-          grid-template-columns: 60px 2fr 1fr 1fr 1fr 100px 120px;
+          grid-template-columns:
+            60px
+            minmax(220px, 2fr)
+            120px
+            100px
+            90px
+            120px
+            160px;
+
           background: var(--ocean-deep);
           color: white;
           padding: 16px 20px;
@@ -282,33 +295,48 @@ const TournamentManagementView = () => {
           font-size: 13px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          align-items: center;
+          gap: 12px;
         }
 
         .table-row {
           display: grid;
-          grid-template-columns: 60px 2fr 1fr 1fr 1fr 100px 120px;
+          grid-template-columns:
+            60px
+            minmax(220px, 2fr)
+            120px
+            100px
+            90px
+            120px
+            160px;
+
           padding: 16px 20px;
           border-bottom: 1px solid rgba(1, 138, 190, 0.08);
           align-items: center;
           transition: background 0.2s;
+          gap: 12px;
         }
 
         .table-row:hover {
           background: var(--sky-mist);
         }
 
-        @media (max-width: 1024px) {
-          .table-header, .table-row {
-            grid-template-columns: 50px 1.5fr 1fr 0.8fr 0.8fr 80px 100px;
-            font-size: 12px;
-            gap: 8px;
-          }
+        .action-buttons {
+          display: flex;
+          gap: 8px;
+          flex-wrap: nowrap;
+        }
+
+        .action-btn {
+          flex-shrink: 0;
         }
 
         @media (max-width: 768px) {
-          .table-header, .table-row {
+          .table-header,
+          .table-row {
             display: none;
           }
+        }
           
           .mobile-card {
             display: block;
@@ -532,25 +560,25 @@ const TournamentManagementView = () => {
         <div className="filter-bar">
           <div className="filter-tabs">
             <button 
-              className={`filter-tab ${filter === 'all' ? 'Active' : ''}`}
+              className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
               onClick={() => setFilter('all')}
             >
               Tất cả
             </button>
             <button 
-              className={`filter-tab ${filter === 'upcoming' ? 'Active' : ''}`}
+              className={`filter-tab ${filter === 'upcoming' ? 'active' : ''}`}
               onClick={() => setFilter('upcoming')}
             >
               Sắp diễn ra
             </button>
             <button 
-              className={`filter-tab ${filter === 'ongoing' ? 'Active' : ''}`}
+              className={`filter-tab ${filter === 'ongoing' ? 'active' : ''}`}
               onClick={() => setFilter('ongoing')}
             >
               Đang diễn ra
             </button>
             <button 
-              className={`filter-tab ${filter === 'completed' ? 'Active' : ''}`}
+              className={`filter-tab ${filter === 'completed' ? 'active' : ''}`}
               onClick={() => setFilter('completed')}
             >
               Đã kết thúc
