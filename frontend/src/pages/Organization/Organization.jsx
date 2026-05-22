@@ -71,8 +71,8 @@ const orgStyles = `
 
 const Organization = () => {
     const [tournaments, setTournaments] = useState([]);
-    const [showModal, setShowModal] = useState(null); // 'create' hoặc 'edit'
-    const location = useLocation(); // Hook này giúp Sidebar biết đang ở URL nào để bôi đậm Menu
+    const [showModal, setShowModal] = useState(null); 
+    const location = useLocation(); 
 
     const fetchTournaments = async () => {
         try {
@@ -97,12 +97,12 @@ const Organization = () => {
                 {/* TRUYỀN DỮ LIỆU CHO SIDEBAR */}
                 <Sidebar 
                     tournaments={tournaments} 
-                    currentPath={location.pathname} // Thay cho ActiveTab cũ
+                    currentPath={location.pathname} 
                     onCreate={() => setShowModal('create')}
                 />
                 
                 <main className="org-main">
-                    {/* Trình duyệt tự động nhét DashboardView hoặc TournamentDetailView vào đây dựa theo URL */}
+                    {/* Render component dựa theo URL */}
                     <Outlet />
                 </main>
 

@@ -629,7 +629,6 @@ export default function Home() {
   useEffect(() => {
     const fetchTournament = async () => {
       if (!tournamentId) {
-        // Nếu không có ID, chuyển hướng về trang danh sách giải
         window.location.href = '/tournaments';
         return;
       }
@@ -667,7 +666,6 @@ export default function Home() {
         setTeams(sorted);
       } catch (err) {
         console.error('Error fetching teams:', err);
-        // Không set error vì đây không phải lỗi chính
       }
     };
 
@@ -699,6 +697,26 @@ export default function Home() {
   const formatImagePath = (path) => {
     if (!path) return '';
     return IMAGE_BASE_URL + path.replace(/\\/g, '/').replace(/^\/+/, '');
+  };
+
+  // Helper function to safely render contact person
+  const renderContactPerson = (contact) => {
+    if (!contact) return '—';
+    if (typeof contact === 'string') return contact;
+    if (typeof contact === 'object') {
+      const name = contact.name || contact.contactName || '';
+      const phone = contact.phone || contact.contactPhone || '';
+      return `${name} ${phone}`.trim() || '—';
+    }
+    return '—';
+  };
+
+  // Helper function to safely render organizer
+  const renderOrganizer = (org) => {
+    if (!org) return 'IT Vũng Tàu Group';
+    if (typeof org === 'string') return org;
+    if (typeof org === 'object') return org.name || org.orgName || 'IT Vũng Tàu Group';
+    return 'IT Vũng Tàu Group';
   };
 
   const timelineEvents = tournament?.timeLine ? [
@@ -842,12 +860,12 @@ export default function Home() {
               </div>
             </div>
 
-            {/* INFO GRID */}
+            {/* INFO GRID - FIXED */}
             <div className="info-grid">
               <div className="info-item">
                 <div className="info-icon">🏢</div>
                 <div className="info-label">Ban tổ chức</div>
-                <div className="info-val">{tournament?.organizer?.name || tournament?.organizer || 'IT Vũng Tàu Group'}</div>
+                <div className="info-val">{renderOrganizer(tournament?.organizer)}</div>
                 <div className="info-sub">
                   {tournament?.timeLine?.tournamentStart
                     ? new Date(tournament.timeLine.tournamentStart).toLocaleDateString('vi-VN')
@@ -857,20 +875,22 @@ export default function Home() {
               <div className="info-item">
                 <div className="info-icon">🏟️</div>
                 <div className="info-label">Địa điểm thi đấu</div>
-                <div className="info-val">{tournament?.location || 'Đang cập nhật'}</div>
-                <div className="info-sub">{tournament?.targetParticipants || ''}</div>
+                <div className="info-val">{tournament?.venue || tournament?.location || 'Đang cập nhật'}</div>
+                <div className="info-sub">{tournament?.targetAudience || ''}</div>
               </div>
               <div className="info-item">
                 <div className="info-icon">👥</div>
                 <div className="info-label">Đối tượng tham gia</div>
-                <div className="info-val">{tournament?.targetParticipants || 'Tất cả thành viên'}</div>
-                <div className="info-sub">Liên hệ: {tournament?.contactPerson?.name || '—'} · {tournament?.contactPerson?.phone || '—'}</div>
+                <div className="info-val">{tournament?.targetAudience || 'Tất cả thành viên'}</div>
+                <div className="info-sub">
+                  Liên hệ: {renderContactPerson(tournament?.contactPerson)}
+                </div>
               </div>
               <div className="info-item">
                 <div className="info-icon">🏅</div>
                 <div className="info-label">Môn thi đấu</div>
                 <div className="info-val">
-                  {tournament?.sportsConfig?.map(s => s.sport).join(', ') || 'Pickleball'}
+                  {tournament?.sportsConfig?.map(s => s.sport).join(', ') || tournament?.sportType?.join(', ') || 'Pickleball'}
                 </div>
                 <div className="info-sub">
                   {tournament?.sportsConfig?.map(s => s.categories?.join(', ')).join(' | ') || ''}
@@ -913,7 +933,7 @@ export default function Home() {
           </div>
 
           {/* VIDEO - Chỉ hiển thị nếu có video URL */}
-          {tournament?.videoUrl && (
+          {tournament?.videoUrl && typeof tournament.videoUrl === 'string' && tournament.videoUrl.trim() !== '' && (
             <div>
               <div className="sec-head">
                 <span className="sec-head-text">🎥 Trailer giải đấu</span>
@@ -923,7 +943,7 @@ export default function Home() {
                 <div className="video-ratio">
                   <iframe
                     src={tournament.videoUrl}
-                    title={`${tournament.name} Trailer`}
+                    title={`${tournament.name || 'Tournament'} Trailer`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
@@ -983,8 +1003,8 @@ export default function Home() {
                     <div className="standing-row" key={team._id || i}>
                       <div className={`srank ${rankClass(i)}`}>{i + 1}</div>
                       <div style={{ flex: 1 }}>
-                        <div className="sname">{team.name || team.teamCode || `Đội ${i + 1}`}</div>
-                        <div className="sgroup">{team.sportCategory || ''}</div>
+                        <div className="sname">{typeof team.name === 'string' ? team.name : team.name?.name || team.teamCode || `Đội ${i + 1}`}</div>
+                        <div className="sgroup">{team.sportCategory || team.sportType || ''}</div>
                       </div>
                       <div className="spts">{team.points || 0} điểm</div>
                     </div>
