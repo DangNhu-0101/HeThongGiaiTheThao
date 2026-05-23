@@ -57,7 +57,9 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
           <form onSubmit={handleSubmit(onSubmit)}>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="username">Tên đăng nhập</FieldLabel>
+                <FieldLabel htmlFor="username">
+                  Tên đăng nhập
+                </FieldLabel>
                 <Input
                   id="username"
                   type="text"
@@ -68,7 +70,9 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               </Field>
               <Field>
                 <div className="flex items-center">
-                  <FieldLabel htmlFor="password">Mật khẩu</FieldLabel>
+                  <FieldLabel htmlFor="password" >
+                    Mật khẩu
+                  </FieldLabel>
                   <a
                     href="/forgot-password"
                     className="ml-auto text-sm underline-offset-4 hover:underline"

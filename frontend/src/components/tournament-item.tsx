@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 
 export function TournamentItem() {
 
+    
 
 
     return (
@@ -52,7 +53,7 @@ export function TournamentItem() {
                             <div className="rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
                                 <CalendarDays className="h-4 w-4 text-amber-600" />
                             </div>
-                            <span className="text-sm font-medium">{tournament.date}</span>
+                            <span className="text-sm font-medium">{}</span>
                         </div>
 
                         {/* Location */}
@@ -60,7 +61,7 @@ export function TournamentItem() {
                             <div className="rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
                                 <MapPin className="h-4 w-4 text-amber-600" />
                             </div>
-                            <span className="text-sm font-medium">{tournament.location}</span>
+                            <span className="text-sm font-medium">{}</span>
                         </div>
 
                         {/* Categories */}
@@ -68,13 +69,13 @@ export function TournamentItem() {
                             <div className="rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
                                 <Users className="h-4 w-4 text-amber-600" />
                             </div>
-                            <span className="text-sm font-medium">{tournament.categories}</span>
+                            <span className="text-sm font-medium">{}</span>
                         </div>
                     </div>
 
                     {/* Deadline notice */}
                     <div className="mt-2 rounded-lg bg-amber-50 p-2 text-center text-xs font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                        ⏰ Registration deadline: {tournament.registrationDeadline}
+                        ⏰ Registration deadline: {}
                     </div>
                 </CardContent>
 
