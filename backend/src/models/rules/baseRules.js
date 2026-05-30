@@ -45,7 +45,8 @@ const baseRuleSchema = new mongoose.Schema({
 
     teamComposition: { // Số cầu thủ tối thiểu
         maxTeams: { type: Number, default: 4 },           // Tổng số đội tối đa
-        minTeams: { type: Number, default: 2 }             // Tổng số đội tối thiểu
+        minTeams: { type: Number, default: 2 }, 
+        currentTeams: { type: Number, default: 0 }           // Tổng số đội tối thiểu
     },
 
     timeLine: {

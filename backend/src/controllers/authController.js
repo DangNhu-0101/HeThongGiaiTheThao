@@ -55,7 +55,7 @@ export const registerFull = async (req, res) => {
                 sports: [{ category: 'Pickleball', yearsOfExperience: profileData.experienceYears }]
             });
         } else if (role === 'org') {
-            profile = new org({
+            profile = new Organization({
                 ownerId: newUser._id,
                 name: profileData.name,
                 contactEmail: email,

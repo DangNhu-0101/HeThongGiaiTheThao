@@ -110,7 +110,7 @@ export const editRule = async (req, res) => {
         const baseRule = await BaseRule.findById(id);
         if (!baseRule) throw new Error('Rule not found');
         const tournament = await Tournament.findById(baseRule.tournamentId).session(session);
-        ìf(!tournament)
+        if(!tournament)
         {
             return res.status(404).json({ success: false, message: "Không tìm thấy giải đấu liên quan đến bộ luật này." });
         }

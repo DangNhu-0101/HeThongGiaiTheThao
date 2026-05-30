@@ -131,7 +131,7 @@ export const getProfile = async (req, res) => {
 
         let profileDetails = null;
         if (user.role === "player") {
-            profileDetails = await players.findOne({ userId: currentId });
+            profileDetails = await Players.findOne({ userId: currentId });
         } else if (user.role === "referee") {
             profileDetails = await Referee.findOne({ userId: currentId });
         } else if (user.role === "org") {
@@ -187,7 +187,7 @@ export const editProfile = async (req, res) => {
         let updatedDetails = null;
 
         if (updatedUser.role === "player") {
-            updatedDetails = await players.findOneAndUpdate(
+            updatedDetails = await Players.findOneAndUpdate(
                 { userId: currentId },
                 { $set: details },
                 { new: true, runValidators: true }
