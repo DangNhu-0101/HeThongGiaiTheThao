@@ -1,13 +1,12 @@
 import mongoose from "mongoose";
 
 const branchSchema = new mongoose.Schema({
-    name: { type: String, default: 'Nhánh chính' },
+    name: { type: String, default: 'Nhanh chinh' },
     numberOfGroups: { type: Number, required: true },
     playersPerGroup: { type: Number, required: true },
     selectedRanks: [{ type: Number }]
 }, { _id: true });
 
-// Tạo schema cho substage TRƯỚC, không dùng this
 const substageSchema = new mongoose.Schema({
     stageName: { type: String, required: true },
     type: { type: String, enum: ['GROUP_STAGE', 'KNOCKOUT'], default: 'GROUP_STAGE' },
@@ -25,14 +24,21 @@ const substageSchema = new mongoose.Schema({
     rankingCriteria: [{ type: String }],
     rankingPriorityOrder: [{ type: String }],
     matchFormat: { type: String, default: '1_SET' },
+    matchDuration: { type: Number, default: 60 },
     touchPoint: { type: Number, default: 11 },
     winByGap: { type: Number, default: 1 },
     maxPoints: { type: Number, default: null },
     changeSideAt: { type: Number, default: 6 },
-    substages: [{ type: mongoose.Schema.Types.Mixed }]  // ← DÙNG Mixed thay vì đệ quy
+    substages: [{ type: mongoose.Schema.Types.Mixed }]
 }, { _id: true, strict: false });
 
 const stageSchema = new mongoose.Schema({
+    baseRuleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'BaseRule',
+        default: null,
+        index: true
+    },
     tournamentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Tournament',
@@ -42,8 +48,11 @@ const stageSchema = new mongoose.Schema({
     sportType: { type: String, required: true },
     formatDescription: { type: String, default: '' },
     ruleDescription: { type: String, default: '' },
+    ruleName: { type: String, default: '' },
     stageName: { type: String, required: true },
     type: { type: String, enum: ['GROUP_STAGE', 'KNOCKOUT'], default: 'GROUP_STAGE' },
+    numberOfGroups: { type: Number, default: 1 },
+    playersPerGroup: { type: Number, default: 4 },
     hasBranches: { type: Boolean, default: false },
     branches: [branchSchema],
     knockoutRound: { type: String, default: '' },
@@ -58,11 +67,17 @@ const stageSchema = new mongoose.Schema({
     rankingCriteria: [{ type: String }],
     rankingPriorityOrder: [{ type: String }],
     matchFormat: { type: String, default: '1_SET' },
+    matchDuration: { type: Number, default: 60 },
     touchPoint: { type: Number, default: 11 },
     winByGap: { type: Number, default: 1 },
     maxPoints: { type: Number, default: null },
     changeSideAt: { type: Number, default: 6 },
-    substages: [{ type: mongoose.Schema.Types.Mixed }]  // ← Mixed, lưu JSON linh hoạt
+    substages: [{ type: mongoose.Schema.Types.Mixed }],
+    stages: [{ type: mongoose.Schema.Types.Mixed }],
+    bracketIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Bracket',
+    }]
 }, { timestamps: true });
 
 stageSchema.index({ tournamentId: 1, sportType: 1 });

@@ -29,9 +29,11 @@ router.post('/generate-groups', protectedRoute('org'), autoGenerateAllGroupMatch
 router.get('/', getMatches);
 router.get('/:id', getMatchById);
 router.post('/', protectedRoute('org'), createManualMatch);
+router.patch('/:id/schedule', protectedRoute('org'), updateMatch);
 router.put('/:id', protectedRoute('org'), updateMatch);
 router.patch('/:id/status', protectedRoute('org'), updateMatchStatus);
 router.patch('/:id/score', protectedRoute('org'), updateMatchScore);
+router.put('/:id/score', protectedRoute('org'), updateMatchScore);
 router.delete('/:id', protectedRoute('org'), deleteMatch);
 
 

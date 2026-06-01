@@ -33,6 +33,7 @@ export function HomePage() {
 
   return (
     <div> 
+     
       {/* 1. Header & Nút tạo giải */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div>

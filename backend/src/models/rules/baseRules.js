@@ -30,7 +30,15 @@ const baseRuleSchema = new mongoose.Schema({
     sport: {
         type: String,
         required: true,
-        enum: ['Soccer', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Esports', 'Other']
+        enum: [
+            'Soccer', 'Football', 'Basketball', 'Volleyball', 'Tennis',
+            'Table Tennis', 'Badminton', 'Pickleball', 'Esports', 'Other',
+            'football', 'volleyball', 'tennis', 'table_tennis', 'badminton', 'pickleball'
+        ]
+    },
+    sportType: {
+        type: String,
+        default: ''
     },
 
     slotPlayerOfSport:{
@@ -69,14 +77,28 @@ const baseRuleSchema = new mongoose.Schema({
             ref: 'GameRule',
 
         }],
+        scoringRules: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'ScoringRule',
+            default: null
+        }],
         ScoringRule: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'ScoringRule',
             default: null
         }],
+        timeManagementRules: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'TimeManagementRule',
+        }],
         timeManagementRule: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'TimeManagementRule',
+        }],
+        resourceManagementRules: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'ResourceManagementRule',
+            default: null
         }],
         resourceManagementRule: [{
             type: mongoose.Schema.Types.ObjectId,

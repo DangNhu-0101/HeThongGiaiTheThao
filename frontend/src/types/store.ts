@@ -5,6 +5,8 @@ import type { Team } from "./Team";
 import type { Member } from "./member";
 import type { Invitation } from "./invitation";
 import type { Organization } from "./org";
+import type { Notification } from "./notification";
+import type { Sponsor } from "./sponsor";
 
 
 export interface AuthState {
@@ -75,3 +77,17 @@ export interface TeamState{
     clearError: () => void;
 }
 
+export interface NotificationState {
+    notification: Notification[];
+    loading: boolean;
+    getMyNotifications: () => Promise<void>;
+    deleteNotification: (id: string) => Promise<void>;
+    clearState: () => void;
+}
+export interface SponsorState {
+    sponsors: Sponsor[];
+    loading: boolean;
+
+    getSponsors: () => Promise<void>;
+    clearState: () => void;
+}

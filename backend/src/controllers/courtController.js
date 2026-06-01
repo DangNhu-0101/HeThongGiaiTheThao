@@ -3,6 +3,40 @@ import mongoose from "mongoose";
 import Court from "../models/courts.js";
 import Tournament from "../models/tournaments.js";
 
+export const getAllCourts = async (req, res) => {
+    try {
+        const { page = 1, limit = 100, sportType, status } = req.query;
+        const filter = {};
+        if (sportType) filter.sportTypes = sportType;
+        if (status) filter.status = status;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const [courts, total] = await Promise.all([
+            Court.find(filter)
+                .populate('tournamentId', 'name sportType')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit))
+                .lean(),
+            Court.countDocuments(filter)
+        ]);
+
+        return res.status(200).json({
+            success: true,
+            data: courts,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error("getAllCourts error:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // 1. Lấy danh sách sân (có phân trang, lọc)
 export const getCourtsByTournament = async (req, res) => {
     try {
@@ -42,7 +76,7 @@ export const getCourtsByTournament = async (req, res) => {
 // 2. Thêm sân mới
 export const addCourt = async (req, res) => {
     try {
-        const { name, tournamentId, sportTypes, location } = req.body;
+        const { name, tournamentId, sportTypes, location, status } = req.body;
 
         if (!name || !tournamentId) {
             return res.status(400).json({ success: false, message: "Thiếu tên sân hoặc tournamentId" });
@@ -72,7 +106,7 @@ export const addCourt = async (req, res) => {
             tournamentId,
             sportTypes: sportTypesArray,
             location: location || '',
-            status: 'empty'
+            status: status || 'empty'
         });
 
         return res.status(201).json({ success: true, message: "Thêm sân thành công", data: newCourt });
@@ -86,7 +120,7 @@ export const addCourt = async (req, res) => {
 export const updateCourt = async (req, res) => {
     try {
         const { courtId } = req.params;
-        const { name, sportTypes, location } = req.body;
+        const { name, sportTypes, location, status } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(courtId)) {
             return res.status(400).json({ success: false, message: "ID sân không hợp lệ" });
@@ -101,6 +135,7 @@ export const updateCourt = async (req, res) => {
             court.sportTypes = sportTypesArray;
         }
         if (location !== undefined) court.location = location;
+        if (status !== undefined) court.status = status;
 
         await court.save();
         return res.status(200).json({ success: true, message: "Cập nhật sân thành công", data: court });

@@ -7,6 +7,12 @@ const tournamentSchema = new mongoose.Schema({
     },
 
     description: { type: String, trim: true, default: "" },
+    slogan: { type: String, trim: true, default: "" },
+    targetAudience: { type: String, trim: true, default: "" },
+    contactPerson: {
+        name: { type: String, default: "" },
+        phone: { type: String, default: "" }
+    },
     logo:{
         type:String,
         default:''
@@ -17,6 +23,15 @@ const tournamentSchema = new mongoose.Schema({
     sportType:[{
         type: String,
         required: true
+    }],
+    sportsConfig: [{
+        sport: { type: String, required: true },
+        sportName: { type: String, default: "" },
+        feeEntry: { type: Number, default: 0 },
+        feePerAthlete: { type: Number, default: 0 },
+        maxTeams: { type: Number, default: null },
+        categories: [{ type: String }],
+        categoryConfig: [{ type: mongoose.Schema.Types.Mixed }]
     }],
 
     timeLine:{
@@ -57,6 +72,12 @@ const tournamentSchema = new mongoose.Schema({
     sponsors: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sponsor',
+    }],
+
+    sponsorPackages: [{
+        name: String,
+        benefitsText: String,
+        benefitsImage: String,
     }],
 
     status:{

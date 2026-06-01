@@ -1,6 +1,7 @@
 // routes/courtRoutes.js
 import express from 'express';
 import {
+    getAllCourts,
     getCourtsByTournament,
     addCourt,
     updateCourt,
@@ -11,6 +12,8 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 import Referee from '../models/referees.js';
 
 const router = express.Router();
+
+router.get('/', protectedRoute(['org', 'Organization']), getAllCourts);
 
 // Lấy danh sách sân của giải đấu (có thể public, nhưng vẫn yêu cầu đăng nhập nếu cần)
 router.get('/tournaments/:tournamentId/courts', protectedRoute(['player', 'referee', 'org', 'Organization']), getCourtsByTournament);

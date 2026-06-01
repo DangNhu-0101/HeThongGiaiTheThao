@@ -6,6 +6,8 @@ export interface IBranch {
   numberOfGroups: number;
   playersPerGroup: number;
   selectedRanks: number[];
+  sourceType?: 'top' | 'win' | 'lose';
+  sourceRanks?: number[];
 }
 
 export interface IStage {
@@ -26,11 +28,12 @@ export interface IStage {
   rankingCriteria: string[];
   rankingPriorityOrder: string[];
   matchFormat: '1_SET' | 'BO3' | 'BO5' | string;
+  matchDuration: number;
   touchPoint: number;
   winByGap: number;
   maxPoints: number | null;
   changeSideAt: number;
-  substages: IStage[]; // Đệ quy lồng vô hạn
+  substages: IStage[];
   knockoutRound: string;
   hasBronzeMatch: boolean;
   totalTeamsIn: number;

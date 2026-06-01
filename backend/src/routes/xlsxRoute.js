@@ -19,23 +19,11 @@ const router = express.Router();
 
 
 
-router.post('/import', protectedRoute('org'), upload.single('file'), importExcel);
-router.get('/template', (req, res) => {
-    const templatePath = path.join(__dirname, '../../src/templates/import_template.xlsx');
-    console.log('Template path:', templatePath);
-    // Kiểm tra file tồn tại
-    if (!fs.existsSync(templatePath)) {
-        console.error('File not found:', templatePath);
-        return res.status(404).json({ success: false, message: 'File template not found' });
-    }
-    res.download(templatePath, 'import_template.xlsx', (err) => {
-        if (err) {
-            console.error(err);
-            res.status(500).json({ success: false, message: 'Error downloading file' });
-        }
-    });
-});
-router.get('/export', protectedRoute('org'), exportExcel);
+router.post('/import', protectedRoute('org, Organization'), upload.single('file'), importExcel);
+router.get('/template', protectedRoute('org, Organization'), exportExcel);
+router.get('/template/:type', protectedRoute('org, Organization'), exportExcel);
+router.get('/export', protectedRoute('org, Organization'), exportExcel);
+router.get('/export/:type', protectedRoute('org, Organization'), exportExcel);
 export default router;
 
 

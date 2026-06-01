@@ -3,7 +3,7 @@ export interface User {
     email: string;
     username: string;
     phonenumber: string;
-    role: string;
+    role: "ORGANIZER" | "USER"|"REFEREE";
     avatarUrl?: string;
     createdAt: string;
     updatedAt: string;

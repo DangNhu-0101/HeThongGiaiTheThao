@@ -24,3 +24,9 @@ export const MEMBER_STATUS = {
   REJECTED: 'Rejected',
   ACTIVE: 'Active'
 };
+
+export const USER_ROLE = {
+  ORGANIZER: 'org',
+  PLAYER: 'player',
+  REFEREE: 'referee'
+};

@@ -222,6 +222,7 @@ const getWildcardTeams = (branchGroups, qualifiedTeamIds, wildcardCount, criteri
 export const createKnockoutMatchesFromSubstage = (substage, teams, options) => {
     const matches = [];
     const { tournamentId, bracketId, sportType, ruleId, startTime, courts = [] } = options;
+    const matchDurationMinutes = Number(substage.matchDuration || options.matchDuration || 60);
     
     const totalTeams = substage.totalTeamsIn || teams.length;
     const numMatches = Math.floor(totalTeams / 2);
@@ -231,14 +232,15 @@ export const createKnockoutMatchesFromSubstage = (substage, teams, options) => {
     
     for (let i = 0; i < numMatches; i++) {
         const scheduledTime = startTime 
-            ? new Date(new Date(startTime).getTime() + i * 60 * 60 * 1000) 
+            ? new Date(new Date(startTime).getTime() + i * matchDurationMinutes * 60 * 1000) 
             : null;
         
         matches.push({
             tournamentId,
             bracketId,
             stageRuleId: substage._id || options.stageRuleId,
-            round: substage.knockoutRound || `Round ${i + 1}`,
+            round: Number(substage.round || substage.roundNumber) || 1,
+            roundName: substage.knockoutRound || substage.stageName || `Round ${i + 1}`,
             matchNumber: i + 1,
             matchType: 'knockout',
             sportType,

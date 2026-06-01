@@ -67,7 +67,7 @@ export const RecentTournamentsTable: React.FC<RecentTournamentsTableProps> = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {tour.status === "ongoing" && (
+                      {["ongoing", "playing", "Actived"].includes(tour.status || "") && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-semibold">
                           Đang diễn ra
                         </Badge>

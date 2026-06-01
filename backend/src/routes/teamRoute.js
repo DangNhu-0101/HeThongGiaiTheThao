@@ -1,6 +1,7 @@
 // routes/teamRoutes.js
 import express from 'express';
 import {
+    getAllTeams,
     createTeam,
     updateTeam,
     deleteTeam,
@@ -19,7 +20,7 @@ import {
     rejectJoinRequest,
     getTeamJoinRequests,
     updatePaymentStatus,
-    updateSponsorStatus
+    updateFreeStatus
 } from '../controllers/teamController.js';
 
 import { protectedRoute } from '../middlewares/authMiddleware.js';
@@ -27,8 +28,9 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // ======================== TEAM CRUD ========================
-router.post('/create', protectedRoute('player'), createTeam);                                    // Tạo đội
-router.put('/edit/:id', protectedRoute('player, org'), updateTeam);                                 // Cập nhật đội
+router.get('/', protectedRoute('org, Organization'), getAllTeams);
+router.post('/create', protectedRoute('player, org, Organization'), createTeam);                                    // Tạo đội
+router.put('/edit/:id', protectedRoute('player, org, Organization'), updateTeam);                                 // Cập nhật đội
 router.delete('/delete/:id',  deleteTeam);                              // Xóa  đội
 
 // ======================== MEMBER MANAGEMENT ========================
@@ -53,7 +55,7 @@ router.get('/:teamId/join-requests', protectedRoute('player, org'), getTeamJoinR
 
 // ======================== PAYMENT ========================
 router.patch('/:id/payment', protectedRoute(['org', 'Organization']), updatePaymentStatus); // Cập nhật thanh toán
-router.patch('/:id/sponsor', protectedRoute(['org', 'Organization', 'admin']), updateSponsorStatus); 
+router.patch('/:id/free', protectedRoute(['org', 'Organization', 'admin']), updateFreeStatus);
 
 
 export default router;

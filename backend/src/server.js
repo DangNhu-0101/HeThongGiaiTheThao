@@ -59,6 +59,7 @@ app.use('/api/teams', teamRoute);
 // Lưu ý: Đổi tên cho khớp với Frontend đang gọi (/api/tournaments)
 app.use('/api/tournaments', tournamentRoute);
 app.use('/api/tournament-auto', tournamentAutoRoute); // Route tự động hóa giải đấu
+app.use('/api/automator', tournamentAutoRoute);
 app.use('/api/groups', groupRoute); 
 app.use('/api/stages', stageRoutes);
 app.use('/api/referees', refereeRoute);

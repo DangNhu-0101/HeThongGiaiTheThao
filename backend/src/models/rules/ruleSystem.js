@@ -59,6 +59,7 @@ const ruleSystemSchema = new mongoose.Schema({
     // 4. Quản lý thời gian
     timeManagement: {
         warmUpMinutes: Number,
+        standardMatchDuration: Number, // Thời gian thi đấu chính thức (phút)
         standardTimeOutsPerSet: Number,
         timeOutDurationSeconds: Number,
         medicalTimeOutMinutes: Number,

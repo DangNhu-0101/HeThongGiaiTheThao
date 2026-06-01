@@ -6,14 +6,15 @@ interface Person{
 
 
 export interface Sponsor {
-    id: string;
+    _id: string;
     name: string;
     logo: string;
     description: string;
-    tournamentId: string; // Reference to Tournament
+    tournamentId: string; 
     website: string;
     sponsorType:string;
     amount: number;
+    sponsorshipType: string;
     contactPerson: Person;
     createdAt: Date;
     updatedAt: Date;

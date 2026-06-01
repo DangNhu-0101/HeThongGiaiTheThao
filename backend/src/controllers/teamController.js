@@ -62,12 +62,51 @@ const checkTeamLimit = async (teamId, session) => {
 };
 
 // ======================== TEAM CRUD ========================
+export const getAllTeams = async (req, res) => {
+    try {
+        const { page = 1, limit = 100, status, tournamentId } = req.query;
+        const filter = {};
+        if (status) filter.status = status;
+        if (tournamentId) filter.tournamentId = tournamentId;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const [teams, total] = await Promise.all([
+            Team.find(filter)
+                .populate('tournamentId', 'name sportType')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit))
+                .lean(),
+            Team.countDocuments(filter)
+        ]);
+
+        const teamsWithCount = await Promise.all(teams.map(async (team) => ({
+            ...team,
+            memberCount: await Member.countDocuments({ teamId: team._id, status: 'Active' })
+        })));
+
+        return res.status(200).json({
+            success: true,
+            data: teamsWithCount,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error("Error in getAllTeams:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // 1. Tạo đội (tự động gán captain)
 export const createTeam = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const { name, tournamentId, sportType, logo } = req.body;
+        const { name, tournamentId, sportType, sportCategory, logo } = req.body;
         const userId = req.user.id;
 
         if (!name || !tournamentId) {
@@ -86,11 +125,11 @@ export const createTeam = async (req, res) => {
         const [newTeam] = await Team.create([{
             name,
             tournamentId,
-            sportType: sportType || tournament.sport,
+            sportCategory: sportCategory || sportType || tournament.sportType?.[0] || tournament.sport,
             ownerId: userId,
             logo: logo || '',
             isPaid: false,
-            status: 'Active'
+            status: 'pending'
         }], { session });
 
         await Member.create([{
@@ -115,10 +154,11 @@ export const createTeam = async (req, res) => {
 export const updateTeam = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, logo, sportType, status } = req.body;
+        const { name, logo, sportType, sportCategory, status, isPaid, isFree, isConfirm } = req.body;
         const userId = req.user.id;
 
-        const hasPerm = await checkCaptainOrCreator(id, userId);
+        const isOrgUser = ['org', 'Organization', 'ORGANIZER'].includes(req.user.role);
+        const hasPerm = isOrgUser || await checkCaptainOrCreator(id, userId);
         if (!hasPerm) return res.status(403).json({ success: false, message: 'Chỉ đội trưởng hoặc chủ đội mới được cập nhật' });
 
         const team = await Team.findById(id);
@@ -126,8 +166,41 @@ export const updateTeam = async (req, res) => {
 
         if (name) team.name = name;
         if (logo !== undefined) team.logo = logo;
-        if (sportType) team.sportType = sportType;
+        if (sportCategory || sportType) team.sportCategory = sportCategory || sportType;
         if (status) team.status = status;
+
+        const hasApprovalInput = isPaid !== undefined || isFree !== undefined || isConfirm !== undefined;
+        if (hasApprovalInput) {
+            const wantsPaid = isPaid !== undefined ? Boolean(isPaid) : team.isPaid;
+            const wantsFree = isFree !== undefined ? Boolean(isFree) : team.isFree;
+            const confirmed = isConfirm !== undefined ? Boolean(isConfirm) : wantsPaid || wantsFree;
+
+            if (!confirmed) {
+                team.isPaid = false;
+                team.isFree = false;
+                team.isConfirm = false;
+                team.status = 'pending';
+                team.paidAt = null;
+            } else if (wantsPaid) {
+                team.isPaid = true;
+                team.isFree = false;
+                team.isConfirm = true;
+                team.status = 'confirmed';
+                team.paidAt = new Date();
+            } else if (wantsFree) {
+                team.isPaid = false;
+                team.isFree = true;
+                team.isConfirm = true;
+                team.status = 'confirmed';
+                team.paidAt = null;
+            } else {
+                team.isPaid = false;
+                team.isFree = false;
+                team.isConfirm = true;
+                team.status = 'confirmed';
+                team.paidAt = null;
+            }
+        }
 
         await team.save();
         return res.status(200).json({ success: true, message: 'Cập nhật thành công', data: team });
@@ -561,31 +634,48 @@ export const getTeamJoinRequests = async (req, res) => {
 export const updatePaymentStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { isPaid } = req.body;
-        
+        const { isPaid, isFree, isConfirm} = req.body;
+
         const team = await Team.findById(id);
         if (!team) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
         }
-        
-        team.isPaid = isPaid;
-        if (isPaid) {
-            team.paidAt = new Date();
-            team.status = 'confirmed';
-        } else {
-            team.paidAt = null;
-            team.status = 'pending';
+
+        if (isPaid !== undefined || isFree !== undefined || isConfirm !== undefined) {
+            const wantsPaid = isPaid !== undefined ? Boolean(isPaid) : team.isPaid;
+            const wantsFree = isFree !== undefined ? Boolean(isFree) : team.isFree;
+            const confirmed = isConfirm !== undefined ? Boolean(isConfirm) : wantsPaid || wantsFree;
+
+            if (!confirmed) {
+                team.isPaid = false;
+                team.isFree = false;
+                team.isConfirm = false;
+                team.status = 'pending';
+                team.paidAt = null;
+            } else if (wantsPaid) {
+                team.isPaid = true;
+                team.isFree = false;
+                team.isConfirm = true;
+                team.status = 'confirmed';
+                team.paidAt = new Date();
+            } else if (wantsFree) {
+                team.isPaid = false;
+                team.isFree = true;
+                team.isConfirm = true;
+                team.status = 'confirmed';
+                team.paidAt = null;
+            }
         }
+
         
         await team.save();
-        
+
         res.json({ success: true, data: team });
     } catch (error) {
         console.error("Error in updatePaymentStatus:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
 export const searchUsers = async (req, res) => {
     try {
         const { keyword } = req.query;
@@ -633,7 +723,7 @@ export const registerFlow = async (req, res) => {
                 tournamentId,
                 sportType: sport,
                 ownerId: userId,
-                status: 'Active',
+                status: 'pending',
                 isPaid: false
             }], { session });
         }
@@ -644,7 +734,7 @@ export const registerFlow = async (req, res) => {
                 tournamentId,
                 sportType: sport,
                 ownerId: userId,
-                status: 'Active',
+                status: 'pending',
                 isPaid: false
             }], { session });
         }
@@ -789,12 +879,11 @@ export const mergeTeam = async (req, res) => {
     }
 };
 
-// 19. Cập nhật trạng thái nhà tài trợ
-export const updateSponsorStatus = async (req, res) => {
+// 19. Cập nhật trạng thái miễn phí của đội
+export const updateFreeStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { isSponsor } = req.body;
-        let { isPaid } = req.body;
+        const isFree = Boolean(req.body.isFree);
         const userId = req.user.id;
         
         // Kiểm tra quyền
@@ -804,7 +893,7 @@ export const updateSponsorStatus = async (req, res) => {
         if (!isAuthorized) {
             return res.status(403).json({ 
                 success: false, 
-                message: 'Chỉ tổ chức mới được cập nhật trạng thái nhà tài trợ' 
+                message: 'Chỉ tổ chức mới được cập nhật trạng thái miễn phí của đội' 
             });
         }
         
@@ -816,15 +905,18 @@ export const updateSponsorStatus = async (req, res) => {
             });
         }
         
-        team.isSponsor = isSponsor;
-        
-        
-        if (isSponsor) {
-            isPaid = false;
+        if (isFree) {
+            team.isFree = true;
+            team.isPaid = false;
+            team.isConfirm = true;
             team.status = 'confirmed';
+            team.paidAt = null;
         } else {
-            isPaid = false;
+            team.isFree = false;
+            team.isPaid = false;
+            team.isConfirm = false;
             team.status = 'pending';
+            team.paidAt = null;
         }
         
         await team.save();
@@ -833,10 +925,10 @@ export const updateSponsorStatus = async (req, res) => {
         res.json({ 
             success: true, 
             data: team,
-            message: isSponsor ? 'Đã duyệt nhà tài trợ' : 'Đã hủy duyệt nhà tài trợ'
+            message: isFree ? 'Đã duyệt đội miễn phí' : 'Đã hủy duyệt đội miễn phí'
         });
     } catch (error) {
-        console.error("Error in updateSponsorStatus:", error);
+        console.error("Error in updateFreeStatus:", error);
         res.status(500).json({ 
             success: false, 
             message: error.message 

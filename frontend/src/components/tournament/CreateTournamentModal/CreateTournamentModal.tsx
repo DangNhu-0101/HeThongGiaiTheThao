@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner"; 
 
 import { useTournamentStore } from '@/stores/useTournamentStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 import BasicInfoSection from './basic-info-section';
 import TimelineContactSection from './timeline-contact-section';
@@ -50,14 +51,15 @@ const CreateTournamentModal = ({ onSuccess, children }: CreateTournamentModalPro
   // --- STATE QUẢN LÝ ĐÓNG/MỞ MODAL ---
   const [isOpen, setIsOpen] = useState(false);
 
+  const { user } = useAuthStore();
   const { 
-    organizations, 
     loading, 
-    fetchOrganizations, 
     submitTournament, 
   } = useTournamentStore();
 
-  const [formData, setFormData] = useState({ name: '', slogan: '', targetParticipants: '', location: '', description: '', prizes: '', organizer: '' });
+  const [formData, setFormData] = useState({ 
+    name: '', slogan: '', targetParticipants: '', location: '', description: '', prizes: '', organizer: user?._id || '' 
+  });
   const [contactPerson, setContactPerson] = useState({ name: '', phone: '' });
   const [timeLine, setTimeLine] = useState({ registrationStart: '', registrationEnd: '', tournamentStart: '', tournamentEnd: '' });
   
@@ -72,16 +74,12 @@ const CreateTournamentModal = ({ onSuccess, children }: CreateTournamentModalPro
   const [files, setFiles] = useState<FileState>({ logo: null, paymentQR: null, banners: [] });
   const [previews, setPreviews] = useState<PreviewState>({ logo: null, paymentQR: null, banners: [] });
 
-  // Gọi API lấy Organizations khi Modal mở
-  useEffect(() => {
-    if (isOpen) {
-      fetchOrganizations();
-    }
-  }, [isOpen, fetchOrganizations]);
-
   // Hàm reset lại form khi đóng Modal (Rất quan trọng vì DialogTrigger giữ state)
   const resetForm = () => {
-    setFormData({ name: '', slogan: '', targetParticipants: '', location: '', description: '', prizes: '', organizer: '' });
+    setFormData({ 
+      name: '', slogan: '', targetParticipants: '', location: '', description: '', prizes: '', 
+      organizer: user?._id || '' 
+    });
     setContactPerson({ name: '', phone: '' });
     setTimeLine({ registrationStart: '', registrationEnd: '', tournamentStart: '', tournamentEnd: '' });
     setSportsConfig(SPORTS_LIST.reduce((acc: SportsConfigData, sport) => {
@@ -154,6 +152,7 @@ const CreateTournamentModal = ({ onSuccess, children }: CreateTournamentModalPro
     
     const payload = new FormData();
     payload.append('displayName', formData.name);
+    payload.append('slogan', formData.slogan);
     payload.append('venue', formData.location);
     payload.append('targetAudience', formData.targetParticipants);
     payload.append('description', formData.description);
@@ -195,20 +194,6 @@ const CreateTournamentModal = ({ onSuccess, children }: CreateTournamentModalPro
     }
   };
 
-
-  const mappedOrganizations = organizations.map((org) => {
-    // Tìm ID an toàn không dùng any
-    const orgId = '_id' in org 
-      ? String(org._id) 
-      : ('id' in org ? String((org as unknown as { id: string | number }).id) : '');
-
-    return {
-      ...org,         
-      _id: orgId,      
-      name: org.name   
-    };
-  });
-
   return (
   <Dialog open={isOpen} onOpenChange={setIsOpen}>
     <DialogTrigger asChild>
@@ -226,7 +211,11 @@ const CreateTournamentModal = ({ onSuccess, children }: CreateTournamentModalPro
       {/* 🆕 ÉP CHIỀU CAO CỐ ĐỊNH CHO SCROLLAREA ĐỂ BUNG THANH CUỘN DỌC */}
       <ScrollArea className="h-full flex-1 px-6 py-6 min-h-0">
         <form id="tour-form" onSubmit={handleSubmit} className="flex flex-col gap-6 pb-8">
-          <BasicInfoSection formData={formData} handleTextChange={handleTextChange} organizations={mappedOrganizations} />
+          <BasicInfoSection 
+            formData={formData} 
+            handleTextChange={handleTextChange} 
+            organizerName={user?.username || "Tài khoản của bạn"} 
+          />
           <TimelineContactSection contactPerson={contactPerson} handleContactChange={handleContactChange} timeLine={timeLine} handleTimeChange={handleTimeChange} />
           <SportsConfigSection sportsConfig={sportsConfig} SPORTS_LIST={SPORTS_LIST} CATEGORIES_LIST={CATEGORIES_LIST} toggleSport={toggleSport} handleSportFieldChange={handleSportFieldChange} toggleCategory={toggleCategory} />
           <GalaConfigSection galaConfig={galaConfig} handleGalaChange={handleGalaChange} />

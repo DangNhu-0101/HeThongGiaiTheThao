@@ -19,7 +19,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
+import { ChevronsUpDownIcon,  LogOutIcon } from "lucide-react"
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useNavigate } from "react-router-dom";
 
 export function NavUser({
   user,
@@ -27,10 +29,18 @@ export function NavUser({
   user: {
     name: string
     email: string
-    avatar: string
+    avatar?: string
   }
 }) {
+  const { logout } = useAuthStore() as unknown as { logout: () => void };
+  const navigate = useNavigate();
+
   const { isMobile } = useSidebar()
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -70,32 +80,14 @@ export function NavUser({
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
+            
+          
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <SparklesIcon className="mr-2 size-4" />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheckIcon className="mr-2 size-4" />
-                Tài Khoản
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCardIcon className="mr-2 size-4" />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BellIcon className="mr-2 size-4" />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <LogOutIcon className="mr-2 size-4" />
-              Log out
+              Log out 
+              
+
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

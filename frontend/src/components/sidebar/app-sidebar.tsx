@@ -1,4 +1,4 @@
-"use client"
+
 
 import * as React from "react"
 import CreateTournamentModal from "@/components/tournament/CreateTournamentModal/CreateTournamentModal"
@@ -26,8 +26,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Settings2Icon, LifeBuoyIcon, SendIcon, TerminalIcon, Trophy, ChevronsUpDown, Plus } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { useTournamentStore } from "@/stores/useTournamentStore"
+import { useAuthStore } from "@/stores/useAuthStore"
 
 interface SidebarTournament {
   _id?: string;
@@ -63,6 +64,10 @@ const data = {
           title: "Danh sách đội",
           url: "/org/teams",
         },
+        {
+          title: "Import dữ liệu",
+          url: "/org/import",
+        },
         
         
       ],
@@ -78,31 +83,35 @@ const data = {
       items: [
         {
           title: "Dashboard",
-          url: "/admin/tournament/dashboard",
+          url: "/tournaments/:tournamentId/dashboard",
         },
         {
           title: "Vòng đấu & luật",
-          url: "/admin/tournament/rules",
+          url: "/tournaments/:tournamentId/rules",
         },
         {
           title: "Trận đấu",
-          url: "/admin/tournament/matches",
+          url: "/tournaments/:tournamentId/matches",
         },
         {
           title: "Đội tuyển",
-          url: "/admin/tournament/teams",
+          url: "/tournaments/:tournamentId/teams",
         },
         {
           title: "Sân bãi",
-          url: "/admin/tournament/courts",
+          url: "/tournaments/:tournamentId/courts",
         },
         {
           title: "Trọng tài",
-          url: "/admin/{tournamentId}/referees",
+          url: "/tournaments/:tournamentId/referees",
         },
         {
           title: "Tài chính",
-          url: "/admin/tournament/finance",
+          url: "/tournaments/:tournamentId/finance",
+        },
+        {
+          title: "Import dữ liệu",
+          url: "/tournaments/:tournamentId/import",
         },
       ],
     },
@@ -124,7 +133,13 @@ const data = {
 }
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { tournamentList, fetchTournaments } = useTournamentStore()
+  const { user } = useAuthStore();
+  const location = useLocation();
   const [activeTournament, setActiveTournament] = React.useState<SidebarTournament | null>(null)
+  const currentTournamentId = React.useMemo(() => {
+    const match = location.pathname.match(/^\/tournaments\/([^/]+)/);
+    return match?.[1] || "";
+  }, [location.pathname])
 
   React.useEffect(() => {
     if (fetchTournaments) {
@@ -148,19 +163,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Cập nhật URL động cho các menu Điều hành giải dựa trên ID giải đang chọn
   const dynamicNavTournament = React.useMemo(() => {
     return data.navTournament.map((group) => {
-      if (activeTournament) {
+      const tournamentId = activeTournament?._id || currentTournamentId;
+      if (tournamentId) {
         return {
           ...group,
           items: group.items.map((item) => ({
             ...item,
             // Truyền ID giải đấu vào URL để các trang điều hành có thể lấy được dữ liệu
-            url: item.url.replace('/admin/tournament', `/tournaments/${activeTournament._id || ''}`),
+            url: item.url.replace(':tournamentId', tournamentId),
           })),
         }
       }
       return group
     })
-  }, [activeTournament])
+  }, [activeTournament, currentTournamentId])
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -168,7 +184,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link to="/admin">
+              <Link to="/org">
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <TerminalIcon className="size-4" />
               </div>
@@ -255,7 +271,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={{
+          name: user?.username || "Guest",
+          email: user?.email || "",
+          avatar: user?.avatarUrl || "/avatars/shadcn.jpg",
+        }} />
         <div className="p-2 text-center text-xs text-muted-foreground font-medium">
           © 2025 IT Vũng Tàu Group
         </div>

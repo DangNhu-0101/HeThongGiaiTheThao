@@ -12,6 +12,7 @@ import Bracket from '../models/rules/brackets.js';
 import Group from '../models/groups.js';
 import Match from '../models/matches.js';
 import Team from '../models/teams.js';
+import Rule from '../models/rules.js';
 import { initializeSportStructure } from '../services/tournamentInstanceService.js';
 
 
@@ -196,20 +197,35 @@ export const editRule = async (req, res) => {
 
         // 6. Cập nhật StageRule (quan trọng nhất)
         let stageRuleId = baseRule.tournamentStructure?.stages?.[0];
+        const primaryStage = newData.stages?.[0] || {};
         if (stageRuleId) {
             // Cập nhật trực tiếp stageRule
             await StageRule.findByIdAndUpdate(stageRuleId, {
                 stages: newData.stages,
-                sport: newData.sport,
+                sportType: newData.sport,
                 ruleName: newData.ruleName,
+                stageName: primaryStage.stageName || newData.ruleName,
+                type: primaryStage.type || 'GROUP_STAGE',
+                hasBranches: primaryStage.hasBranches || false,
+                branches: primaryStage.branches || [],
+                numberOfGroups: primaryStage.numberOfGroups || primaryStage.branches?.[0]?.numberOfGroups || 1,
+                playersPerGroup: primaryStage.playersPerGroup || primaryStage.branches?.[0]?.playersPerGroup || 4,
+                substages: primaryStage.substages || [],
                 scoringRuleId: scoringRuleId
             }, { session, runValidators: true });
         } else {
             const [newStage] = await StageRule.create([{
                 tournamentId: baseRule.tournamentId,
                 baseRuleId: baseRule._id,
-                sport: newData.sport,
+                sportType: newData.sport,
                 ruleName: newData.ruleName,
+                stageName: primaryStage.stageName || newData.ruleName,
+                type: primaryStage.type || 'GROUP_STAGE',
+                hasBranches: primaryStage.hasBranches || false,
+                branches: primaryStage.branches || [],
+                numberOfGroups: primaryStage.numberOfGroups || primaryStage.branches?.[0]?.numberOfGroups || 1,
+                playersPerGroup: primaryStage.playersPerGroup || primaryStage.branches?.[0]?.playersPerGroup || 4,
+                substages: primaryStage.substages || [],
                 scoringRuleId: scoringRuleId,
                 stages: newData.stages,
                 bracketIds: []
@@ -244,7 +260,7 @@ export const editRule = async (req, res) => {
             const sportItem = {
                 sport: newData.sport,
                 
-                feeEntry: max,
+                feeEntry: newData.feeEntry || 0,
                 maxTeams: newData.teamComposition?.maxTeams || 32,
                 ruleData: newData
             };

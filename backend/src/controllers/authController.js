@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import mongoose from 'mongoose';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import Session from '../models/session.js';
@@ -12,17 +13,22 @@ const REFRESH_TOKEN_TTL = 12 * 24 * 60 * 60 * 1000; // 12 ngày
 
 // 1. ĐĂNG KÝ TÀI KHOẢN
 export const registerFull = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const { username, password, email, phoneNumber, role, profileData } = req.body;
 
         // 1. Kiểm tra dữ liệu đầu vào
         if (!username || !password || !email || !phoneNumber || !role || !profileData) {
-            return res.status(400).json({ message: "Dữ liệu gửi lên bị thiếu trường rồi Như ơi!" });
+            return res.status(400).json({ message: "Dữ liệu gửi lên bị thiếu!" });
         }
 
         // 2. Kiểm tra trùng lặp
-        const check = await User.findOne({ $or: [{ username }, { email }, { phoneNumber }] });
-        if (check) return res.status(409).json({ message: "Username, Email hoặc SĐT đã tồn tại!" });
+        const check = await User.findOne({ $or: [{ username }, { email }, { phoneNumber }] }).session(session);
+        if (check) {
+            await session.abortTransaction();
+            return res.status(409).json({ message: "Username, Email hoặc SĐT đã tồn tại!" });
+        }
 
         // 3. Mã hóa mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -64,14 +70,14 @@ export const registerFull = async (req, res) => {
             });
         }
 
-        // 6. LƯU CẢ HAI (Nếu 1 cái lỗi, catch sẽ bắt được và không lưu gì cả)
-        await newUser.save();
-        await profile.save();
+        // 6. LƯU CẢ HAI (Sử dụng session để đảm bảo tính nguyên tử)
+        await newUser.save({ session });
+        await profile.save({ session });
 
         // 7. TẠO TOKEN ĐỂ ĐĂNG NHẬP LUÔN
         const accessToken = jwt.sign(
             { userId: newUser._id },
-            process.env.ACCESS_TOKEN || 'SECRET_KEY_TAM_THOI',
+            process.env.ACCESS_TOKEN || 'SECRET_KEY_TAM_THOI', // Fallback cho development
             { expiresIn: '15m' }
         );
 
@@ -82,7 +88,9 @@ export const registerFull = async (req, res) => {
             userId: newUser._id,
             refreshToken,
             expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL)
-        });
+        }, { session });
+
+        await session.commitTransaction();
 
         // 9. TRẢ VỀ KẾT QUẢ
         res.cookie('refreshToken', refreshToken, {
@@ -99,10 +107,13 @@ export const registerFull = async (req, res) => {
         });
 
     } catch (error) {
+        if (session.inTransaction()) await session.abortTransaction();
         console.error("LỖI TẠI REGISTER_FULL:", error);
         return res.status(500).json({ 
             message: "Server bị lỗi rồi: " + error.message 
         });
+    } finally {
+        session.endSession();
     }
 };
 
@@ -138,7 +149,7 @@ export const login = async (req, res) => {
         // Tạo Access Token (JWT)
         const accessToken = jwt.sign(
             { userId: user._id },
-            process.env.ACCESS_TOKEN,
+            process.env.ACCESS_TOKEN || 'SECRET_KEY_TAM_THOI',
             { expiresIn: ACCESS_TOKEN_TTL }
         );
 

@@ -1,19 +1,29 @@
+import { Navigate, Outlet } from "react-router-dom";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Navigate, Outlet, } from "react-router";
 
-export const ProtectedRoute = () => {
-    const { accessToken, user,loading } = useAuthStore();
+type ProtectedRouteProps = {
+  allowedRoles?: string[];
+};
 
-    if(!accessToken){
-        return (
-            <Navigate
-                to="/login"
-                replace
-            />
-        )
-    }
+const normalizeRole = (role?: string) => role?.toLowerCase();
 
-    return(
-        <Outlet></Outlet>
-    )
-}
+export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
+  const { accessToken, user, loading } = useAuthStore();
+
+  if (loading) {
+    return <div className="p-6 text-slate-500">Đang tải dữ liệu...</div>;
+  }
+
+  if (!accessToken) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const userRole = normalizeRole(user?.role);
+  const normalizedAllowedRoles = allowedRoles?.map(normalizeRole);
+
+  if (normalizedAllowedRoles?.length && (!userRole || !normalizedAllowedRoles.includes(userRole))) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+};

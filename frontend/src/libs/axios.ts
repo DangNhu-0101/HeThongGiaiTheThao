@@ -1,5 +1,6 @@
 
 import axios from 'axios';
+import { getStoredAccessToken } from '@/utils/authToken';
 
 // 1. Tự động nhận diện URL Backend
 const BASE_URL = import.meta.env.MODE === 'development'
@@ -14,12 +15,10 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         // Lấy token từ localStorage
-        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        const token = getStoredAccessToken();
 
         if (token) {
-            if (token !== "null" && token !== "undefined") {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
+            config.headers.Authorization = `Bearer ${token}`;
         }
 
         return config;

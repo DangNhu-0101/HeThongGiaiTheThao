@@ -1,14 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+﻿import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Tournament } from "@/pages/TournamentDetail";
+import { Button } from "@/components/ui/button";
+import type { Tournament } from "@/components/tournament/TournamentDetail";
+import { EditTournamentModal } from "@/components/tournament/EditTournamentModal";
+import { Edit } from "lucide-react";
 import { format } from "date-fns";
 
 const IMAGE_BASE_URL = "http://localhost:5001/";
 
-export function DetailConfigTab({ tournament }: { tournament: Tournament }) {
+export function DetailConfigTab({ tournament, onRefresh }: { tournament: Tournament; onRefresh: () => Promise<void> }) {
     const estimatedRevenue = tournament.sportsConfig?.reduce((acc, config) => {
-        return acc + (config.feeEntry * config.maxTeams);
+        return acc + (config.feeEntry * (config.maxTeams || 0));
     }, 0) || 0;
+    const timeline = tournament.timeline || tournament.timeLine;
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -18,12 +22,20 @@ export function DetailConfigTab({ tournament }: { tournament: Tournament }) {
         <div className="space-y-8">
             {/* Sports Config */}
             <div>
-                <h3 className="text-xl font-semibold mb-4">Cấu hình Môn thi đấu</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h3 className="text-xl font-semibold">Cấu hình Môn thi đấu</h3>
+                    <EditTournamentModal tournament={tournament} onSuccess={onRefresh}>
+                        <Button variant="outline" className="gap-2">
+                            <Edit className="h-4 w-4" />
+                            Sửa cấu hình
+                        </Button>
+                    </EditTournamentModal>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {tournament.sportsConfig?.map((config, index) => (
                         <Card key={index}>
                             <CardHeader>
-                                <CardTitle>{config.sportName}</CardTitle>
+                                <CardTitle>{config.sportName || config.sport}</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div>
@@ -38,7 +50,7 @@ export function DetailConfigTab({ tournament }: { tournament: Tournament }) {
                                 </div>
                                 <div className="flex justify-between">
                                     <p className="text-sm font-medium">Số đội tối đa:</p>
-                                    <p className="text-sm">{config.maxTeams}</p>
+                                    <p className="text-sm">{config.maxTeams || "Không giới hạn"}</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -91,15 +103,15 @@ export function DetailConfigTab({ tournament }: { tournament: Tournament }) {
                         <div className="p-3 bg-muted rounded-md">
                             <p className="font-semibold">Đăng ký</p>
                             <p className="text-sm text-muted-foreground">
-                                Từ {format(new Date(tournament.timeline.registrationStart), "dd/MM/yyyy")}
-                                {' '}đến {format(new Date(tournament.timeline.registrationEnd), "dd/MM/yyyy")}
+                                Từ {format(new Date(timeline.registrationStart), "dd/MM/yyyy hh:mm a")}
+                                {' '}đến {format(new Date(timeline.registrationEnd), "dd/MM/yyyy hh:mm a")}
                             </p>
                         </div>
                         <div className="p-3 bg-muted rounded-md">
                             <p className="font-semibold">Thi đấu</p>
                             <p className="text-sm text-muted-foreground">
-                                Từ {format(new Date(tournament.timeline.tournamentStart), "dd/MM/yyyy")}
-                                {' '}đến {format(new Date(tournament.timeline.tournamentEnd), "dd/MM/yyyy")}
+                                Từ {format(new Date(timeline.tournamentStart), "dd/MM/yyyy hh:mm a")}
+                                {' '}đến {format(new Date(timeline.tournamentEnd), "dd/MM/yyyy hh:mm a")}
                             </p>
                         </div>
                     </CardContent>

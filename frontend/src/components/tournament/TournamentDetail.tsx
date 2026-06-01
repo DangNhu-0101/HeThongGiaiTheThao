@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DetailHeader } from "@/components/tournament/Detail/DetailHeader";
-import { DetailStats } from "@/components/tournament/Detail/DetailStats";
+// import { DetailStats } from "@/components/tournament/Detail/DetailStats";
 import { DetailOverviewTab } from "@/components/tournament/Detail/DetailOverviewTab";
 import { DetailConfigTab } from "@/components/tournament/Detail/DetailConfigTab";
 import { Loader2 } from "lucide-react";
@@ -14,6 +14,13 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => (
     <div className="p-4 sm:p-6 lg:p-8">{children}</div>
 );
 
+export interface Team { _id: string; name: string; isPaid?: boolean; }
+export interface Court { _id: string; name: string; status?: string; }
+export interface Referee { _id: string; name: string; }
+export interface Prize { title: string; amount: number; description?: string; }
+export interface GalaInfo { venue: string; time: string; description: string; }
+export interface PaymentInfo { qrCodeUrl: string; }
+
 // A comprehensive Tournament type based on the request and context
 export interface Tournament {
   _id: string;
@@ -21,14 +28,18 @@ export interface Tournament {
   displayName?: string;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   sports: string[];
-  registeredTeams: unknown[];
-  teams: unknown[];
-  courts: unknown[];
-  referees: unknown[];
+  sportType: string[];
+  registeredTeams: Team[];
+  teams: Team[];
+  courts: Court[];
+  referees: Referee[];
   bannerUrl?: string;
   logoUrl?: string;
+  videoUrl?: string;
   slogan?: string;
   venue: string;
+  description: string;
+  rules: string;
   targetAudience: string;
   organizerInfo: string;
   prizes: string;
@@ -39,26 +50,33 @@ export interface Tournament {
   };
   location: string;
   sportsConfig: {
+    sport?: string;
     sportName: string;
     categories: string[];
     feeEntry: number;
-    maxTeams: number;
+    feePerAthlete?: number;
+    maxTeams: number | null;
   }[];
-  galaInfo?: {
-    venue: string;
-    time: string; // ISO date string
-    description: string;
+  galaInfo?: GalaInfo;
+  galaConfig?: GalaInfo & { hasGala?: boolean };
+  paymentInfo?: PaymentInfo;
+  contactPerson?: {
+    name: string;
+    phone: string;
   };
-  paymentInfo?: {
-    qrCodeUrl: string;
-  };
-  timeline: {
+  timeLine: {
     registrationStart: string; // ISO date string
     registrationEnd: string; // ISO date string
     tournamentStart: string; // ISO date string
     tournamentEnd: string; // ISO date string
   };
-  rules: unknown[];
+  timeline: {
+    registrationStart: string;
+    registrationEnd: string;
+    tournamentStart: string;
+    tournamentEnd: string;
+  };
+  gameRules: unknown[];
 }
 
 export default function TournamentDetailPage() {
@@ -155,7 +173,7 @@ export default function TournamentDetailPage() {
                 isDeleting={isDeleting}
                 onRefresh={handleRefresh}
             />
-            <DetailStats tournament={tournament} />
+            {/* <DetailStats tournament={tournament} /> */}
 
             <Tabs defaultValue="overview" className="w-full">
                 <TabsList>
@@ -166,7 +184,7 @@ export default function TournamentDetailPage() {
                     <DetailOverviewTab tournament={tournament} />
                 </TabsContent>
                 <TabsContent value="config" className="mt-4">
-                    <DetailConfigTab tournament={tournament} />
+                    <DetailConfigTab tournament={tournament} onRefresh={handleRefresh} />
                 </TabsContent>
             </Tabs>
         </DashboardLayout>

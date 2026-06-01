@@ -16,24 +16,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import api from "@/api/axiosConfig";
 import { useTournamentStore } from "@/stores/useTournamentStore";
+import { useAuthStore } from "@/stores/useAuthStore";
+import type {User} from "@/types/user";
+import { USER_ROLE } from "@/constants";
+import type { Notification } from "@/types/notification";
 
-// Giả định import store Auth từ hệ thống của bạn (có thể thay đổi đường dẫn nếu cần)
-// import { useAuthStore } from "@/stores/useAuthStore";
 
-export interface User {
-  _id: string;
-  username: string;
-  email: string;
-  avatar?: string;
-  role: "ADMIN" | "ORGANIZER" | "USER";
-}
 
-export interface Notification {
-  _id: string;
-  message: string;
-  isRead: boolean;
-  createdAt: string;
-}
+
 
 const NAV_LINKS = [
   { label: "Trang chủ", href: "/" },
@@ -42,13 +32,12 @@ const NAV_LINKS = [
 ];
 
 const USER_MENU: Record<string, { label: string; href: string; icon: React.ReactNode }[]> = {
-  ADMIN: [
-    { label: "Dashboard Quản trị", href: "/admin", icon: <Settings className="mr-2 h-4 w-4" /> },
+
+  [USER_ROLE.ORGANIZER]: [
+    { label: "Quản lý tổ chức", href: "/org", icon: <Settings className="mr-2 h-4 w-4" /> },
   ],
-  ORGANIZER: [
-    { label: "Quản lý Giải đấu", href: "/org", icon: <Settings className="mr-2 h-4 w-4" /> },
-  ],
-  USER: [
+
+  [USER_ROLE.PLAYER]: [
     { label: "Đội của tôi", href: "/my-teams", icon: <UserIcon className="mr-2 h-4 w-4" /> },
   ]
 };
@@ -56,13 +45,10 @@ const USER_MENU: Record<string, { label: string; href: string; icon: React.React
 export function Navbar() {
   const navigate = useNavigate();
   const { tournamentList } = useTournamentStore();
-  
-  // Mock lấy thông tin user (thay thế bằng useAuthStore() trong thực tế)
-  // const { user, logout } = useAuthStore();
-  const [user, setUser] = useState<User | null>(null); 
+
+  const { user, logout } = useAuthStore() as unknown as { user: User | null; logout: () => void };
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   // Ép kiểu an toàn và nối Base URL để hiển thị hình ảnh
   const activeTournament = tournamentList?.[0] as { logo?: string } | undefined;
   const activeTournamentLogo = activeTournament?.logo 
@@ -92,8 +78,7 @@ export function Navbar() {
   };
 
   const handleLogout = () => {
-    // logout();
-    setUser(null);
+    logout();
     navigate("/login");
   };
 
@@ -172,7 +157,7 @@ export function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="pl-1 pr-2 py-1 h-auto gap-2 hover:bg-slate-100 rounded-full">
                     <Avatar className="h-8 w-8 border border-slate-200 shadow-sm">
-                      <AvatarImage src={user.avatar} />
+                      <AvatarImage src={user.avatarUrl} />
                       <AvatarFallback className="bg-sky-100 text-sky-700 font-bold">{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <span className="text-sm font-bold text-slate-700">{user.username}</span>
@@ -234,7 +219,7 @@ export function Navbar() {
                   <>
                     <div className="flex items-center gap-3 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
                        <Avatar className="h-10 w-10 border border-slate-200 shadow-sm">
-                         <AvatarImage src={user.avatar} />
+                         <AvatarImage src={user.avatarUrl} />
                          <AvatarFallback className="bg-sky-100 text-sky-700 font-bold">{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                        </Avatar>
                        <div>

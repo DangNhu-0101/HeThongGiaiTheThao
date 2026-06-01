@@ -63,7 +63,11 @@ export const getSponsorById = async (req, res) => {
 // 3. Thêm nhà tài trợ mới
 export const createSponsor = async (req, res) => {
     try {
-        const {
+        if (req.file) {
+            req.body.logo = req.file.path.replace(/\\/g, '/');
+        }
+        
+        let {
             name,
             logo,
             website,
@@ -74,6 +78,14 @@ export const createSponsor = async (req, res) => {
             contactPerson,
             status
         } = req.body;
+        
+        if (typeof contactPerson === 'string') {
+            try {
+                contactPerson = JSON.parse(contactPerson);
+            } catch (e) {
+                console.warn("Could not parse contactPerson");
+            }
+        }
 
         // Validate bắt buộc
         if (!name || !tournamentId || amount === undefined) {
@@ -122,6 +134,16 @@ export const updateSponsor = async (req, res) => {
         const { id } = req.params;
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ success: false, message: "ID không hợp lệ" });
+        }
+
+        if (req.file) {
+            req.body.logo = req.file.path.replace(/\\/g, '/');
+        }
+        
+        if (req.body.contactPerson && typeof req.body.contactPerson === 'string') {
+            try {
+                req.body.contactPerson = JSON.parse(req.body.contactPerson);
+            } catch (e) {}
         }
 
         const sponsor = await Sponsor.findById(id);
@@ -200,6 +222,26 @@ export const activateSponsor = async (req, res) => {
         });
     } catch (error) {
         console.error("activateSponsor error:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// 7. Xóa hoàn toàn nhà tài trợ
+export const deleteSponsor = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: "ID không hợp lệ" });
+        }
+
+        const sponsor = await Sponsor.findByIdAndDelete(id);
+        if (!sponsor) {
+            return res.status(404).json({ success: false, message: "Nhà tài trợ không tồn tại" });
+        }
+
+        return res.status(200).json({ success: true, message: "Đã xóa nhà tài trợ thành công" });
+    } catch (error) {
+        console.error("deleteSponsor error:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };

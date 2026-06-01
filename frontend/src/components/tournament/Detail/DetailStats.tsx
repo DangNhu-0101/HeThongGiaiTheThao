@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { Tournament } from "@/pages/TournamentDetail";
+import type { Tournament } from "@/components/tournament/TournamentDetail";
 import { Users, Shield, LandPlot, Flag } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 

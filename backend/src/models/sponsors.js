@@ -25,7 +25,6 @@ const sponsorSchema = new mongoose.Schema({
     // THÔNG TIN TÀI TRỢ
     sponsorType: {
         type: String,
-        enum: ['Diamond', 'Gold', 'Silver', 'Bronze', 'Other'],
         default: 'Gold'
     },
     

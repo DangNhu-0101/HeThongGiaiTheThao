@@ -22,6 +22,10 @@ const matchSchema = new mongoose.Schema({
     round: { type: Number, 
         required: true 
     }, // thay vì ObjectId ref 'Round'
+    roundName: { type: String, default: '' },
+    matchName: { type: String, default: '' },
+    substageName: { type: String, default: '' },
+    parentSubstageId: { type: mongoose.Schema.Types.Mixed, default: null },
     matchNumber: { type: Number, required: true },
     matchType: { type: String, 
         enum: ['group', 'knockout'], 
@@ -35,8 +39,8 @@ const matchSchema = new mongoose.Schema({
         required: true 
     }, // bỏ refPath, chỉ dùng BaseRule
 
-    team1: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-    team2: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
+    team1: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+    team2: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
     winnerTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
     team1Score: { type: Number, default: 0 },
     team2Score: { type: Number, default: 0 },
@@ -46,9 +50,7 @@ const matchSchema = new mongoose.Schema({
         default: null 
     },
     courtName: { type: String, default: '' },
-    scheduledStartTime: { type: Date, 
-        required: true 
-    },
+    scheduledStartTime: { type: Date, default: null },
     actualStartTime: { type: Date, default: null },
     endTime: { type: Date, 
         default: null 
@@ -66,6 +68,7 @@ const matchSchema = new mongoose.Schema({
         default: null 
     },
     lineReferees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Refeere' }],
+    isPublished: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const Match = mongoose.model("Match", matchSchema);

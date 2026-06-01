@@ -4,12 +4,14 @@ import api from "@/api/axiosConfig";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { HomeHero } from "@/components/home/HomeHero";
-import { HomeOverview } from "@/components/home/HomeOverview";
-import { TournamentResults } from "@/components/home/TournamentResults";
+import { HomeHero } from "@/components/tournament-home/HomeHero";
+import { HomeOverview } from "@/components/tournament-home/HomeOverview";
+import { TournamentResults } from "@/components/tournament-home/TournamentResults";
 import { Trophy, Users } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Sponsor } from "@/types/sponsor";
+
 
 export interface Tournament {
   _id: string;
@@ -59,12 +61,12 @@ export interface Match {
   team2Score?: number;
 }
 
-const SPONSORS = ['Nhà Tài Trợ Đặc Biệt', 'Nhà Tài Trợ Kim Cương', 'Nhà Tài Trợ Vàng', 'Đối Tác Truyền Thông', 'Đối Tác Thiết Bị'];
 
 export function TournamentPage() {
   const { id } = useParams<{ id: string }>();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [topTeams, setTopTeams] = useState<Team[]>([]);
+  const [sponsors ] = useState<Sponsor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
@@ -167,17 +169,28 @@ export function TournamentPage() {
           )}
 
           <TabsContent value="info" className="m-0 focus-visible:outline-none">
-            {/* Sponsor Marquee */}
-            <div className="w-full overflow-hidden bg-slate-50 py-4 border-y border-slate-100 mb-8 flex relative">
-              <div className="flex animate-[marquee_20s_linear_infinite] whitespace-nowrap">
-                {[...SPONSORS, ...SPONSORS, ...SPONSORS].map((s, i) => (
-                  <span key={i} className="mx-6 text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300 mr-3" />
-                    {s}
-                  </span>
-                ))}
+            {/* Render danh sách nhà tài trợ dạng Logo Grid */}
+            {sponsors.length > 0 && (
+              <div className="my-10 p-6 bg-white rounded-2xl border border-slate-100 shadow-sm text-center">
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Được tài trợ bởi</h3>
+                <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
+                  {sponsors.map(sponsor => (
+                    <div key={sponsor._id} className="group relative">
+                      <img 
+                        src={`http://localhost:5001/${sponsor.logo.replace(/\\/g, '/')}`} 
+                        alt={sponsor.name} 
+                        className="h-16 md:h-20 max-w-[150px] object-contain opacity-70 grayscale group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-300"
+                      />
+                      {sponsor.sponsorType && (
+                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          {sponsor.sponsorType}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             
             <HomeOverview tournament={tournament} />
           </TabsContent>

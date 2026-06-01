@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Users, Phone, Gift } from "lucide-react";
-import type { Tournament } from "@/pages/TournamentDetail";
+import type { Tournament } from "@/components/tournament/TournamentDetail";
 import { format } from "date-fns";
 
 const IMAGE_BASE_URL = "http://localhost:5001/";
@@ -51,9 +51,9 @@ export function DetailOverviewTab({ tournament }: { tournament: Tournament }) {
                 <Card>
                     <CardHeader className="flex-row items-center gap-3 space-y-0">
                         <Phone className="h-6 w-6 text-primary" />
-                        <CardTitle>Thông tin Ban tổ chức</CardTitle>
+                        <CardTitle>Liên hệ</CardTitle>
                     </CardHeader>
-                    <CardContent>{tournament.organizerInfo || 'Chưa cập nhật'}</CardContent>
+                    <CardContent>{tournament.contactPerson?.phone || 'Chưa cập nhật'}</CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex-row items-center gap-3 space-y-0">
@@ -74,10 +74,7 @@ export function DetailOverviewTab({ tournament }: { tournament: Tournament }) {
                     <p className="font-semibold">Cập nhật lần cuối</p>
                     <p>{format(new Date(tournament.updatedAt), "dd/MM/yyyy HH:mm")}</p>
                 </div>
-                <div>
-                    <p className="font-semibold">Đơn vị tổ chức</p>
-                    <p>{tournament.organizer?.name || 'Chưa cập nhật'}</p>
-                </div>
+               
                 <div>
                     <p className="font-semibold">Khu vực</p>
                     <p>{tournament.location || 'Chưa cập nhật'}</p>

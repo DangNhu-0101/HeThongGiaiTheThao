@@ -23,7 +23,19 @@ const bracketSchema = new mongoose.Schema({
     numberOfGroup:{
         type: Number,
         required: true,
+        default: 0,
     },
+    totalTeams: { type: Number, default: 0 },
+    currentRound: { type: Number, default: 0 },
+    status: {
+        type: String,
+        enum: ['pending', 'progress', 'completed'],
+        default: 'pending'
+    },
+    placeholderTeams: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Team',
+    }],
 
     groups:[{
     type: mongoose.Schema.Types.ObjectId,

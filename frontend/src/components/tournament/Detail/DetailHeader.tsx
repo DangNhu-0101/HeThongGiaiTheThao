@@ -1,7 +1,9 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button";
 import { Edit, Settings2, Trash2 } from "lucide-react";
-import type { Tournament } from "@/pages/TournamentDetail";
+import type { Tournament } from "@/components/tournament/TournamentDetail";
+import TournamentRulesModal from "../RuleModal/TournamentRulesModal";
+import { EditTournamentModal } from "../EditTournamentModal";
 
 interface DetailHeaderProps {
     tournament: Tournament;
@@ -10,14 +12,8 @@ interface DetailHeaderProps {
     isDeleting: boolean;
 }
 
-// The request mentions a TournamentRulesModal, which is not provided.
-// This component acts as a placeholder wrapper for the trigger button.
-const TournamentRulesModal = ({ children }: { children: React.ReactNode }) => {
-    return <>{children}</>;
-};
-
-export function DetailHeader({ tournament, onDelete, isDeleting }: DetailHeaderProps) {
-    const sportNames = tournament.sports?.join(', ') || 'N/A';
+export function DetailHeader({ tournament, onRefresh, onDelete, isDeleting }: DetailHeaderProps) {
+    const sportNames = (tournament.sports?.length ? tournament.sports : tournament.sportType)?.join(', ') || 'N/A';
 
     return (
         <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 mb-6">
@@ -36,16 +32,18 @@ export function DetailHeader({ tournament, onDelete, isDeleting }: DetailHeaderP
                 </div>
             </div>
             <div className="flex items-center gap-2">
-                <TournamentRulesModal>
+                <TournamentRulesModal tournamentId={tournament._id} onSuccess={onRefresh}>
                     <Button variant="outline">
                         <Settings2 className="mr-2 h-4 w-4" />
                         Cấu hình Vòng Đấu
                     </Button>
                 </TournamentRulesModal>
-                <Button variant="outline">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Sửa Thông Tin
-                </Button>
+                <EditTournamentModal tournament={tournament} onSuccess={onRefresh}>
+                    <Button variant="outline">
+                        <Edit className="mr-2 h-4 w-4" />
+                        Sửa Thông Tin
+                    </Button>
+                </EditTournamentModal>
                 <Button variant="destructive" onClick={onDelete} disabled={isDeleting}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     {isDeleting ? 'Đang xóa...' : 'Xóa'}

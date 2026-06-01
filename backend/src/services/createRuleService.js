@@ -37,7 +37,9 @@ export const createRuleServices = async (data, tournamentId) => {
         const bracketRule = await Bracket.create([{
             ...data.bracketConfig,
             tournamentId,
-            numberOfGroups: data.stages?.find(s => s.type === 'GROUP_STAGE')?.numberOfGroups || 0,
+            sport: data.sport,
+            name: data.bracketConfig?.name || `${data.sport} - Bracket`,
+            numberOfGroup: data.stages?.find(s => s.type === 'GROUP_STAGE')?.numberOfGroups || 0,
             placeholderTeams: [] // sẽ update sau
         }], { session });
 
@@ -45,8 +47,9 @@ export const createRuleServices = async (data, tournamentId) => {
         const stageRule = await StageRule.create([{
             tournamentId,
             baseRuleId: null, // sẽ update sau
-            sport: data.sport,
+            sportType: data.sport,
             ruleName: data.ruleName,
+            stageName: data.stages?.[0]?.stageName || data.ruleName,
             scoringRuleId: scoringRule[0]._id,
             stages: data.stages,
             bracketSize: [bracketRule[0]._id]
@@ -57,13 +60,15 @@ export const createRuleServices = async (data, tournamentId) => {
             ...data.baseConfig,
             tournamentId,
             ruleName: data.ruleName,
+            sport: data.sport,
             sportType: data.sport,
             version: data.version || "1.0",
             language: data.language || "vi",
             tournamentStructure: {
                 categories: categoryRules.map(c => c._id),
                 stages: [stageRule[0]._id],
-                scoringRule: scoringRule[0]._id
+                scoringRules: [scoringRule[0]._id],
+                ScoringRule: [scoringRule[0]._id]
             },
             gameRules: gameRules.map(g => g._id),
             timeManagement: timeRules.map(t => t._id),
@@ -101,8 +106,10 @@ export const createRuleServices = async (data, tournamentId) => {
                     // Tạo Group
                     const newGroup = await Group.create([{
                         name: groupName,
+                        tournamentId,
                         bracketId: bracketRule[0]._id,
                         stageRuleId: stageRule[0]._id,
+                        sport: data.sport,
                         teamInGroup: savedTeams.map(t => t._id)
                     }], { session });
 

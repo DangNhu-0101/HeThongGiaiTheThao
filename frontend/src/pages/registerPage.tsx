@@ -4,6 +4,7 @@ import { SignupStep1 } from '@/components/auth/signup-form';
 import { SignupStep2 } from '@/components/auth/signup-form-2';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 export function RegisterPage() {
     const [step, setStep] = useState(1);
@@ -16,19 +17,29 @@ export function RegisterPage() {
         profileData: {}
     });
     const navigate = useNavigate();
+    const [, setLoading] = useState(false);
 
     const handleStep1Submit = (data: unknown) => {
         console.log('Step1 data received', data);
-        setFormData(prev => ({ ...prev, ...data }));
+        setFormData(prev => ({ ...prev, ...(data as object) }));
         setStep(2);
     };
 
     const handleStep2Submit = async (profileData: unknown) => {
-        const fullData = { ...formData, profileData };
-        
-        await useAuthStore.getState().register(fullData.email, fullData.password, fullData.username, fullData.phoneNumber, fullData.role, fullData.profileData);
+        setLoading(true);
+        try {
+            const fullData = { ...formData, profileData };
+            
+            // Thực hiện gọi API đăng ký
+            await useAuthStore.getState().register(fullData.email, fullData.password, fullData.username, fullData.phoneNumber, fullData.role, fullData.profileData);
 
-        navigate('/');
+            toast.success('Đăng ký tài khoản thành công!');
+            navigate('/');
+        } catch  {
+            toast.error('Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

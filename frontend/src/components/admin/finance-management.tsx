@@ -1,47 +1,22 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wallet } from "lucide-react";
 import { tournamentService } from "@/services/tournamentService";
 import { financeService } from "@/services/financeService";
+import { teamService } from "@/services/teamService";
 import { FinanceOverview } from "@/components/finance/FinanceOverview";
 import { FinanceSponsors } from "@/components/finance/FinanceSponsors";
-
-
-
-
-export interface SponsorContact {
-  name: string;
-  phone: string;
-  email: string;
-}
-
-export interface Sponsor {
-  _id: string;
-  name: string;
-  amount: number;
-  sponsorType: string;
-  sponsorshipType: string;
-  website: string;
-  contactPerson?: SponsorContact;
-  status: string;
-}
-
-export interface Tournament {
-  _id: string;
-
-  sportsConfig?: {
-    feeEntry?: number;
-    feePerAthlete?: number;
-    maxTeams?: number;
-  }[];
-}
+import type { Tournament } from "@/types/tournament";
+import type { Sponsor } from "@/types/sponsor";
+import type { Team } from "@/types/Team";
 
 export default function FinanceDashboard() {
   const { id } = useParams<{ id: string }>();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -49,12 +24,14 @@ export default function FinanceDashboard() {
     await Promise.resolve();
     setIsLoading(true);
     try {
-      const [tourData, sponsorData] = await Promise.all([
+      const [tourData, sponsorData, teamData] = await Promise.all([
         tournamentService.getById(id),
         financeService.getSponsors(id),
+        teamService.getTeamsByTournament(id)
       ]);
       setTournament(tourData || null);
       setSponsors(sponsorData || []);
+      setTeams(teamData?.data || []);
     } catch (error) {
       console.error("Lỗi lấy dữ liệu tài chính:", error);
     } finally {
@@ -85,21 +62,14 @@ export default function FinanceDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="bg-white p-1 rounded-xl shadow-sm border border-slate-200 h-auto mb-6">
-          <TabsTrigger value="overview" className="px-6 py-2.5 rounded-lg font-bold data-[state=active]:bg-sky-600 data-[state=active]:text-white">📊 Tổng quan</TabsTrigger>
-          <TabsTrigger value="sponsors" className="px-6 py-2.5 rounded-lg font-bold data-[state=active]:bg-sky-600 data-[state=active]:text-white">🏢 Nhà tài trợ</TabsTrigger>
-          <TabsTrigger value="transactions" className="px-6 py-2.5 rounded-lg font-bold data-[state=active]:bg-sky-600 data-[state=active]:text-white">💰 Giao dịch</TabsTrigger>
-        </TabsList>
+     
 
-        <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
-          <FinanceOverview tournament={tournament} sponsors={sponsors} />
-        </TabsContent>
-
-        <TabsContent value="sponsors" className="mt-0 focus-visible:outline-none">
+        <TabsContent value="overview" className="mt-0 focus-visible:outline-none space-y-6">
+          <FinanceOverview tournament={tournament} sponsors={sponsors} teams={teams} fetchData={fetchData} />
           <FinanceSponsors tournamentId={id as string} sponsors={sponsors} fetchData={fetchData} />
         </TabsContent>
 
-  
+
       </Tabs>
     </div>
   );

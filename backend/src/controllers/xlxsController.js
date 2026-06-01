@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { parseExcelFile } from '../utils/ExcelHelper.js';
 import {
     importUsersWithPlayers, importTeams,
-    importGroups, importMatches
+    importGroups, importReferees, importCourts, importMatches
 } from '../services/ImportDataService.js';
 import exceljs from 'exceljs';
 import User from '../models/users.js';
@@ -45,6 +45,10 @@ export const importExcel = async (req, res) => {
             await importTeams(data['Đội'].validRows, session);
         if (data['Bảng']?.validRows.length)
             await importGroups(data['Bảng'].validRows, session);
+        if (data['Trọng tài']?.validRows.length)
+            await importReferees(data['Trọng tài'].validRows, session);
+        if (data['Sân bãi']?.validRows.length)
+            await importCourts(data['Sân bãi'].validRows, session);
         if (data['Trận đấu']?.validRows.length)
             await importMatches(data['Trận đấu'].validRows, session);
 
@@ -185,6 +189,41 @@ export const exportExcel = async (req, res) => {
             addValidation(wsGroup, 'C', ['Pickleball', 'Tennis', 'Badminton', 'Soccer', 'Volleyball', 'Basketball']);
             addValidation(wsGroup, 'E', ['pending', 'progress', 'completed']);
         }
+
+        const wsReferee = workbook.addWorksheet('Trọng tài');
+        wsReferee.columns = [
+            { header: 'name*', key: 'name', width: 20 },
+            { header: 'email*', key: 'email', width: 25 },
+            { header: 'phoneNumber*', key: 'phoneNumber', width: 15 },
+            { header: 'birthDate', key: 'birthDate', width: 12 },
+            { header: 'gender', key: 'gender', width: 10 },
+            { header: 'category', key: 'category', width: 16 },
+            { header: 'yearsOfExperience', key: 'yearsOfExperience', width: 18 }
+        ];
+        styleHeader(wsReferee);
+        addValidation(wsReferee, 'E', ['male', 'female', 'other']);
+
+        const wsCourt = workbook.addWorksheet('Sân bãi');
+        wsCourt.columns = [
+            { header: 'name*', key: 'name', width: 20 },
+            { header: 'tournamentName*', key: 'tournamentName', width: 25 },
+            { header: 'sportTypes', key: 'sportTypes', width: 24 },
+            { header: 'location', key: 'location', width: 24 },
+            { header: 'status', key: 'status', width: 14 }
+        ];
+        const courts = await Court.find().populate('tournamentId', 'name').lean();
+        for (const court of courts) {
+            wsCourt.addRow({
+                name: court.name || '',
+                tournamentName: court.tournamentId?.name || '',
+                sportTypes: court.sportTypes?.join(', ') || '',
+                location: court.location || '',
+                status: court.status || 'empty'
+            });
+        }
+        styleHeader(wsCourt);
+        addValidation(wsCourt, 'E', ['empty', 'busy', 'maintenance', 'inActive']);
+
         // 6. Sheet Trận đấu
         const wsMatch = workbook.addWorksheet('Trận đấu');
         wsMatch.columns = [
@@ -253,7 +292,8 @@ export const exportExcel = async (req, res) => {
 
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=export_data.xlsx');
+        const fileName = req.path.includes('template') ? 'import_template.xlsx' : 'export_data.xlsx';
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
         await workbook.xlsx.write(res);
         res.end();
     } catch (error) {

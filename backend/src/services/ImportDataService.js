@@ -5,6 +5,7 @@ import User from '../models/users.js';
 import Player from '../models/players.js';
 import Tournament from '../models/tournaments.js';
 import Team from '../models/teams.js';
+import Referee from '../models/referees.js';
 import Group from '../models/groups.js';
 import Court from '../models/courts.js';
 import Match from '../models/matches.js';
@@ -168,6 +169,60 @@ export const importGroups = async (rows, session) => {
 
 
 
+
+export const importReferees = async (rows, session) => {
+    const created = [];
+    for (const row of rows) {
+        const usernameBase = String(row.email || row.phoneNumber).split('@')[0];
+        let username = usernameBase;
+        let suffix = 1;
+        while (await User.exists({ username }).session(session)) {
+            username = `${usernameBase}${suffix}`;
+            suffix += 1;
+        }
+
+        const hashedPassword = await bcrypt.hash(String(row.phoneNumber), 10);
+        const [user] = await User.create([{
+            username,
+            email: row.email,
+            phoneNumber: row.phoneNumber,
+            hashedPassword,
+            role: 'referee',
+            status: 'Active'
+        }], { session });
+
+        const [referee] = await Referee.create([{
+            userId: user._id,
+            name: row.name,
+            phoneNumber: row.phoneNumber,
+            birthDate: row.birthDate ? new Date(row.birthDate) : new Date('2000-01-01'),
+            gender: row.gender || 'other',
+            sports: row.category ? [{ category: row.category, yearsOfExperience: Number(row.yearsOfExperience) || 0 }] : []
+        }], { session });
+        created.push(referee);
+    }
+    return created;
+};
+
+export const importCourts = async (rows, session) => {
+    const created = [];
+    for (const row of rows) {
+        const tournamentId = await getTournamentIdByName(row.tournamentName, session);
+        const sportTypes = row.sportTypes
+            ? String(row.sportTypes).split(/[,\n]+/).map(s => s.trim()).filter(Boolean)
+            : ['Pickleball'];
+
+        const [court] = await Court.create([{
+            name: row.name,
+            tournamentId,
+            sportTypes,
+            location: row.location || '',
+            status: row.status || 'empty'
+        }], { session });
+        created.push(court);
+    }
+    return created;
+};
 
 // 6. Import Trận đấu
 export const importMatches = async (rows, session) => {

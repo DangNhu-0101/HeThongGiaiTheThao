@@ -34,6 +34,22 @@ export const SHEET_MAPPINGS = {
             status: ['pending', 'progress', 'completed']
         }
     },
+    'Trọng tài': {
+        model: 'Referee',
+        fields: ['name', 'email', 'phoneNumber', 'birthDate', 'gender', 'category', 'yearsOfExperience'],
+        required: ['name', 'email', 'phoneNumber'],
+        validation: {
+            gender: ['male', 'female', 'other']
+        }
+    },
+    'Sân bãi': {
+        model: 'Court',
+        fields: ['name', 'tournamentName', 'sportTypes', 'location', 'status'],
+        required: ['name', 'tournamentName'],
+        validation: {
+            status: ['empty', 'busy', 'maintenance', 'inActive']
+        }
+    },
     'Trận đấu': {
         model: 'Match',
         fields: ['tournamentName', 'team1Name', 'team2Name', 'groupName', 'round', 'matchNumber', 'sportType', 'scheduledStartTime', 'courtName', 'status'],

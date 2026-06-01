@@ -4,6 +4,7 @@ import axios, {
  type AxiosResponse, 
   type InternalAxiosRequestConfig 
 } from 'axios';
+import { clearStoredAuthTokens, getStoredAccessToken, setStoredAccessToken } from '@/utils/authToken';
 
 // Định nghĩa cấu trúc dữ liệu trả về từ API Refresh Token để tránh dùng any
 interface RefreshTokenResponse {
@@ -27,14 +28,14 @@ const api = axios.create({
 // Interceptor request: Cấu hình thêm Header Authorization tự động
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        const token = getStoredAccessToken();
         
         // Debug: In ra trạng thái token trong môi trường phát triển (Development)
         if (import.meta.env.DEV) {
             console.log(`🔐 Request to ${config.url || ''}:`, token ? '✅ Token exists' : '❌ No token');
         }
         
-        if (token && token !== "null" && token !== "undefined") {
+        if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         
@@ -65,8 +66,7 @@ api.interceptors.response.use(
                     const { token } = response.data;
                     
                     // Lưu trữ Access Token mới vào LocalStorage
-                    localStorage.setItem('token', token);
-                    localStorage.setItem('accessToken', token);
+                    setStoredAccessToken(token);
                     
                     // Cập nhật token mới vào header cho các request tương lai và request hiện tại
                     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -81,9 +81,7 @@ api.interceptors.response.use(
                 console.error('Refresh token failed:', refreshError);
                 
                 // Nếu refresh token cũng hết hạn -> Thực hiện xóa sạch phiên làm việc và ép về trang đăng nhập
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('token');
-                localStorage.removeItem('refreshToken');
+                clearStoredAuthTokens();
                 delete api.defaults.headers.common['Authorization'];
                 window.location.href = '/login';
             }

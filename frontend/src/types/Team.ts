@@ -13,6 +13,7 @@ export interface Team {
     createdAt: Date;
     updatedAt: Date;
     isPaid: boolean;
+    isFree?: boolean;
     members: Member[];
 
 }

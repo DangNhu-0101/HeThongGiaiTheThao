@@ -5,13 +5,16 @@ import User from '../models/users.js';
 export const protectedRoute = (...allowedRolesInput) => {
     return async (req, res, next) => {
         try {
-            const firstArg = allowedRolesInput.length === 0 ? [] : allowedRolesInput;
-            const roles = firstArg.flat().filter(Boolean);
-            let token = req.cookies.jwt || req.cookies.accessToken;
+            const roles = allowedRolesInput
+                .flat()
+                .flatMap((role) => String(role).split(','))
+                .map((role) => role.trim().toLowerCase())
+                .filter(Boolean);
+            let token = req.cookies?.jwt || req.cookies?.accessToken;
             
             // Extract token from Authorization header (Bearer token)
             const authHeader = req.headers['authorization'];
-            if (authHeader && authHeader.startsWith('Bearer ')) {
+            if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
                 token = authHeader.slice(7); // Remove 'Bearer ' prefix
             }
             
@@ -31,7 +34,7 @@ export const protectedRoute = (...allowedRolesInput) => {
                 }
 
                 // KIỂM TRA QUYỀN (Nếu mảng allowedRoles không trống)
-                if (roles.length > 0 && !roles.includes(user.role)) {
+                if (roles.length > 0 && !roles.includes(String(user.role).toLowerCase())) {
                     return res.status(403).json({
                         message: `Bạn không có quyền thực hiện hành động này. Yêu cầu quyền: ${roles}`
                     });

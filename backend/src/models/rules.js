@@ -1,30 +1,54 @@
 import mongoose from "mongoose";
 
 const ruleSchema = new mongoose.Schema({
+    tournamentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tournament',
+        required: true,
+        unique: true,
+        index: true
+    },
+    sportType: {
+        type: String,
+        default: ''
+    },
+    formatDescription: {
+        type: String,
+        default: ''
+    },
+    ruleDescription: {
+        type: String,
+        default: ''
+    },
+    stageTree: [{
+        type: mongoose.Schema.Types.Mixed
+    }],
+    stages: [{
+        type: mongoose.Schema.Types.Mixed
+    }],
     ruleName: {
         type: String,
-        required: true,
+        default: '',
         trim: true,
-        unique: true
     },
 
     registration: {
         minPlayers: { type: Number, },
-        maxPlayers: { type: Number, required: true },
-        entryFee: { type: Number, required: true },
-        maxTeams: { type: Number, required: true }
+        maxPlayers: { type: Number },
+        entryFee: { type: Number },
+        maxTeams: { type: Number }
     },
     matchConfig: {
-        matchRules: { type: String, required: true },
-        halfDuration: { type: Number, required: true },
-        pointsWin: { type: Number, required: true },
-        pointsDraw: { type: Number, required: true },
-        pointsLoss: { type: Number, required: true }
+        matchRules: { type: String },
+        halfDuration: { type: Number },
+        pointsWin: { type: Number },
+        pointsDraw: { type: Number },
+        pointsLoss: { type: Number }
     },
     disciplineFines: {
-        yellowCard: { type: Number, required: true },
-        redCard: { type: Number, required: true },
-        teamLateFine: { type: Number, required: true }
+        yellowCard: { type: Number },
+        redCard: { type: Number },
+        teamLateFine: { type: Number }
     },
 
     rankingCriteria: {

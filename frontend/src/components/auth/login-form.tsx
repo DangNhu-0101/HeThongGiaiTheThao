@@ -25,7 +25,7 @@ import { useForm } from "react-hook-form"
 
 const loginSchema = z.object({
   username: z.string().min(3, "Ít nhất 3 ký tự"),
-  password: z.string().min(8, "Mật khẩu ít nhất 8 ký tự"),
+  password: z.string().min(5, "Mật khẩu ít nhất 5 ký tự"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -67,6 +67,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                   required
                   {...register("username")}
                 />
+                {errors.username && <span className="text-red-500 text-xs mt-1">{errors.username.message}</span>}
               </Field>
               <Field>
                 <div className="flex items-center">
@@ -81,6 +82,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                   </a>
                 </div>
                 <Input id="password" type="password" required {...register("password")} />
+                {errors.password && <span className="text-red-500 text-xs mt-1">{errors.password.message}</span>}
               </Field>
               <Field>
                 <Button type="submit" disabled={isSubmitting}>

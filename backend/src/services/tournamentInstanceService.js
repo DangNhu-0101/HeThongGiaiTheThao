@@ -22,7 +22,7 @@ export const initializeSportStructure = async (tournamentId, baseRuleId, sportIt
             stageId: stageRule._id,
             sport: sportItem.sport,
             name: `${sportItem.sport} - ${stageConfig.stageName}`,
-            numberOfGroups: stageConfig.type === 'GROUP_STAGE' ? stageConfig.numberOfGroups : 0,
+            numberOfGroup: stageConfig.type === 'GROUP_STAGE' ? stageConfig.numberOfGroups : 0,
             groups: [],
             placeholderTeams: [],
             totalTeams: stageConfig.type === 'GROUP_STAGE'

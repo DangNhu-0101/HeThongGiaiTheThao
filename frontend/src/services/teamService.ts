@@ -72,7 +72,7 @@ export const teamService = {
     // 6. Danh sách đội theo giải đấu (có thể lọc theo status)
     getTeamsByTournament: async (tournamentId: string, status?: string) => {
         try {
-            const res = await api.get(`/teams/tournament/${tournamentId}`, { params: { status } });
+            const res = await api.get(`/teams/tournaments/${tournamentId}/teams`, { params: { status } });
             return res.data;
         } catch (err) {
             toast.error("Lấy danh sách đội theo giải thất bại");

@@ -11,6 +11,12 @@ const groupSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Bracket',
     },
+    tournamentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tournament',
+        required: true,
+        index: true
+    },
     sport: {
         type: String,
         required: true
@@ -50,6 +56,7 @@ const groupSchema = new mongoose.Schema({
 // Tạo index để tối ưu query
 groupSchema.index({ bracketId: 1 });
 groupSchema.index({ stageRuleId: 1 });
+groupSchema.index({ tournamentId: 1, sport: 1 });
 
 const Group = mongoose.model('Group', groupSchema);
 export default Group;

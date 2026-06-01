@@ -16,7 +16,30 @@ const toDate = (value, fallback = new Date()) => value ? new Date(value) : fallb
 
 const getVenueText = (tournament) => {
     if (typeof tournament.location === 'string') return tournament.location;
-    return [tournament.location?.city, tournament.location?.district].filter(Boolean).join(', ');
+    return [tournament.location?.city, tournament.location?.district, tournament.location?.detail].filter(Boolean).join(', ');
+};
+
+const normalizeSportsConfig = (value = []) => {
+    const sportsConfig = Array.isArray(value) ? value : [];
+    return sportsConfig
+        .map((item) => {
+            const sport = item.sport || item.sportName;
+            if (!sport) return null;
+            const feeEntry = Number(item.feeEntry ?? item.feePerAthlete ?? 0);
+            const maxTeams = item.maxTeams === '' || item.maxTeams === undefined || item.maxTeams === null
+                ? null
+                : Number(item.maxTeams);
+            return {
+                sport,
+                sportName: item.sportName || sport,
+                feeEntry,
+                feePerAthlete: Number(item.feePerAthlete ?? feeEntry),
+                maxTeams,
+                categories: Array.isArray(item.categories) ? item.categories : [],
+                categoryConfig: Array.isArray(item.categoryConfig) ? item.categoryConfig : []
+            };
+        })
+        .filter(Boolean);
 };
 
 const normalizeTournament = (tournament) => {
@@ -25,10 +48,12 @@ const normalizeTournament = (tournament) => {
     
     // Tạo sportsConfig đầy đủ hơn
     const sportsConfig = (raw.sportsConfig && raw.sportsConfig.length) 
-        ? raw.sportsConfig 
+        ? normalizeSportsConfig(raw.sportsConfig)
         : sportType.map((sport) => ({ 
-            sport, 
+            sport,
+            sportName: sport,
             feeEntry: 0, 
+            feePerAthlete: 0,
             maxTeams: 0, 
             categories: [],
             categoryConfig: []
@@ -42,13 +67,17 @@ const normalizeTournament = (tournament) => {
         name: raw.name || raw.displayName,
         displayName: raw.displayName || raw.name,
         slogan: raw.slogan || '',
-        targetAudience: raw.targetAudience || 'Tất cả vận động viên',
+        targetAudience: raw.targetAudience || raw.targetParticipants || 'Tat ca van dong vien',
+        targetParticipants: raw.targetAudience || raw.targetParticipants || '',
         description: raw.description || '',
         venue,
         location: venue,
+        locationObject: raw.location || {},
         status: raw.status,
         logo: raw.logo,
+        logoUrl: raw.logo,
         banner: raw.banner,
+        bannerUrl: raw.banner,
         banners: raw.banner ? [raw.banner] : [],
         paymentQR: raw.paymentQR,
         prizes: raw.prizes || '',
@@ -63,9 +92,20 @@ const normalizeTournament = (tournament) => {
             tournamentStart: raw.timeLine?.tournamentStart || raw.timeLine?.timeOpen,
             tournamentEnd: raw.timeLine?.tournamentEnd || raw.timeLine?.timeClose,
         },
+        timeline: {
+            ...raw.timeLine,
+            registrationStart: raw.timeLine?.registrationStart || raw.timeLine?.timeRegister,
+            registrationEnd: raw.timeLine?.registrationEnd || raw.timeLine?.timeCloseRegister,
+            tournamentStart: raw.timeLine?.tournamentStart || raw.timeLine?.timeOpen,
+            tournamentEnd: raw.timeLine?.tournamentEnd || raw.timeLine?.timeClose,
+        },
         sportType,
+        sports: sportType,
         sportsConfig,
         galaConfig: raw.galaConfig || { hasGala: false, time: null, venue: '', description: '' },
+        galaInfo: raw.galaConfig?.hasGala ? raw.galaConfig : null,
+        contactPerson: raw.contactPerson || { name: '', phone: '' },
+        paymentInfo: raw.paymentQR ? { qrCodeUrl: raw.paymentQR } : null,
         organization: {
             orgName: organization.orgName || organization.name || 'N/A',
             name: organization.name || organization.orgName,
@@ -124,7 +164,9 @@ export const createTournament = async (req, res) => {
     session.startTransaction();
     try {
         const currentUserId = req.user.id || req.user._id;
-        const org = await Organization.findOne({ userId: currentUserId }).session(session);
+        const org = await Organization.findOne({
+            $or: [{ ownerId: currentUserId }, { userId: currentUserId }]
+        }).session(session);
         if (!org) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'Bạn không thuộc tổ chức nào, không thể tạo giải đấu' });
@@ -149,14 +191,23 @@ export const createTournament = async (req, res) => {
         }
 
         const galaConfig = parseJson(req.body.galaConfig, {});
+        const contactPerson = parseJson(req.body.contactPerson, {});
+        const normalizedSportsConfig = normalizeSportsConfig(sportsConfig);
         const tournament = await Tournament.create([{
             name,
+            slogan: req.body.slogan || '',
+            targetAudience: req.body.targetAudience || req.body.targetParticipants || '',
+            contactPerson: {
+                name: contactPerson.name || '',
+                phone: contactPerson.phone || ''
+            },
             description: req.body.description || '',
             prizes: req.body.prizes || '',
             logo: req.files?.logo?.[0]?.path || '',
             banner: req.files?.banners?.[0]?.path || req.files?.banner?.[0]?.path || '',
             paymentQR: req.files?.paymentQR?.[0]?.path || '',
-            sportType: sportsConfig.map(s => s.sport).filter(Boolean),
+            sportType: normalizedSportsConfig.map(s => s.sport).filter(Boolean),
+            sportsConfig: normalizedSportsConfig,
             timeLine: {
                 registrationStart: toDate(req.body.timeRegister),
                 registrationEnd: toDate(req.body.timeCloseRegister),
@@ -200,9 +251,24 @@ export const editTournament = async (req, res) => {
         const galaConfig = parseJson(req.body.galaConfig, null);
 
         if (req.body.displayName || req.body.name) tournament.name = req.body.displayName || req.body.name;
+        if (req.body.slogan !== undefined) tournament.slogan = req.body.slogan;
+        if (req.body.targetAudience !== undefined || req.body.targetParticipants !== undefined) {
+            tournament.targetAudience = req.body.targetAudience || req.body.targetParticipants || '';
+        }
         if (req.body.description !== undefined) tournament.description = req.body.description;
         if (req.body.prizes !== undefined) tournament.prizes = req.body.prizes;
-        if (sportsConfig) tournament.sportType = sportsConfig.map(s => s.sport).filter(Boolean);
+        if (sportsConfig) {
+            const normalizedSportsConfig = normalizeSportsConfig(sportsConfig);
+            tournament.sportType = normalizedSportsConfig.map(s => s.sport).filter(Boolean);
+            tournament.sportsConfig = normalizedSportsConfig;
+        }
+        if (req.body.contactPerson !== undefined) {
+            const contactPerson = parseJson(req.body.contactPerson, {});
+            tournament.contactPerson = {
+                name: contactPerson.name || '',
+                phone: contactPerson.phone || ''
+            };
+        }
         if (req.body.venue !== undefined) tournament.location = { city: req.body.venue, district: '' };
         if (galaConfig) {
             tournament.galaConfig = {
@@ -269,6 +335,40 @@ export const cancelTournament = async (req, res) => {
             success: true,
             message: `Giải đấu ${tournament.name} đã bị hủy.`,
             data: { _id: tournament._id, status: tournament.status }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updateSponsorPackages = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { sponsorPackages } = req.body;
+        
+        const tournament = await Tournament.findById(id);
+        if (!tournament) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy giải đấu' });
+        }
+
+        let parsedPackages = [];
+        if (typeof sponsorPackages === 'string') {
+            try {
+                parsedPackages = JSON.parse(sponsorPackages);
+            } catch (e) {
+                return res.status(400).json({ success: false, message: 'Định dạng sponsorPackages không hợp lệ' });
+            }
+        } else if (Array.isArray(sponsorPackages)) {
+            parsedPackages = sponsorPackages;
+        }
+
+        tournament.sponsorPackages = parsedPackages;
+        await tournament.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Cập nhật gói tài trợ thành công',
+            data: tournament.sponsorPackages
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });

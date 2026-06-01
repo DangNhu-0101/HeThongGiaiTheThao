@@ -23,11 +23,16 @@ const teamSchema = new mongoose.Schema({
         required: true 
     },
     
-    isSponsor:{
+   
+    isFree: {
         type: Boolean,
         default: false
     },
     isPaid: {
+        type: Boolean,
+        default: false
+    },
+    isConfirm: {
         type: Boolean,
         default: false
     },

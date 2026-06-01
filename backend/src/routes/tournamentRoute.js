@@ -7,7 +7,8 @@ import {
     createTournament,
     editTournament,
     getTournament,
-    cancelTournament
+    cancelTournament,
+    updateSponsorPackages
 } from '../controllers/tournamentController.js';
 
 import { protectedRoute } from '../middlewares/authMiddleware.js';
@@ -52,6 +53,10 @@ router.put('/:id',
     ]), 
     editTournament
 );
+
+// Cập nhật gói tài trợ
+router.put('/:id/sponsor-packages', protectedRoute('org, Organization'), updateSponsorPackages);
+
 // Hủy giải đấu (chuyển status thành cancelled)
 router.put('/:id/cancel', protectedRoute('org, Organization'), cancelTournament);
 
