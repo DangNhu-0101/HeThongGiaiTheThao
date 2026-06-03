@@ -10,7 +10,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useNotificationStore } from "@/stores/useNotificationStore";
-import { NotificationItem } from "./NotificationItem";
+import { NotificationItem } from "@/components/notification/notification-item";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function NotificationBell() {

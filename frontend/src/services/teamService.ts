@@ -49,7 +49,7 @@ export const teamService = {
             const res = await api.get("/teams/user");
             return res.data;
         } catch (err) {
-            toast.error("Lấy danh sách đội thất bại");
+           
             console.log(err);
          
         }

@@ -239,7 +239,7 @@ export const createKnockoutMatchesFromSubstage = (substage, teams, options) => {
             tournamentId,
             bracketId,
             stageRuleId: substage._id || options.stageRuleId,
-            round: Number(substage.round || substage.roundNumber) || 1,
+            round: Number(substage.stageNumber || substage.round || substage.roundNumber) || 2,
             roundName: substage.knockoutRound || substage.stageName || `Round ${i + 1}`,
             matchNumber: i + 1,
             matchType: 'knockout',
@@ -259,27 +259,73 @@ export const createKnockoutMatchesFromSubstage = (substage, teams, options) => {
 /**
  * Đệ quy tạo toàn bộ lịch knock-out từ substages
  */
+const getRoundName = (roundIndex, totalRounds) => {
+    const roundsLeft = totalRounds - roundIndex - 1;
+    if (roundsLeft === 0) return 'Chung ket';
+    if (roundsLeft === 1) return 'Ban ket';
+    if (roundsLeft === 2) return 'Tu ket';
+    return `Knockout vong ${roundIndex + 1}`;
+};
+
+const buildFullKnockoutStages = (firstStage, teamsLength) => {
+    const bracketSize = Math.pow(2, Math.ceil(Math.log2(Math.max(2, firstStage.totalTeamsIn || teamsLength || 2))));
+    const totalRounds = Math.ceil(Math.log2(bracketSize));
+    const startRound = Number(firstStage.stageNumber || firstStage.round || firstStage.roundNumber) || 2;
+
+    return Array.from({ length: totalRounds }, (_, roundIndex) => {
+        const totalTeamsIn = bracketSize / Math.pow(2, roundIndex);
+        const round = startRound + roundIndex;
+        const roundName = getRoundName(roundIndex, totalRounds);
+        return {
+            ...firstStage,
+            stageNumber: round,
+            round,
+            totalTeamsIn,
+            stageName: roundName,
+            knockoutRound: roundName,
+            substages: [],
+        };
+    });
+};
+
 export const createAllKnockoutMatches = (substages, teamsByBranch, options) => {
     let allMatches = [];
     let matchNumber = 1;
+    const matchDurationMinutes = Number(options.matchDuration || 60);
+    const startTimeMs = options.startTime ? new Date(options.startTime).getTime() : null;
+    const courts = options.courts || [];
     
     const processSubstage = (substages, teams) => {
         const matches = [];
-        for (const substage of substages) {
+        const stagesToProcess = substages.length === 1 && (!substages[0].substages || substages[0].substages.length === 0)
+            ? buildFullKnockoutStages(substages[0], teams.length)
+            : substages;
+
+        for (let stageIndex = 0; stageIndex < stagesToProcess.length; stageIndex++) {
+            const substage = stagesToProcess[stageIndex];
             const numTeams = substage.totalTeamsIn || teams.length;
             const numMatches = Math.floor(numTeams / 2);
+            const stageTeams = stageIndex === 0 ? teams.slice(0, numTeams) : Array(numTeams).fill(null);
             
             const substageMatches = createKnockoutMatchesFromSubstage(
                 substage, 
-                teams.slice(0, numTeams),
+                stageTeams,
                 { ...options }
             );
             
             // Đánh lại matchNumber
             substageMatches.forEach(m => {
-                m.matchNumber = matchNumber++;
+                const currentMatchNumber = matchNumber++;
+                m.matchNumber = currentMatchNumber;
                 m.parentSubstageId = substage._id;
                 m.substageName = substage.stageName;
+                m.matchName = `R${m.round}-M${currentMatchNumber}`;
+                if (startTimeMs) {
+                    m.scheduledStartTime = new Date(startTimeMs + (currentMatchNumber - 1) * matchDurationMinutes * 60 * 1000);
+                }
+                if (courts.length) {
+                    m.courtName = courts[(currentMatchNumber - 1) % courts.length];
+                }
             });
             
             matches.push(...substageMatches);

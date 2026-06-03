@@ -20,6 +20,7 @@ export const registerFull = async (req, res) => {
 
         // 1. Kiểm tra dữ liệu đầu vào
         if (!username || !password || !email || !phoneNumber || !role || !profileData) {
+            console.log("Dữ liệu thiếu:", { username, password: !!password, email, phoneNumber, role, profileData: !!profileData });
             return res.status(400).json({ message: "Dữ liệu gửi lên bị thiếu!" });
         }
 
@@ -45,28 +46,31 @@ export const registerFull = async (req, res) => {
         // 5. Khởi tạo Profile tương ứng dựa trên Role
         let profile;
         if (role === 'player') {
+            // Frontend sends: name, birthYear, gender, skillLevel
             profile = new Player({
                 userId: newUser._id,
                 name: profileData.name,
                 gender: profileData.gender,
-                birthDate: profileData.birthDate,
-                sports: [{ category: 'Pickleball', level: profileData.skill }]
+                birthDate: profileData.birthDate || (profileData.birthYear ? new Date(profileData.birthYear, 0, 1) : null),
+                sports: [{ category: 'Pickleball', level: profileData.skillLevel || profileData.skill }]
             });
         } else if (role === 'referee') {
+            // Frontend sends: name, birthDay, gender, experienceYears
             profile = new Referee({
                 userId: newUser._id,
                 name: profileData.name,
-                birthDate: profileData.birthDate,
+                birthDate: profileData.birthDate || profileData.birthDay,
                 gender: profileData.gender,
                 sports: [{ category: 'Pickleball', yearsOfExperience: profileData.experienceYears }]
             });
         } else if (role === 'org') {
+            // Frontend sends: orgName, phone, address
             profile = new Organization({
                 ownerId: newUser._id,
-                name: profileData.name,
+                name: profileData.name || profileData.orgName,
                 contactEmail: email,
                 contactPhone: phoneNumber,
-                address: { city: profileData.city, district: profileData.district, detail: profileData.detail }
+                address: { city: profileData.city, district: profileData.district, detail: profileData.detail || profileData.address }
             });
         }
 
@@ -84,11 +88,11 @@ export const registerFull = async (req, res) => {
         const refreshToken = crypto.randomBytes(64).toString('hex');
 
         // 8. LƯU SESSION
-        await Session.create({
+        await Session.create([{
             userId: newUser._id,
             refreshToken,
             expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL)
-        }, { session });
+        }], { session });
 
         await session.commitTransaction();
 
@@ -157,11 +161,11 @@ export const login = async (req, res) => {
         const refreshToken = crypto.randomBytes(64).toString('hex');
 
         // Lưu phiên đăng nhập (Session) vào cơ sở dữ liệu
-        await Session.create({
+        await Session.create([{
             userId: user._id,
             refreshToken,
             expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL),
-        });
+        }]);
 
         // Gửi Refresh Token qua Cookie bảo mật
         res.cookie('refreshToken', refreshToken, {

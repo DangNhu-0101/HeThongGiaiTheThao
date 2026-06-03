@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import type { AlertMessage, ImportType, ValidationError } from "@/types/import";
 import { importService } from "@/services/importService";
 import { ImportDropzone } from "@/services/ImportDropzone";
-import { ImportInstructions } from "@/services/ImportInstructions";
+import { ImportInstructions } from "@/components/import/ImportInstructions";
 
 const IMPORT_TYPES: ImportType[] = [
   { id: 'teams', label: 'Đội thi đấu', icon: Users },

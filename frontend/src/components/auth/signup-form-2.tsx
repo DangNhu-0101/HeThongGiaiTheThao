@@ -25,13 +25,17 @@ const refereeSchema = z.object({
     experienceYears: z.number().min(0),
 });
 
-export function SignupStep2({ role, onSubmit, onBack }: { role: string; onSubmit: (data: any) => void; onBack: () => void }) {
+type PlayerData = z.infer<typeof playerSchema>;
+type OrgData = z.infer<typeof orgSchema>;
+type RefereeData = z.infer<typeof refereeSchema>;
+
+export function SignupStep2({ role, onSubmit, onBack }: { role: string; onSubmit: (data: PlayerData | OrgData | RefereeData) => void; onBack: () => void }) {
     let schema;
     if (role === 'player') schema = playerSchema;
     else if (role === 'org') schema = orgSchema;
     else schema = refereeSchema;
 
-    const { register, handleSubmit, formState: { errors } } = useForm({
+    const { register, handleSubmit } = useForm({
         resolver: zodResolver(schema!),
     });
 

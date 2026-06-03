@@ -1,7 +1,7 @@
 export interface ITimeManagementRule  {
     id: string;
-    tournamentId?: String;    // ref: 'Tournament'
-    baseRuleId?: String;      // ref: 'BaseRule'
+    tournamentId?: string;    // ref: 'Tournament'
+    baseRuleId?: string;      // ref: 'BaseRule'
     sport: string; // e.g., "pickleball", "tennis"
     ruleName: string;
     description?: string;

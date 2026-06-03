@@ -56,6 +56,7 @@ export default function FinanceDashboard() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 w-full max-w-7xl mx-auto space-y-6 bg-slate-50 min-h-screen">
+
       <div className="flex items-center gap-2 mb-6">
         <Wallet className="h-7 w-7 text-sky-600" />
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Tài chính Giải đấu</h1>

@@ -1,50 +1,106 @@
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Trophy, Activity } from "lucide-react";
 import type { Tournament } from "@/pages/tournamentPage";
+import { CalendarDays, Info, MapPin } from "lucide-react";
+
+const formatDate = (value?: string) => {
+  if (!value) return "Đang cập nhật";
+  return new Date(value).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+};
+
+const formatTime = (value?: string) => {
+  if (!value) return "";
+  return new Date(value).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+};
+
+const getStatusLabel = (status?: Tournament["status"]) => {
+  switch (status) {
+    case "upcoming":
+      return "Sắp diễn ra";
+    case "ongoing":
+    case "playing":
+    case "Actived":
+      return "Đang diễn ra";
+    case "completed":
+      return "Hoàn tất";
+    case "cancelled":
+      return "Đã hủy";
+    default:
+      return "Đang cập nhật";
+  }
+};
 
 export function HomeHero({ tournament }: { tournament: Tournament }) {
-  const startDate = tournament.timeLine?.tournamentStart 
-    ? new Date(tournament.timeLine.tournamentStart).toLocaleDateString('vi-VN') 
-    : 'Đang cập nhật';
+  const tournamentDate = formatDate(tournament.timeLine?.tournamentStart);
+  const startTime = formatTime(tournament.timeLine?.tournamentStart);
+  const endTime = formatTime(tournament.timeLine?.tournamentEnd);
+  const timeRange = startTime && endTime ? `${startTime} - ${endTime}` : startTime || "Đang cập nhật";
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-blue-900 via-sky-800 to-cyan-600 px-6 py-20 text-center">
-      <div className="absolute inset-0 bg-[url('/pattern.svg')] opacity-10 mix-blend-overlay"></div>
-      <div className="relative z-10 mx-auto max-w-4xl flex flex-col items-center gap-6">
-        <Badge className="bg-red-600 text-white hover:bg-red-700 uppercase tracking-widest px-4 py-1 border-none">
-          {tournament.sportType?.join(' · ') || 'Pickleball'}
+    <section className="relative overflow-hidden bg-slate-950 px-6 py-16 text-center sm:py-20">
+      {tournament.bannerUrl ? (
+        <img
+          src={`http://localhost:5001/${tournament.bannerUrl.replace(/\\/g, "/").replace(/^\/+/, "")}`}
+          alt={tournament.name}
+          className="absolute inset-0 h-full w-full object-cover opacity-35"
+        />
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-sky-950/85 to-cyan-800/75" />
+
+      <div className="relative z-10 mx-auto flex max-w-5xl flex-col items-center gap-6">
+        <Badge className="border-none bg-cyan-500 px-4 py-1 text-white hover:bg-cyan-600">
+          {tournament.sportType?.join(" · ") || "Pickleball"}
         </Badge>
-        
-        <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight drop-shadow-sm">
-          {tournament.name || 'GIẢI ĐẤU PICKLEBALL 2026'}
-        </h1>
-        
-        <p className="text-sky-200 text-lg md:text-xl font-medium tracking-wide">
-          {tournament.slogan || 'Kết nối đam mê'} &nbsp;·&nbsp; {startDate}
-        </p>
 
-        <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-4 mt-8 w-full">
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-4 rounded-2xl flex-1 min-w-[220px] max-w-[300px]">
-            <Activity className="h-7 w-7 text-cyan-300" />
-            <div className="text-left">
-              <p className="text-xs text-sky-200 uppercase font-bold tracking-wider mb-0.5">Trạng thái</p>
-              <p className="text-lg font-bold">{tournament.status === 'upcoming' ? 'Sắp diễn ra' : tournament.status === 'ongoing' ? 'Đang diễn ra' : 'Hoàn tất'}</p>
+          <div className="flex flex-col items-center justify-center space-y-3 text-center">
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-100">
+            {tournament.organization?.orgName || tournament.organization?.name || "Ban tổ chức"}
+          </p>
+          <h1 className="text-4xl font-bold tracking-tight text-white text-center drop-shadow md:text-6xl">
+            {tournament.displayName || tournament.name || "Giải đấu"}
+          </h1>
+          {tournament.slogan ? (
+            <p className="mx-auto max-w-3xl text-lg font-medium leading-relaxed text-center text-cyan-50 md:text-xl">
+              {tournament.slogan}
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-4 grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex items-center gap-4 rounded-xl border border-white/20 bg-white/10 px-5 py-4 text-left text-white backdrop-blur-md">
+            <div className="rounded-lg bg-white/20 p-2">
+              <Info className="h-5 w-5 text-cyan-100" />
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs font-bold uppercase tracking-wider text-cyan-100">Trạng thái</p>
+              <p className="text-base font-bold">{getStatusLabel(tournament.status)}</p>
             </div>
           </div>
-          
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-4 rounded-2xl flex-1 min-w-[220px] max-w-[300px]">
-            <Trophy className="h-7 w-7 text-yellow-300" />
-            <div className="text-left">
-              <p className="text-xs text-sky-200 uppercase font-bold tracking-wider mb-0.5">Tổng giải thưởng</p>
-              <p className="text-lg font-bold truncate">{tournament.prizes ? 'Xem chi tiết' : 'Đang cập nhật'}</p>
+
+          <div className="flex items-center gap-4 rounded-xl border border-white/20 bg-white/10 px-5 py-4 text-left text-white backdrop-blur-md">
+            <div className="rounded-lg bg-white/20 p-2">
+              <CalendarDays className="h-5 w-5 text-cyan-100" />
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs font-bold uppercase tracking-wider text-cyan-100">Thời gian thi đấu</p>
+              <p className="text-base font-bold">{tournamentDate} | {timeRange}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-4 rounded-2xl flex-1 min-w-[220px] max-w-[300px]">
-            <MapPin className="h-7 w-7 text-red-300" />
-            <div className="text-left">
-              <p className="text-xs text-sky-200 uppercase font-bold tracking-wider mb-0.5">Địa điểm</p>
-              <p className="text-lg font-bold truncate">{tournament.venue || tournament.location || 'Đang cập nhật'}</p>
+          <div className="flex items-center gap-4 rounded-xl border border-white/20 bg-white/10 px-5 py-4 text-left text-white backdrop-blur-md">
+            <div className="rounded-lg bg-white/20 p-2">
+              <MapPin className="h-5 w-5 text-cyan-100" />
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs font-bold uppercase tracking-wider text-cyan-100">Địa điểm</p>
+              <p className="line-clamp-2 text-base font-bold">{tournament.venue || tournament.location || "Đang cập nhật"}</p>
             </div>
           </div>
         </div>

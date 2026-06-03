@@ -10,7 +10,7 @@ export function TournamentItem() {
 
     return (
         <div className="flex min-h-[400px] w-full items-center justify-center p-4">
-            <Card className="group w-full max-w-xl overflow-hidden border-0 shadow-xl transition-all duration-300 hover:shadow-2xl dark:bg-gray-900/90">
+            <Card className="group w-full max-w-xl overflow-hidden border-0 shadow-xl transition-all duration-300 hover:shadow-2xl">
                 {/* Decorative top bar with gradient */}
                 <div className="h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500" />
 
@@ -27,7 +27,7 @@ export function TournamentItem() {
                         {/* Season indicator */}
                         <Badge
                             variant="outline"
-                            className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+                            className="border-amber-200 bg-amber-50 text-amber-700"
                         >
                             <Trophy className="mr-1 h-3 w-3" />
                             {}
@@ -36,10 +36,10 @@ export function TournamentItem() {
 
                     {/* Main Tournament Title */}
                     <div className="space-y-1">
-                        <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white md:text-3xl">
+                        <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 md:text-3xl">
                             {}
                         </h3>
-                        <p className="text-sm font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                        <p className="text-sm font-medium uppercase tracking-wide text-amber-600">
                             {}
                         </p>
                     </div>
@@ -49,24 +49,24 @@ export function TournamentItem() {
                     {/* Event details grid */}
                     <div className="grid gap-3">
                         {/* Date */}
-                        <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
-                            <div className="rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
+                        <div className="flex items-center gap-3 text-gray-600">
+                            <div className="rounded-full bg-gray-100 p-1.5">
                                 <CalendarDays className="h-4 w-4 text-amber-600" />
                             </div>
                             <span className="text-sm font-medium">{}</span>
                         </div>
 
                         {/* Location */}
-                        <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
-                            <div className="rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
+                        <div className="flex items-center gap-3 text-gray-600">
+                            <div className="rounded-full bg-gray-100 p-1.5">
                                 <MapPin className="h-4 w-4 text-amber-600" />
                             </div>
                             <span className="text-sm font-medium">{}</span>
                         </div>
 
                         {/* Categories */}
-                        <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
-                            <div className="rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
+                        <div className="flex items-center gap-3 text-gray-600">
+                            <div className="rounded-full bg-gray-100 p-1.5">
                                 <Users className="h-4 w-4 text-amber-600" />
                             </div>
                             <span className="text-sm font-medium">{}</span>
@@ -74,7 +74,7 @@ export function TournamentItem() {
                     </div>
 
                     {/* Deadline notice */}
-                    <div className="mt-2 rounded-lg bg-amber-50 p-2 text-center text-xs font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                    <div className="mt-2 rounded-lg bg-amber-50 p-2 text-center text-xs font-medium text-amber-700">
                         ⏰ Registration deadline: {}
                     </div>
                 </CardContent>
@@ -103,7 +103,7 @@ export function TournamentItem() {
 
                     <Button
                         variant="outline"
-                        className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30 sm:w-auto"
+                        className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 sm:w-auto"
                     >
                         View Details
                     </Button>

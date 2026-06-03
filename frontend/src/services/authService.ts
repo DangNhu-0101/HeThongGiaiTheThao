@@ -6,12 +6,12 @@ export const authService = {
     email: string,
     password: string,
     username: string,
-    phonenumber: string,
+    phoneNumber: string,
     role: string,
     profileData: unknown
   ) => {
     try {
-      const res = await api.post("/auth/register", { email, password, username, phonenumber, role, profileData });
+      const res = await api.post("/auth/register", { email, password, username, phoneNumber, role, profileData });
       return res.data;
     } catch (err) {
       console.log(err);

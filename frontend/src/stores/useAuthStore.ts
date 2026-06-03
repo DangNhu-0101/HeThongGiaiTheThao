@@ -10,28 +10,29 @@ export const useAuthStore = create<AuthState>()(
     persist(
         (set,get) =>  ({
             accessToken: null,
-            user: null,
+            authUser: null,
             loading: false,
 
             clearState: () => {
                 clearStoredAuthTokens();
-                set({accessToken: null, user: null ,loading: false});
+                set({accessToken: null, authUser: null ,loading: false});
             },
 
 
-            register: async (email: string, password: string, username: string, phonenumber: string, role: string, profileData: unknown) => {
+            register: async (email: string, password: string, username: string, phoneNumber: string, role: string, profileData: unknown) => {
                 try{
                     set({loading: true})
-                    const res = await authService.register(email, password, username, phonenumber, role, profileData)
+                    const res = await authService.register(email, password, username, phoneNumber, role, profileData)
                     if (res && res.user && res.accessToken) {
                         setStoredAccessToken(res.accessToken);
-                        set({ user: res.user, accessToken: res.accessToken })
+                        set({ authUser: res.user, accessToken: res.accessToken })
                     }
-                    toast.success("Đăng ký thành công")
+                    toast.success("Đăng ký thành công", { duration: 2000 })
                 }
                 catch (err){
                     console.log(err)
-                    toast.error("Đăng ký thất bại")
+                    toast.error("Đăng ký thất bại", { duration: 2000 })
+                    throw err;
                 }
                 finally {
                     set({loading: false})
@@ -42,12 +43,12 @@ export const useAuthStore = create<AuthState>()(
                     set({loading: true})
                     const res = await authService.login(username, password)
                     setStoredAccessToken(res.accessToken);
-                    set({ user: res.user, accessToken: res.accessToken })
-                    toast.success("Đăng nhập thành công")
+                    set({ authUser: res.user, accessToken: res.accessToken })
+                    toast.success("Đăng nhập thành công", { duration: 2000 })
                 }   
                 catch (err){
                     console.log(err)
-                    toast.error("Đăng nhập thất bại")
+                    toast.error("Đăng nhập thất bại", { duration: 2000 })
                 }
                 finally {
                     set({loading: false})
@@ -57,11 +58,11 @@ export const useAuthStore = create<AuthState>()(
                 try{
                     get().clearState();   
                     await authService.logout()
-                    toast.success("Đăng xuất thành công")
+                    toast.success("Đăng xuất thành công", { duration: 2000 })
                 }   
                 catch (err){
                     console.log(err)
-                    toast.error("Đăng xuất thất bại")
+                    toast.error("Đăng xuất thất bại", { duration: 2000 })
                 }
                 finally {
                     set({loading: false})

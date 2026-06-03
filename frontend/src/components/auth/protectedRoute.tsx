@@ -8,7 +8,7 @@ type ProtectedRouteProps = {
 const normalizeRole = (role?: string) => role?.toLowerCase();
 
 export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
-  const { accessToken, user, loading } = useAuthStore();
+  const { accessToken, authUser: user, loading } = useAuthStore();
 
   if (loading) {
     return <div className="p-6 text-slate-500">Đang tải dữ liệu...</div>;

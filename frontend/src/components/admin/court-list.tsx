@@ -113,6 +113,7 @@ export function CourtList() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
           <MapPin className="h-6 w-6 text-sky-600" />

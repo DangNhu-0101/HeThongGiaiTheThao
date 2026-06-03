@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const branchSchema = new mongoose.Schema({
-    name: { type: String, default: 'Nhanh chinh' },
+    name: { type: String, default: 'Nhánh chính' },
     numberOfGroups: { type: Number, required: true },
     playersPerGroup: { type: Number, required: true },
     selectedRanks: [{ type: Number }]

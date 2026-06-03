@@ -48,7 +48,7 @@ interface EditTournamentModalProps {
 
 export function EditTournamentModal({ tournament, onSuccess, children }: EditTournamentModalProps) {
   const [open, setOpen] = useState(false);
-  const { user } = useAuthStore();
+  const { authUser } = useAuthStore();
   const { submitTournament } = useTournamentStore() as { 
     submitTournament: (mode: "create" | "edit", id: string | null, payload: FormData) => Promise<boolean> 
   };
@@ -75,7 +75,7 @@ export function EditTournamentModal({ tournament, onSuccess, children }: EditTou
         location: tournament.location || "",
         description: tournament.description || "",
         prizes: tournament.prizes || "",
-        organizer: tournament.organizer?.name || user?._id || "",
+        organizer: tournament.organizer?.name || authUser?.user?.username || (authUser as any)?.username || "",
       });
 
       const timeline = tournament.timeLine || tournament.timeline;
@@ -229,7 +229,7 @@ export function EditTournamentModal({ tournament, onSuccess, children }: EditTou
             <BasicInfoSection 
               formData={formData} 
               handleTextChange={handleTextChange} 
-              organizerName={user?.username || "Tài khoản của bạn"} 
+              organizerName={authUser?.user?.username || (authUser as any)?.username || "Tài khoản của bạn"} 
             />
             <TimelineContactSection contactPerson={contactPerson} handleContactChange={handleContactChange} timeLine={timeLine} handleTimeChange={handleTimeChange} />
             <SportsConfigSection sportsConfig={sportsConfig} SPORTS_LIST={SPORTS_LIST} CATEGORIES_LIST={CATEGORIES_LIST} toggleSport={toggleSport} handleSportFieldChange={handleSportFieldChange} toggleCategory={toggleCategory} />

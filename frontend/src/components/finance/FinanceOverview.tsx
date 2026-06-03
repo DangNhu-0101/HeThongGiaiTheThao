@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, ClipboardList, Gift, Users, Edit, Trash2 } from "lucide-react";
 import type { Tournament as BaseTournament } from "@/types/tournament";
 import type { Sponsor } from "@/types/sponsor";
-import type { Team } from "@/types/team";
+import type { Team } from "@/types/Team";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {

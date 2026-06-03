@@ -51,7 +51,7 @@ const CreateTournamentModal = ({ onSuccess, children }: CreateTournamentModalPro
   // --- STATE QUẢN LÝ ĐÓNG/MỞ MODAL ---
   const [isOpen, setIsOpen] = useState(false);
 
-  const { user } = useAuthStore();
+  const { authUser: user } = useAuthStore();
   const { 
     loading, 
     submitTournament, 

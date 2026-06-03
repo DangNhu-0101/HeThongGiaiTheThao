@@ -35,7 +35,6 @@ import {
 } from "@tanstack/react-table"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { toast } from "sonner"
-import { z } from "zod"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Badge } from "@/components/ui/badge"
@@ -92,15 +91,15 @@ import {
 } from "@/components/ui/tabs"
 import { GripVerticalIcon, CircleCheckIcon, LoaderIcon, EllipsisVerticalIcon, Columns3Icon, ChevronDownIcon, PlusIcon, ChevronsLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsRightIcon, TrendingUpIcon } from "lucide-react"
 
-export const schema = z.object({
-  id: z.number(),
-  header: z.string(),
-  type: z.string(),
-  status: z.string(),
-  target: z.string(),
-  limit: z.string(),
-  reviewer: z.string(),
-})
+type DataTableItem = {
+  id: number
+  header: string
+  type: string
+  status: string
+  target: string
+  limit: string
+  reviewer: string
+}
 
 // Create a separate component for the drag handle
 function DragHandle({ id }: { id: number }) {
@@ -120,7 +119,7 @@ function DragHandle({ id }: { id: number }) {
     </Button>
   )
 }
-const columns: ColumnDef<z.infer<typeof schema>>[] = [
+const columns: ColumnDef<DataTableItem>[] = [
   {
     id: "drag",
     header: () => null,
@@ -132,10 +131,6 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       <div className="flex items-center justify-center">
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
-          indeterminate={
-            table.getIsSomePageRowsSelected() &&
-            !table.getIsAllPageRowsSelected()
-          }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
         />
@@ -250,12 +245,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           <Label htmlFor={`${row.original.id}-reviewer`} className="sr-only">
             Reviewer
           </Label>
-          <Select
-            items={[
-              { label: "Eddie Lake", value: "Eddie Lake" },
-              { label: "Jamik Tashpulatov", value: "Jamik Tashpulatov" },
-            ]}
-          >
+          <Select>
             <SelectTrigger
               className="w-38 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
               size="sm"
@@ -280,18 +270,15 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     id: "actions",
     cell: () => (
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              className="flex size-8 text-muted-foreground data-open:bg-muted"
-              size="icon"
-            />
-          }
-        >
-          <EllipsisVerticalIcon
-          />
-          <span className="sr-only">Open menu</span>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            className="flex size-8 text-muted-foreground data-open:bg-muted"
+            size="icon"
+          >
+            <EllipsisVerticalIcon />
+            <span className="sr-only">Open menu</span>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-32">
           <DropdownMenuItem>Edit</DropdownMenuItem>
@@ -304,7 +291,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     ),
   },
 ]
-function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
+function DraggableRow({ row }: { row: Row<DataTableItem> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
   })
@@ -330,7 +317,7 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 export function DataTable({
   data: initialData,
 }: {
-  data: z.infer<typeof schema>[]
+  data: DataTableItem[]
 }) {
   const [data, setData] = React.useState(() => initialData)
   const [rowSelection, setRowSelection] = React.useState({})
@@ -354,6 +341,7 @@ export function DataTable({
     () => data?.map(({ id }) => id) || [],
     [data]
   )
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -397,15 +385,7 @@ export function DataTable({
         <Label htmlFor="view-selector" className="sr-only">
           View
         </Label>
-        <Select
-          defaultValue="outline"
-          items={[
-            { label: "Outline", value: "outline" },
-            { label: "Past Performance", value: "past-performance" },
-            { label: "Key Personnel", value: "key-personnel" },
-            { label: "Focus Documents", value: "focus-documents" },
-          ]}
-        >
+        <Select defaultValue="outline">
           <SelectTrigger
             className="flex w-fit @4xl/main:hidden"
             size="sm"
@@ -434,12 +414,12 @@ export function DataTable({
         </TabsList>
         <div className="flex items-center gap-2">
           <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="sm" />}
-            >
-              <Columns3Icon data-icon="inline-start" />
-              Columns
-              <ChevronDownIcon data-icon="inline-end" />
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Columns3Icon data-icon="inline-start" />
+                Columns
+                <ChevronDownIcon data-icon="inline-end" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-32">
               {table
@@ -542,10 +522,6 @@ export function DataTable({
                 onValueChange={(value) => {
                   table.setPageSize(Number(value))
                 }}
-                items={[10, 20, 30, 40, 50].map((pageSize) => ({
-                  label: `${pageSize}`,
-                  value: `${pageSize}`,
-                }))}
               >
                 <SelectTrigger size="sm" className="w-20" id="rows-per-page">
                   <SelectValue
@@ -675,11 +651,13 @@ const chartConfig = {
     color: "var(--primary)",
   },
 } satisfies ChartConfig
-function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
+function TableCellViewer({ item }: { item: DataTableItem }) {
   const isMobile = useIsMobile()
   return (
     <Drawer direction={isMobile ? "bottom" : "right"}>
-      <DrawerTrigger render={<Button variant="link" className="w-fit px-0 text-left text-foreground" />}>{item.header}</DrawerTrigger>
+      <DrawerTrigger asChild>
+        <Button variant="link" className="w-fit px-0 text-left text-foreground">{item.header}</Button>
+      </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className="gap-1">
           <DrawerTitle>{item.header}</DrawerTitle>
@@ -753,22 +731,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-3">
                 <Label htmlFor="type">Type</Label>
-                <Select
-                  defaultValue={item.type}
-                  items={[
-                    { label: "Table of Contents", value: "Table of Contents" },
-                    { label: "Executive Summary", value: "Executive Summary" },
-                    {
-                      label: "Technical Approach",
-                      value: "Technical Approach",
-                    },
-                    { label: "Design", value: "Design" },
-                    { label: "Capabilities", value: "Capabilities" },
-                    { label: "Focus Documents", value: "Focus Documents" },
-                    { label: "Narrative", value: "Narrative" },
-                    { label: "Cover Page", value: "Cover Page" },
-                  ]}
-                >
+                <Select defaultValue={item.type}>
                   <SelectTrigger id="type" className="w-full">
                     <SelectValue placeholder="Select a type" />
                   </SelectTrigger>
@@ -796,14 +759,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
               </div>
               <div className="flex flex-col gap-3">
                 <Label htmlFor="status">Status</Label>
-                <Select
-                  defaultValue={item.status}
-                  items={[
-                    { label: "Done", value: "Done" },
-                    { label: "In Progress", value: "In Progress" },
-                    { label: "Not Started", value: "Not Started" },
-                  ]}
-                >
+                <Select defaultValue={item.status}>
                   <SelectTrigger id="status" className="w-full">
                     <SelectValue placeholder="Select a status" />
                   </SelectTrigger>
@@ -829,14 +785,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
             </div>
             <div className="flex flex-col gap-3">
               <Label htmlFor="reviewer">Reviewer</Label>
-              <Select
-                defaultValue={item.reviewer}
-                items={[
-                  { label: "Eddie Lake", value: "Eddie Lake" },
-                  { label: "Jamik Tashpulatov", value: "Jamik Tashpulatov" },
-                  { label: "Emily Whalen", value: "Emily Whalen" },
-                ]}
-              >
+              <Select defaultValue={item.reviewer}>
                 <SelectTrigger id="reviewer" className="w-full">
                   <SelectValue placeholder="Select a reviewer" />
                 </SelectTrigger>
@@ -855,7 +804,9 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
         </div>
         <DrawerFooter>
           <Button>Submit</Button>
-          <DrawerClose render={<Button variant="outline" />}></DrawerClose>
+          <DrawerClose asChild>
+            <Button variant="outline">Close</Button>
+          </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

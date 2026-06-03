@@ -35,7 +35,7 @@ export function DashboardLayout() {
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
                   <BreadcrumbLink asChild>
-                    <Link to="/">Hệ Thống</Link>
+                    <Link to="/">Trang chủ</Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />

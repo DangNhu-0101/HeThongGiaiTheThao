@@ -14,7 +14,7 @@ export function MemberItem({ member }: MemberItemProps) {
     const avatar = userId?.avatar;
 
     const roleLabel = role === "Captain" ? "Đội trưởng" : "Thành viên";
-    const isActive = status === "active";
+    const isActive = status === "Active";
 
     return (
         <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted transition-colors">
@@ -30,7 +30,7 @@ export function MemberItem({ member }: MemberItemProps) {
                     </Badge>
                     {!isActive && (
                         <Badge variant="outline" className="text-yellow-600">
-                            {status === "invited" ? "Đã mời" : "Đang chờ"}
+                            {status === "Invited" ? "Đã mời" : "Đang chờ"}
                         </Badge>
                     )}
                 </div>

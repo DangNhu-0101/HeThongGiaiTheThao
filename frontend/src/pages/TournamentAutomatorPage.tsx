@@ -112,7 +112,9 @@ export function TournamentAutomatorPage() {
   }
 
   return (
+    
     <TournamentAutomatorView
+    
       tournamentId={id}
       tournamentName={tournament.name}
       sportType={tournament.sportType?.join(", ") || "Chưa cấu hình"}

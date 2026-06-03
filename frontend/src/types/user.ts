@@ -1,3 +1,7 @@
+import type { Organization } from "./org";
+import type { Player } from "./player";
+import type { Referee } from "./referee";
+
 export interface User {
     _id: string;
     email: string;
@@ -7,4 +11,11 @@ export interface User {
     avatarUrl?: string;
     createdAt: string;
     updatedAt: string;
+}
+
+export interface AuthResponse {
+    user: User;
+    player?: Player;
+    org?: Organization;
+    referee?: Referee;
 }

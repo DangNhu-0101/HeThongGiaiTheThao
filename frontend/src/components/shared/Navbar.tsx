@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, Menu, LogOut, User as UserIcon, Settings, Trophy, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,22 +14,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import api from "@/api/axiosConfig";
 import { useTournamentStore } from "@/stores/useTournamentStore";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useNotificationStore } from "@/stores/useNotificationStore";
 import type {User} from "@/types/user";
 import { USER_ROLE } from "@/constants";
-import type { Notification } from "@/types/notification";
 
 
-
-
-
-const NAV_LINKS = [
-  { label: "Trang chủ", href: "/" },
-  { label: "Các giải đấu", href: "/tournaments" },
-  { label: "Đội thi đấu", href: "/teams" },
-];
 
 const USER_MENU: Record<string, { label: string; href: string; icon: React.ReactNode }[]> = {
 
@@ -46,35 +37,26 @@ export function Navbar() {
   const navigate = useNavigate();
   const { tournamentList } = useTournamentStore();
 
-  const { user, logout } = useAuthStore() as unknown as { user: User | null; logout: () => void };
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { authUser: user, logout } = useAuthStore() as unknown as { authUser: User | null; logout: () => void };
+  const { notifications, unreadCount, fetchNotifications, markAllAsRead } = useNotificationStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // Ép kiểu an toàn và nối Base URL để hiển thị hình ảnh
   const activeTournament = tournamentList?.[0] as { logo?: string } | undefined;
-  const activeTournamentLogo = activeTournament?.logo 
-    ? `http://localhost:5001/${activeTournament.logo.replace(/\\/g, '/')}` 
-    : null;
-
+  const activeTournamentLogo = useMemo(() => 
+    activeTournament?.logo 
+      ? `http://localhost:5001/${activeTournament.logo.replace(/\\/g, '/')}` 
+      : null,
+  [activeTournament]);
+  const { authUser } = useAuthStore();
   useEffect(() => {
-    // Gọi API Notifications nếu đã đăng nhập
-    let isMounted = true;
     if (user) {
-      api.get("/notifications")
-         .then(res => { if (isMounted) setNotifications(res.data.data || []); })
-         .catch(err => console.error("Failed to load notifications", err));
+      fetchNotifications();
     }
-    return () => { isMounted = false; };
-  }, [user]);
+  }, [user, fetchNotifications]);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const handleMarkAllRead = async () => {
-    try {
-      await api.put("/notifications/mark-read");
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch (error) {
-      console.error("Mark read failed", error);
-    }
+  const handleMarkAllRead = () => {
+    markAllAsRead();
   };
 
   const handleLogout = () => {
@@ -98,14 +80,7 @@ export function Navbar() {
           <span className="font-bold text-xl text-slate-900 tracking-tight hidden sm:block">ITVTG HUB</span>
         </Link>
 
-        {/* Middle: Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-8">
-          {NAV_LINKS.map(link => (
-            <Link key={link.href} to={link.href} className="text-sm font-semibold text-slate-600 hover:text-sky-600 transition-colors">
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+      
 
         {/* Right: Actions */}
         <div className="flex items-center gap-4">
@@ -157,22 +132,22 @@ export function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="pl-1 pr-2 py-1 h-auto gap-2 hover:bg-slate-100 rounded-full">
                     <Avatar className="h-8 w-8 border border-slate-200 shadow-sm">
-                      <AvatarImage src={user.avatarUrl} />
-                      <AvatarFallback className="bg-sky-100 text-sky-700 font-bold">{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarImage src={authUser?.user?.avatarUrl || (authUser as any)?.avatarUrl} />
+                      <AvatarFallback className="bg-sky-100 text-sky-700 font-bold">{(authUser?.user?.username || (authUser as any)?.username || 'G').slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <span className="text-sm font-bold text-slate-700">{user.username}</span>
+                    <span className="text-sm font-bold text-slate-700">{authUser?.user?.username || (authUser as any)?.username}</span>
                     <ChevronDown className="h-4 w-4 text-slate-400" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-lg border-slate-100 p-2">
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-bold text-slate-900 leading-none">{user.username}</p>
-                      <p className="text-xs text-slate-500 leading-none">{user.email}</p>
+                      <p className="text-sm font-bold text-slate-900 leading-none">{authUser?.user?.username || (authUser as any)?.username}</p>
+                      <p className="text-xs text-slate-500 leading-none">{authUser?.user?.email || (authUser as any)?.email}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="my-2" />
-                  {USER_MENU[user.role || 'USER']?.map((item, idx) => (
+                  {USER_MENU[authUser?.user?.role || (authUser as any)?.role || 'USER']?.map((item, idx) => (
                     <DropdownMenuItem key={idx} onClick={() => navigate(item.href)} className="cursor-pointer py-2 text-slate-600 font-medium rounded-lg hover:bg-slate-50">
                       {item.icon} {item.label}
                     </DropdownMenuItem>
@@ -201,13 +176,7 @@ export function Navbar() {
                 <SheetDescription className="text-xs text-slate-500">Điều hướng hệ thống</SheetDescription>
               </SheetHeader>
               
-              <nav className="flex flex-col gap-4 mt-4">
-                {NAV_LINKS.map(link => (
-                  <Link key={link.href} to={link.href} onClick={() => setIsMobileMenuOpen(false)} className="text-base font-bold text-slate-700 hover:text-sky-600 pb-2 border-b border-slate-50">
-                    {link.label}
-                  </Link>
-                ))}
-              </nav>
+           
 
               <div className="mt-auto flex flex-col gap-3 pt-6 border-t border-slate-100">
                 {!user ? (
@@ -219,15 +188,15 @@ export function Navbar() {
                   <>
                     <div className="flex items-center gap-3 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
                        <Avatar className="h-10 w-10 border border-slate-200 shadow-sm">
-                         <AvatarImage src={user.avatarUrl} />
-                         <AvatarFallback className="bg-sky-100 text-sky-700 font-bold">{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                         <AvatarImage src={authUser?.user?.avatarUrl || (authUser as any)?.avatarUrl} />
+                         <AvatarFallback className="bg-sky-100 text-sky-700 font-bold">{(authUser?.user?.username || (authUser as any)?.username || 'G').slice(0, 2).toUpperCase()}</AvatarFallback>
                        </Avatar>
                        <div>
-                         <p className="text-sm font-bold text-slate-900">{user.username}</p>
-                         <Badge variant="outline" className="text-[10px] uppercase mt-0.5">{user.role}</Badge>
+                         <p className="text-sm font-bold text-slate-900">{authUser?.user?.username || (authUser as any)?.username}</p>
+                         <Badge variant="outline" className="text-[10px] uppercase mt-0.5">{authUser?.user?.role || (authUser as any)?.role}</Badge>
                        </div>
                     </div>
-                    {USER_MENU[user.role || 'USER']?.map((item, idx) => (
+                    {USER_MENU[authUser?.user?.role || (authUser as any)?.role || 'USER']?.map((item, idx) => (
                        <Button key={idx} variant="ghost" className="w-full justify-start font-bold text-slate-600" onClick={() => { setIsMobileMenuOpen(false); navigate(item.href); }}>
                          {item.icon} {item.label}
                        </Button>

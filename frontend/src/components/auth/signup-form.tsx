@@ -1,7 +1,7 @@
 import { cn } from "@/libs/utils";
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
@@ -40,22 +40,30 @@ const step1Schema = z.object({
 
 type Step1Data = z.infer<typeof step1Schema>;
 
-
+interface SignupStep1Defaults {
+  username?: string;
+  email?: string;
+  phoneNumber?: string;
+  password?: string;
+  role?: string;
+}
 
 // ... imports
 
-export function SignupStep1({ onSubmit, defaultValues }: { onSubmit: (data: Step1Data) => void; defaultValues?: unknown }) {
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<Step1Data>({
+export function SignupStep1({ onSubmit, defaultValues }: { onSubmit: (data: Step1Data) => void; defaultValues?: SignupStep1Defaults }) {
+  const { register, handleSubmit, formState: { errors }, setValue, control } = useForm<Step1Data>({
     defaultValues: {
       username: defaultValues?.username || '',
       email: defaultValues?.email || '',
       phoneNumber: defaultValues?.phoneNumber || '',
       password: defaultValues?.password || '',
       confirmPassword: '', // không nên set bằng password
-      role: defaultValues?.role || 'player',
+      role: (defaultValues?.role as Step1Data['role']) || 'player',
     },
     resolver: zodResolver(step1Schema),
   });
+
+  const roleValue = useWatch({ control, name: "role" });
 
   const onValid = (data: Step1Data) => {
     console.log('Step1 valid', data);
@@ -106,7 +114,7 @@ export function SignupStep1({ onSubmit, defaultValues }: { onSubmit: (data: Step
                 <FieldLabel htmlFor="role">Vai trò</FieldLabel>
                 <Select
                   onValueChange={(value) => setValue("role", value as "player" | "org" | "referee")}
-                  value={watch("role")}
+                  value={roleValue}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Chọn vai trò" />

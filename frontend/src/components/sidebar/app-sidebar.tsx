@@ -25,10 +25,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Settings2Icon, LifeBuoyIcon, SendIcon, TerminalIcon, Trophy, ChevronsUpDown, Plus } from "lucide-react"
+import { Settings2Icon,  TerminalIcon, Trophy, ChevronsUpDown, Plus } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 import { useTournamentStore } from "@/stores/useTournamentStore"
 import { useAuthStore } from "@/stores/useAuthStore"
+import api from "@/api/axiosConfig"
 
 interface SidebarTournament {
   _id?: string;
@@ -52,23 +53,7 @@ const data = {
           title: "Dashboard hệ thống",
           url: "/org",
         },
-        {
-          title: "Danh sách sân",
-          url: "/org/courts",
-        },
-        {
-          title: "Danh sách trọng tài",
-          url: "/org/referees",
-        },
-        {
-          title: "Danh sách đội",
-          url: "/org/teams",
-        },
-        {
-          title: "Import dữ liệu",
-          url: "/org/import",
-        },
-        
+       
         
       ],
     },
@@ -119,22 +104,31 @@ const data = {
 
   navSecondary: [
     {
-      title: "Hỗ trợ",
-      url: "#",
-      icon: <LifeBuoyIcon />,
-    },
-    {
-      title: "Phản hồi",
-      url: "#",
-      icon: <SendIcon />,
-    },
+      title: "Cài đặt",
+      url: "/settings",
+      icon: <Settings2Icon />,
+    }
+   
+    
   ],
 
 }
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { tournamentList, fetchTournaments } = useTournamentStore()
-  const { user } = useAuthStore();
+  const { authUser} = useAuthStore();
   const location = useLocation();
+  const [settings, setSettings] = React.useState({ siteName: 'ITVTG HUB', siteSlogan: 'Admin Dashboard', logoUrl: '' });
+
+  React.useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await api.get('/settings');
+        if (res.data.success) setSettings(res.data.data);
+      } catch (err) { console.error(err); }
+    };
+    void loadSettings();
+  }, []);
+
   const [activeTournament, setActiveTournament] = React.useState<SidebarTournament | null>(null)
   const currentTournamentId = React.useMemo(() => {
     const match = location.pathname.match(/^\/tournaments\/([^/]+)/);
@@ -185,12 +179,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link to="/org">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <TerminalIcon className="size-4" />
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground overflow-hidden">
+                {settings.logoUrl ? (
+                  <img src={`http://localhost:5001/${settings.logoUrl}`} className="size-full object-cover" alt="Logo" />
+                ) : (
+                  <TerminalIcon className="size-4" />
+                )}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">ITVTG HUB</span>
-                <span className="truncate text-xs">Admin Dashboard</span>
+                <span className="truncate font-medium">{settings.siteName}</span>
+                <span className="truncate text-xs">{settings.siteSlogan}</span>
               </div>
               </Link>
             </SidebarMenuButton>
@@ -272,12 +270,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter>
         <NavUser user={{
-          name: user?.username || "Guest",
-          email: user?.email || "",
-          avatar: user?.avatarUrl || "/avatars/shadcn.jpg",
+          name: authUser?.user?.username || (authUser as any)?.username || "Guest",
+          email: authUser?.user?.email || (authUser as any)?.email || "",
+          avatar: authUser?.user?.avatarUrl || (authUser as any)?.avatarUrl || "/avatars/shadcn.jpg",
         }} />
         <div className="p-2 text-center text-xs text-muted-foreground font-medium">
-          © 2025 IT Vũng Tàu Group
+          © 2026 IT Vũng Tàu Group
         </div>
       </SidebarFooter>
     </Sidebar>

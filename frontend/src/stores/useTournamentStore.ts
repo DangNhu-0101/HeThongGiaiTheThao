@@ -3,19 +3,21 @@ import type { TournamentState } from "@/types/store";
 
 import { tournamentService } from "../services/tournamentService";
 import { toast } from "sonner";
-import type { Tournament } from "@/types/tournament";
 
 
 
 
-// 🆕 Nếu file types/store chưa khai báo tournamentList, bạn có thể ép kiểu nội bộ ở đây hoặc bổ sung vào type gốc nhé
-export const useTournamentStore = create<TournamentState & { tournamentList?: Tournament[]; fetchTournaments?: () => Promise<void> }>((set) => ({
+export const useTournamentStore = create<TournamentState>((set, get) => ({
   organizations: [],
-  tournament: null,
-  tournamentList: [], // 🆕 Thêm biến lưu danh sách
+  tournaments: null,
+  tournamentList: [],
   loading: false,
 
-  // 🆕 THÊM HÀM FETCH DANH SÁCH GIẢI ĐẤU
+  // Implementation of missing interface method
+  getAllTournaments: async () => {
+    await get().fetchTournaments();
+  },
+
   fetchTournaments: async () => {
     try {
       set({ loading: true });
@@ -51,7 +53,7 @@ export const useTournamentStore = create<TournamentState & { tournamentList?: To
 
       const data = await tournamentService.getById(id);
       
-      set({ tournament: data });
+      set({ tournaments: data });
     } catch (error) {
       console.error("Lỗi xảy ra khi fetchTournamentById", error);
       toast.error("Không thể tải thông tin giải đấu!");
@@ -76,11 +78,10 @@ export const useTournamentStore = create<TournamentState & { tournamentList?: To
       return true;
     } catch (error) {
       console.error("Lỗi xảy ra khi submitTournament", error);
-      
-      // Định nghĩa kiểu dữ liệu thay thế cho any để lấy message từ Axios Error
+
       const axiosError = error as { response?: { data?: { message?: string } } };
-      const errMsg = axiosError.response?.data?.message || "Xử lý thông tin giải đấu thất bại. Hãy thử lại";
-      
+      const errMsg = axiosError.response?.data?.message || (error instanceof Error ? error.message : "Xử lý thông tin giải đấu thất bại. Hãy thử lại");
+
       toast.error(errMsg);
       return false;
     } finally {
@@ -89,6 +90,6 @@ export const useTournamentStore = create<TournamentState & { tournamentList?: To
   },
 
   clearTournament: () => {
-    set({ tournament: null });
+    set({ tournaments: null });
   },
 }));

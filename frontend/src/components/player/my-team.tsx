@@ -8,12 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, ChevronRight, Trophy, Users } from "lucide-react";
 import { MemberList } from "@/components/player/member-list";
 import type { Team } from "@/types/Team";
+import type { Member } from "@/types/member";
 
 
 export function MyTeamsPage() {
-    const { userTeams, getUserTeams, getTeamDetail, members, loading } = useTeamStore();
+    const { userTeams, getUserTeams, getTeamDetail,  loading } = useTeamStore();
     const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
-    const [membersCache, setMembersCache] = useState<Record<string, unknown[]>>({});
+    const [membersCache, setMembersCache] = useState<Record<string, Member[]>>({});
 
 
     useEffect(() => {
@@ -77,16 +78,16 @@ export function MyTeamsPage() {
             <h1 className="text-3xl font-bold mb-6">Đội của tôi</h1>
             <div className="space-y-4">
                 {userTeams.map((team: Team) => {
-                    const isExpanded = expandedTeamId === team.id;
-                    const memberList = membersCache[team.id] || [];
-                    const activeMemberCount = memberList.filter((m: unknown) => m.status === "active").length;
+                    const isExpanded = expandedTeamId === team._id;
+                    const memberList = membersCache[team._id] || [];
+                    const activeMemberCount = memberList.filter((m: Member) => m.status === "Active").length;
 
 
                     return (
-                        <Card key={team.id} className="overflow-hidden">
+                        <Card key={team._id} className="overflow-hidden">
                             <CardHeader
                                 className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => toggleExpand(team.id)}
+                                onClick={() => toggleExpand(team._id)}
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-1">

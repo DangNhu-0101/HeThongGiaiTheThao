@@ -21,8 +21,10 @@ export function DetailHeader({ tournament, onRefresh, onDelete, isDeleting }: De
                 <p className="text-sm text-muted-foreground mb-1">
                 Core-ID: {tournament._id}
                 </p>
-                <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-slate-900 break-words">
-                    {tournament.displayName || tournament.name}
+                <h1 
+                    className="text-2xl md:text-4xl font-bold tracking-tight drop-shadow-lg break-words "
+                >
+                    {tournament.displayName || tournament.name || "TÊN GIẢI ĐẤU TRỐNG"}
                     </h1>                
                 <div className="mt-2 flex items-center gap-2">
                     <Badge variant={tournament.status === 'upcoming' ? 'secondary' : 'default'}>

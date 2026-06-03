@@ -167,6 +167,7 @@ export default function TournamentDetailPage() {
 
     return (
         <DashboardLayout>
+            
             <DetailHeader
                 tournament={tournament}
                 onDelete={handleDelete}
@@ -174,7 +175,7 @@ export default function TournamentDetailPage() {
                 onRefresh={handleRefresh}
             />
             {/* <DetailStats tournament={tournament} /> */}
-
+            
             <Tabs defaultValue="overview" className="w-full">
                 <TabsList>
                     <TabsTrigger value="overview">Tổng quan</TabsTrigger>

@@ -1,7 +1,7 @@
 // src/components/	
-import { Bell, CreditCard, Info, Trophy, Users } from "lucide-react";
+import {  CreditCard, Info, Trophy, Users } from "lucide-react";
 import { cn } from "@/libs/utils";
-import { Notification } from "@/services/notificationService";
+import type { Notification } from "@/types/notification";
 
 
 interface NotificationItemProps {

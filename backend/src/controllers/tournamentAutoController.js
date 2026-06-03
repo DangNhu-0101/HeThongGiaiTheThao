@@ -228,6 +228,7 @@ export const initializeTournamentFromStageRule = async (req, res) => {
             numberOfGroup: 0,
             groups: [],
             totalTeams: 0,
+            status: 'pending'
         }], { session });
 
         // 1. Tìm danh sách đội tham gia môn thể thao này
@@ -389,7 +390,8 @@ export const advanceToKnockoutStage = async (req, res) => {
             stageId: stageRule._id,
             sport: sportType,
             name: `${sportType} - ${stageConfig.stageName || 'Vòng loại trực tiếp'}`,
-            totalTeams: qualifiedTeams.length
+            totalTeams: qualifiedTeams.length,
+            status: 'pending'
         }], { session });
 
         // 4. Tạo các trận đấu Knock-out dựa trên sơ đồ (Round of 16, Quarter, Semi, Final...)
@@ -429,6 +431,19 @@ export const publishGroupStage = async (req, res) => {
         const { tournamentId } = req.params;
         await Group.updateMany({ tournamentId }, { status: 'progress' });
         return res.status(200).json({ success: true, message: 'Đã công khai danh sách bảng đấu.' });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * Công khai vòng Knock-out (Chuyển trạng thái từ pending sang progress)
+ */
+export const publishKnockoutStage = async (req, res) => {
+    try {
+        const { tournamentId } = req.params;
+        await Bracket.updateMany({ tournamentId }, { status: 'progress' });
+        return res.status(200).json({ success: true, message: 'Đã công khai vòng loại trực tiếp.' });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }

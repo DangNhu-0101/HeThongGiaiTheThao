@@ -36,12 +36,12 @@ export function HomePage() {
      
       {/* 1. Header & Nút tạo giải */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Quản lý Giải đấu
+        <div >
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 text-center ">
+            Danh sách Giải đấu
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Tổng hợp và quản trị toàn bộ các giải đấu thuộc hệ thống của bạn.
+          <p className="text-sm text-muted-foreground mt-1 text-center">
+            Tham gia cùng chúng tôi! 
           </p>
         </div>
         

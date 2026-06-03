@@ -18,6 +18,7 @@ import OrgPage from "@/pages/orgPage";
 import { RegisterPage } from "@/pages/registerPage";
 import { TournamentPage } from "@/pages/tournamentPage";
 import { TournamentAutomatorPage } from "@/pages/TournamentAutomatorPage";
+import {SystemSettingsPage} from "@/pages/SystemSettingsPage";
 
 function App() {
   return (
@@ -53,6 +54,7 @@ function App() {
               <Route path="/tournaments/:id/teams" element={<TeamList />} />
               <Route path="/tournaments/:id/finance" element={<FinanceDashboard />} />
               <Route path="/tournaments/:id/import" element={<AdminImportManager />} />
+              <Route path="/settings" element={<SystemSettingsPage />} />
 
               <Route path="/create-tournament" element={<CreateTournamentModal><></></CreateTournamentModal>} />
             </Route>

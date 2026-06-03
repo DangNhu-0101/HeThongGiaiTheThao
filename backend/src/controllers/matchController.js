@@ -243,18 +243,19 @@ export const autoGenerateAllGroupMatches = async (req, res) => {
 // ==================== CRUD CƠ BẢN ====================
 export const getMatches = async (req, res) => {
     try {
-        const { tournamentId, groupId, round, status, matchType } = req.query;
+        const { tournamentId, groupId, round, status, matchType, isPublished } = req.query;
         const filter = {};
         if (tournamentId) filter.tournamentId = tournamentId;
         if (groupId) filter.groupId = groupId;
         if (round) filter.round = parseInt(round);
         if (status) filter.status = status;
         if (matchType) filter.matchType = matchType;
+        if (isPublished !== undefined) filter.isPublished = isPublished === 'true';
 
         const matches = await Match.find(filter)
             .populate('team1 team2', 'name')
             .populate('winnerTeamId', 'name')
-            .populate('groupId', 'name')
+            .populate('groupId', 'name status')
             .populate('courtId', 'name')
             .sort({ matchNumber: 1 });
         res.json({ success: true, data: matches });

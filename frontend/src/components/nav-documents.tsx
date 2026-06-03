@@ -12,9 +12,9 @@ import {
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar // 1. FIX: Import hook useSidebar từ thư viện sidebar
+  SidebarMenuItem
 } from "@/components/ui/sidebar"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { MoreHorizontalIcon, FolderIcon, ShareIcon, Trash2Icon } from "lucide-react"
 
 interface NavDocumentItem {
@@ -28,7 +28,7 @@ interface NavDocumentsProps {
 }
 
 export function NavDocuments({ items }: NavDocumentsProps) {
-  const { isMobile } = useSidebar()
+  const isMobile = useIsMobile()
   
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">

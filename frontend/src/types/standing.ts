@@ -1,6 +1,6 @@
 export interface Standing{
-    teamId:String;
-    teamName:String;
+    teamId:string;
+    teamName:string;
     played: number;
     wins: number;
     draws: number;

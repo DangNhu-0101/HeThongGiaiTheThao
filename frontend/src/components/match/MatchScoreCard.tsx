@@ -34,7 +34,7 @@ export const MatchScoreCard: React.FC<MatchScoreCardProps> = ({ match, onOpenSco
       <CardContent className="py-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 text-center">
-            <p className="font-bold text-slate-900 truncate text-sm">{match.teamA?.name || '---'}</p>
+            <p className="font-bold text-slate-900 truncate text-sm">{match.team1?.name || '---'}</p>
           </div>
           <div className="flex flex-col items-center px-4">
             <div className="text-3xl font-black text-slate-800 tracking-tighter">
@@ -42,7 +42,7 @@ export const MatchScoreCard: React.FC<MatchScoreCardProps> = ({ match, onOpenSco
             </div>
           </div>
           <div className="flex-1 text-center">
-            <p className="font-bold text-slate-900 truncate text-sm">{match.teamB?.name || '---'}</p>
+            <p className="font-bold text-slate-900 truncate text-sm">{match.team2?.name || '---'}</p>
           </div>
         </div>
       </CardContent>

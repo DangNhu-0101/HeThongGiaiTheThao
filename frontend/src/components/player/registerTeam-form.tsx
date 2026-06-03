@@ -71,8 +71,8 @@ export function TeamRegistrationForm() {
 
     // Load tournaments on mount
     useEffect(() => {
-        getAllTournaments({ page: 1, limit: 100 });
-    }, []);
+        getAllTournaments();
+    }, [getAllTournaments]);
 
 
     // Debounced search users
@@ -82,7 +82,7 @@ export function TeamRegistrationForm() {
                 setIsSearching(true);
                 try {
                     const users = await searchUsers(userSearchKeyword);
-                    setSearchResults(users);
+                    setSearchResults(users as User[]);
                 } catch (err) {
                     console.error(err);
                     setSearchResults([]);
@@ -169,12 +169,12 @@ export function TeamRegistrationForm() {
             // Get the newly created team from store (assuming createTeam refreshes userTeams)
             const { userTeams } = useTeamStore.getState();
             const newTeam = userTeams.find(
-                (t) => t.name === teamName.trim() && t.tournamentId === tournamentId
+                (t) => t.name === teamName.trim() && t._id === tournamentId
             );
             if (!newTeam) {
                 throw new Error("Không tìm thấy đội vừa tạo");
             }
-            const teamId = newTeam.id;
+            const teamId = newTeam._id;
 
 
             // Step 2: Send invitations
@@ -194,8 +194,8 @@ export function TeamRegistrationForm() {
             setLogoBase64("");
             setLogoPreview(null);
             setSelectedUsers([]);
-        } catch (err: any) {
-            toast.error(err.message || "Có lỗi xảy ra");
+        } catch {
+            toast.error( "Có lỗi xảy ra");
         }
     };
 
@@ -220,8 +220,8 @@ export function TeamRegistrationForm() {
                             <SelectValue placeholder="Chọn giải đấu" />
                         </SelectTrigger>
                         <SelectContent>
-                            {tournaments.map((t) => (
-                                <SelectItem key={t.id} value={t.id}>
+                            {Array.isArray(tournaments) && tournaments.map((t: { _id: string; name: string }) => (
+                                <SelectItem key={t._id} value={t._id}>
                                     {t.name}
                                 </SelectItem>
                             ))}
@@ -330,4 +330,3 @@ export function TeamRegistrationForm() {
         </Card>
     );
 }
-

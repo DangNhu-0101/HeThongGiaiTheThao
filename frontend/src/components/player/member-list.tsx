@@ -36,11 +36,8 @@ export function MemberList({ members, isLoading }: MemberListProps) {
     return (
         <div className="space-y-3">
             {members.map((member, idx) => (
-                <MemberItem key={member.userId || idx} member={member} />
+                <MemberItem key={member.userId?._id || idx} member={member} />
             ))}
         </div>
     );
 }
-
-
-

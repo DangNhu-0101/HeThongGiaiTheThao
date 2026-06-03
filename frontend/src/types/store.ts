@@ -1,30 +1,24 @@
 
 import type { Tournament } from "./tournament";
-import type {User} from "./user";
 import type { Team } from "./Team";
 import type { Member } from "./member";
 import type { Invitation } from "./invitation";
-import type { Organization } from "./org";
 import type { Notification } from "./notification";
 import type { Sponsor } from "./sponsor";
+import type { Organization } from "./org";
+import type { User } from "./user";
+import type { Player } from "./player";
+import type { Referee } from "./referee";
 
 
-export interface AuthState {
-    accessToken: string | null;
-    user: User | null; // Có thể thay đổi thành kiểu dữ liệu cụ thể hơn nếu có
-    loading: boolean;
 
-    clearState: () => void;
-    register: (email: string, password: string, username: string, phonenumber: string, role: string, profileData: unknown) => Promise<void>;
-    login: (email: string, password: string) => Promise<void>;
-    logout: () => Promise<void>;
-}
 
 export interface TournamentState {
   organizations: Organization[];
-  tournament: Tournament | null;
+  tournaments: Tournament | null;
   loading: boolean;
   tournamentList: Tournament[];
+  getAllTournaments: () => Promise<void>;
 fetchTournaments: () => Promise<void>;  
 fetchOrganizations: () => Promise<void>;
   fetchTournamentById: (id: string) => Promise<void>;
@@ -40,7 +34,6 @@ export interface RegisterFlowData {
     teamName?: string;
     invitedUserIds?: string[];
 }
-
 
 export interface TeamState{
     currentTeam: Team | null;
@@ -78,16 +71,51 @@ export interface TeamState{
 }
 
 export interface NotificationState {
-    notification: Notification[];
+    notifications: Notification[];
+    unreadCount: number;
+    fetchNotifications: () => Promise<void>;
+    markAsRead: (id: string) => Promise<void>;
+    markAllAsRead: () => Promise<void>;
     loading: boolean;
     getMyNotifications: () => Promise<void>;
     deleteNotification: (id: string) => Promise<void>;
     clearState: () => void;
 }
+// models/User.ts
+
+
+// models/Player.ts
+
+
+// models/Organization.ts (org)
+
+
+
+// Giả sử API trả về { user: User, player?: Player, org?: Organization, referee?: Referee }
+// Nhưng chỉ một trong ba profile tồn tại
+export interface AuthResponse {
+    user: User;
+    player?: Player;
+    org?: Organization;
+    referee?: Referee;
+}
+
 export interface SponsorState {
     sponsors: Sponsor[];
     loading: boolean;
 
     getSponsors: () => Promise<void>;
     clearState: () => void;
+}
+
+export interface AuthState {
+    accessToken: string | null;
+    authUser: AuthResponse|null
+// Có thể thay đổi thành kiểu dữ liệu cụ thể hơn nếu có
+    loading: boolean;
+
+    clearState: () => void;
+    register: (email: string, password: string, username: string, phonenumber: string, role: string, profileData: unknown) => Promise<void>;
+    login: (email: string, password: string) => Promise<void>;
+    logout: () => Promise<void>;
 }

@@ -52,7 +52,7 @@ export const MatchScoreDialog: React.FC<MatchScoreDialogProps> = ({
         <div className="grid grid-cols-2 gap-8 py-8 px-2">
           <div className="space-y-4">
             <Label className="text-center block text-slate-500 font-bold truncate text-xs uppercase">
-              {match?.teamA?.name || 'Đội A'}
+              {match?.team1?.name || 'Đội A'}
             </Label>
             <Input
               type="number"
@@ -64,7 +64,7 @@ export const MatchScoreDialog: React.FC<MatchScoreDialogProps> = ({
           </div>
           <div className="space-y-4">
             <Label className="text-center block text-slate-500 font-bold truncate text-xs uppercase">
-              {match?.teamB?.name || 'Đội B'}
+              {match?.team2?.name || 'Đội B'}
             </Label>
             <Input
               type="number"

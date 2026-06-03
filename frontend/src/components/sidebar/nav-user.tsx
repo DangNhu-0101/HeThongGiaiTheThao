@@ -16,9 +16,9 @@ import {
 import {
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
+  SidebarMenuItem
 } from "@/components/ui/sidebar"
+import { useSidebar } from "@/hooks/use-sidebar"
 import { ChevronsUpDownIcon,  LogOutIcon } from "lucide-react"
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useNavigate } from "react-router-dom";
@@ -35,7 +35,7 @@ export function NavUser({
   const { logout } = useAuthStore() as unknown as { logout: () => void };
   const navigate = useNavigate();
 
-  const { isMobile } = useSidebar()
+  const { isMobile } = useSidebar();
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -45,7 +45,6 @@ export function NavUser({
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          {/* SỬA THÀNH asChild và xóa render */}
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
               <Avatar className="h-8 w-8 rounded-lg">
@@ -65,7 +64,6 @@ export function NavUser({
             align="end"
             sideOffset={4}
           >
-            {/* Giữ nguyên phần ruột DropdownMenuContent của bạn vì nó không lỗi */}
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
