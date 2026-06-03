@@ -49,6 +49,35 @@ const buildRoundRobinDraft = ({ teams, group, tournamentId, bracketId, stageRule
     return matches;
 };
 
+const getDisplayName = (team, fallback = '') => team?.name || team?.teamName || fallback;
+const sameId = (a, b) => a && b && a.toString() === b.toString();
+
+const advanceKnockoutWinner = async (match, session) => {
+    if (match.matchType !== 'knockout' || !match.winnerTeamId) return;
+    if (!match.nextMatchId && !match.nextMatchNumber) return;
+
+    const nextMatch = match.nextMatchId
+        ? await Match.findById(match.nextMatchId).session(session)
+        : await Match.findOne({
+            tournamentId: match.tournamentId,
+            bracketId: match.bracketId,
+            matchType: 'knockout',
+            matchNumber: match.nextMatchNumber
+        }).session(session);
+    if (!nextMatch) return;
+
+    const winnerName = match.winnerPlaceholderName || 'Đội thắng';
+    if (match.nextMatchSide === 2) {
+        nextMatch.team2 = match.winnerTeamId;
+        nextMatch.team2Name = winnerName;
+    } else {
+        nextMatch.team1 = match.winnerTeamId;
+        nextMatch.team1Name = winnerName;
+    }
+
+    await nextMatch.save({ session });
+};
+
 export const autoDrawTournamentMatches = async (req, res) => {
     try {
         const { tournamentId } = req.params;
@@ -361,7 +390,8 @@ export const updateMatchScore = async (req, res) => {
         else if (team2Score > team1Score) winnerId = match.team2?._id;
         if (winnerId) {
             match.winnerTeamId = winnerId;
-            match.result = winnerId === match.team1?._id ? 'TEAM1_WIN' : 'TEAM2_WIN';
+            match.winnerPlaceholderName = sameId(winnerId, match.team1?._id) ? getDisplayName(match.team1, match.team1Name) : getDisplayName(match.team2, match.team2Name);
+            match.result = sameId(winnerId, match.team1?._id) ? 'TEAM1_WIN' : 'TEAM2_WIN';
         } else {
             match.result = 'DRAW';
         }
@@ -370,6 +400,9 @@ export const updateMatchScore = async (req, res) => {
         // Nếu là vòng bảng -> cập nhật bảng xếp hạng
         if (match.matchType === 'group' && match.groupId) {
             await updateStandingsAfterMatch(match, team1Score, team2Score, session);
+        }
+        if (match.matchType === 'knockout') {
+            await advanceKnockoutWinner(match, session);
         }
 
         await session.commitTransaction();

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { GitBranch, MapPin, Swords } from "lucide-react";
@@ -39,7 +39,7 @@ const getBranchNo = (stage: IStage) => {
   return match ? Number(match[0]) : 1;
 };
 
-const getTeamName = (team: TeamRef | string | undefined, fallback = "Chá» Ä‘á»™i"): string => {
+const getTeamName = (team: TeamRef | string | undefined, fallback = "Chờ đội"): string => {
   if (!team) return fallback;
   if (typeof team === "string") return team;
   return team.name || team.teamName || team.teamname || fallback;
@@ -52,7 +52,7 @@ const getTeamId = (team: TeamRef | string | undefined): string => {
 };
 
 const groupByBranch = (stages: IStage[]) => stages.reduce<Record<string, IStage[]>>((acc, stage) => {
-  const key = stage.branchName || "Nhanh chinh";
+  const key = stage.branchName || "Nhánh chính";
   if (!acc[key]) acc[key] = [];
   acc[key].push(stage);
   return acc;
@@ -102,9 +102,9 @@ const buildStagesFromMatches = (matches: KnockoutMatch[]): IStage[] => {
       id: `round-${round}`,
       parentId: null,
       stageNumber: round,
-      stageName: firstMatch?.roundName || firstMatch?.matchName || `VÃ²ng ${round}`,
+      stageName: firstMatch?.roundName || firstMatch?.matchName || `Vòng ${round}`,
       type: "KNOCKOUT",
-      branchName: "NhÃ¡nh chÃ­nh",
+      branchName: "Nhánh chính",
       hasBranches: false,
       branches: [],
       hasWildcards: false,
@@ -202,9 +202,9 @@ const MatchNode = ({
   const isFinal = !stage.nextMatchStartNumber || getStageMatchCount(stage) <= 1;
   const nextMatchStartNumber = stage.nextMatchStartNumber || 0;
   const nextWinnerSlot = isFinal
-    ? "Tháº¯ng -> VÃ´ Ä‘á»‹ch"
-    : `Tháº¯ng -> R${stageNo + 1}-B${getBranchNo(stage)}-M${nextMatchStartNumber + Math.floor(matchIndex / 2)}-${matchIndex % 2 === 0 ? 1 : 2}`;
-  const loserSlot = isFinal ? "Thua -> Ã quÃ¢n" : "Thua -> Loáº¡i";
+    ? "Thắng -> Vô địch"
+    : `Thắng -> R${stageNo + 1}-B${getBranchNo(stage)}-M${nextMatchStartNumber + Math.floor(matchIndex / 2)}-${matchIndex % 2 === 0 ? 1 : 2}`;
+  const loserSlot = isFinal ? "Thua -> Á quân" : "Thua -> Loại";
   const resultTarget = `${nextWinnerSlot} | ${loserSlot}`;
   const winnerId = getTeamId(match?.winnerTeamId);
   const team1Id = getTeamId(match?.team1);
@@ -216,7 +216,7 @@ const MatchNode = ({
       <span className="pointer-events-none absolute left-full top-1/2 h-px w-8 bg-slate-300" />
       <div className="flex items-center justify-between gap-2 rounded-t-xl bg-slate-700 px-3 py-1.5 text-[11px] font-bold uppercase text-white">
         <span>{stage.knockoutRound || stage.stageName}</span>
-        <span>{match?.courtId?.name || match?.courtName || "Chua gan san"}</span>
+        <span>{match?.courtId?.name || match?.courtName || "Chưa gán sân"}</span>
       </div>
       <div className="border-b border-slate-100 bg-slate-50 px-3 py-1.5">
         <div className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase text-slate-500">
@@ -245,7 +245,7 @@ const MatchNode = ({
         target={resultTarget}
       />
       <div className="rounded-b-xl bg-slate-50 px-3 py-2 text-center text-[11px] font-medium text-slate-500">
-        {timeValue ? new Date(timeValue).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "Chua xep lich"}
+        {timeValue ? new Date(timeValue).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "Chưa xếp lịch"}
       </div>
     </div>
   );
@@ -263,7 +263,7 @@ const KnockoutStageNode = ({ stage, matches }: { stage: StageWithPath; matches: 
         <SourceBadge>R{stage.displayRound || stage.stageNumber || 1}</SourceBadge>
       </div>
       <div className="mb-3 text-[11px] font-bold uppercase text-slate-500">
-        {stage.knockoutRound || "Knockout"} - {stage.totalTeamsIn || 0} Äá»™i vÃ o
+        {stage.knockoutRound || "Knock-out"} - {stage.totalTeamsIn || 0} đội vào
       </div>
       <div className="space-y-4">
         {Array.from({ length: matchCount }, (_, index) => {
@@ -274,7 +274,7 @@ const KnockoutStageNode = ({ stage, matches }: { stage: StageWithPath; matches: 
               stage={stage}
               matchNo={matchNo}
               matchIndex={index}
-              match={stageMatches.find((match) => Number(match.matchNumber || 0) === matchNo) || stageMatches[index]}
+              match={stageMatches.find((item) => Number(item.matchNumber || 0) === matchNo) || stageMatches[index]}
               pathLabel={stage.pathLabel}
             />
           );
@@ -351,7 +351,7 @@ export function KnockoutStageTab({ tournamentId }: { tournamentId: string }) {
         setMatches(matchesRes?.data?.data || []);
         setStageTree(stagesRes.data?.data || stagesRes.data?.rule?.stageTree || []);
       } catch (error) {
-        console.error("Loi tai bracket:", error);
+        console.error("Lỗi tải khung knock-out:", error);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -370,7 +370,7 @@ export function KnockoutStageTab({ tournamentId }: { tournamentId: string }) {
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6 text-sm text-slate-500">
-        Dang tai khung knockout...
+        Đang tải khung knock-out...
       </div>
     );
   }
@@ -379,7 +379,7 @@ export function KnockoutStageTab({ tournamentId }: { tournamentId: string }) {
     return (
       <Card className="rounded-2xl border-dashed border-slate-300 bg-slate-50">
         <CardContent className="p-6 text-sm text-slate-500">
-          Chua co cau hinh vong dau de ve khung knockout.
+          Chưa có cấu hình vòng đấu để vẽ khung knock-out.
         </CardContent>
       </Card>
     );
@@ -388,10 +388,9 @@ export function KnockoutStageTab({ tournamentId }: { tournamentId: string }) {
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50 p-6">
       <Badge className="mb-6 border-none bg-sky-100 px-3 py-1 text-xs font-extrabold tracking-widest text-sky-800 hover:bg-sky-200">
-        KNOCKOUT TREE THEO CAU HINH VONG
+        Cây knock-out theo cấu hình vòng
       </Badge>
       <KnockoutFlow stages={knockoutRoots} matches={matches} />
     </div>
   );
 }
-

@@ -41,7 +41,18 @@ const matchSchema = new mongoose.Schema({
 
     team1: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
     team2: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+    team1Name: { type: String, default: '' },
+    team2Name: { type: String, default: '' },
+    team1SlotCode: { type: String, default: '' },
+    team2SlotCode: { type: String, default: '' },
     winnerTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+    winnerPlaceholderName: { type: String, default: '' },
+    slotCode: { type: String, default: '' },
+    winnerTarget: { type: String, default: '' },
+    loserTarget: { type: String, default: '' },
+    nextMatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match', default: null },
+    nextMatchNumber: { type: Number, default: null },
+    nextMatchSide: { type: Number, enum: [1, 2, null], default: null },
     team1Score: { type: Number, default: 0 },
     team2Score: { type: Number, default: 0 },
 

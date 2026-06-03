@@ -16,6 +16,15 @@ export interface Match {
   matchName?: string;
   teamA?: QualifiedTeam;
   teamB?: QualifiedTeam;
+  team1Name?: string;
+  team2Name?: string;
+  team1SlotCode?: string;
+  team2SlotCode?: string;
+  slotCode?: string;
+  winnerTarget?: string;
+  loserTarget?: string;
+  nextMatchNumber?: number;
+  nextMatchSide?: number;
   scheduledStartTime?: string;
   courtName?: string;
   status: string;

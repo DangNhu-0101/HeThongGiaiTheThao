@@ -16,7 +16,6 @@ import { createRoundRobinMatches } from '../utils/matchScheduleHelper.js';
 const TEAM_STATUSES = ['pending', 'validated', 'confirmed', 'playing', 'Active'];
 
 const getId = (value) => value?._id || value || null;
-
 const getTeamDisplayName = (team) => team?.name || team?.teamName || 'Đội chưa đặt tên';
 
 const resolveRuleContext = async ({ tournamentId, ruleId, baseRuleId, stageRuleId }, session) => {
@@ -84,43 +83,69 @@ const resolveRuleContext = async ({ tournamentId, ruleId, baseRuleId, stageRuleI
 
 const normalizeStageRule = (stageRule) => {
     const groupStage = stageRule.stages?.find((stage) => stage.type === 'GROUP_STAGE')
+        || (stageRule.type === 'GROUP_STAGE' ? stageRule : null)
         || stageRule.stages?.[0]
         || stageRule;
+
+    const branches = groupStage.hasBranches && groupStage.branches?.length
+        ? groupStage.branches
+        : [{
+            name: 'Nhánh chính',
+            numberOfGroups: Number(groupStage.numberOfGroups || 1),
+            playersPerGroup: Number(groupStage.playersPerGroup || 4),
+            selectedRanks: groupStage.selectedRanks?.length ? groupStage.selectedRanks : [1, 2]
+        }];
 
     return {
         ...stageRule,
         ...groupStage,
         _id: stageRule._id,
         sportType: stageRule.sportType || groupStage.sportType || groupStage.sport,
-        substages: stageRule.substages?.length ? stageRule.substages : groupStage.substages || []
+        branches,
+        hasBranches: branches.length > 1 || Boolean(groupStage.hasBranches)
     };
+};
+
+const getKnockoutStages = (stageRule, stageConfig, qualifiedSlotCount) => {
+    const directSubstages = stageRule.substages?.length ? stageRule.substages : stageConfig.substages || [];
+    const knockoutStages = [
+        ...directSubstages.filter((stage) => stage.type === 'KNOCKOUT'),
+        ...(stageRule.stages || []).filter((stage) => stage.type === 'KNOCKOUT')
+    ];
+
+    if (knockoutStages.length) return knockoutStages;
+
+    return [{
+        _id: `${stageRule._id}-knockout`,
+        stageName: 'Vòng knock-out',
+        knockoutRound: 'Vòng knock-out',
+        type: 'KNOCKOUT',
+        totalTeamsIn: Math.max(2, qualifiedSlotCount || 2),
+        matchDuration: stageConfig.matchDuration || 60,
+        substages: []
+    }];
 };
 
 const buildGroupSeeds = (stageConfig, tournamentId, bracketId) => {
     const groups = [];
     const sportType = stageConfig.sportType || stageConfig.sport || 'Other';
+    let globalGroupIndex = 0;
 
-    if (stageConfig.hasBranches && stageConfig.branches?.length) {
-        for (const branch of stageConfig.branches) {
-            const numberOfGroups = Number(branch.numberOfGroups || 1);
-            for (let index = 0; index < numberOfGroups; index += 1) {
-                groups.push({
-                    name: `${branch.name || 'Nhánh chính'} - Bảng ${index + 1}`,
-                    tournamentId,
-                    bracketId,
-                    sport: sportType,
-                    stageRuleId: stageConfig._id,
-                    teamInGroup: [],
-                    standings: [],
-                    status: 'pending'
-                });
-            }
-        }
-    } else {
-        const numberOfGroups = Number(stageConfig.numberOfGroups || stageConfig.branches?.[0]?.numberOfGroups || 1);
-        for (let index = 0; index < numberOfGroups; index += 1) {
+    stageConfig.branches.forEach((branch, branchIndex) => {
+        const numberOfGroups = Number(branch.numberOfGroups || 1);
+        for (let groupIndex = 0; groupIndex < numberOfGroups; groupIndex += 1) {
+            globalGroupIndex += 1;
+            const groupCode = `R1-B${branchIndex + 1}-G${groupIndex + 1}`;
+            const plainGroupName = `Bảng ${String.fromCharCode(64 + globalGroupIndex)}`;
+            const hasNamedBranch = branch.name && branch.name !== 'Nhánh chính';
             groups.push({
-                name: `Bảng ${String.fromCharCode(65 + index)}`,
+                name: hasNamedBranch ? `${branch.name} - ${plainGroupName}` : plainGroupName,
+                groupCode,
+                branchName: branch.name || 'Nhánh chính',
+                branchIndex: branchIndex + 1,
+                groupIndex: groupIndex + 1,
+                playersPerGroup: Number(branch.playersPerGroup || 4),
+                selectedRanks: branch.selectedRanks?.length ? branch.selectedRanks : [1, 2],
                 tournamentId,
                 bracketId,
                 sport: sportType,
@@ -130,9 +155,70 @@ const buildGroupSeeds = (stageConfig, tournamentId, bracketId) => {
                 status: 'pending'
             });
         }
-    }
+    });
 
     return groups;
+};
+
+const buildGroupSlotEntries = (group, assignedTeamIds = [], teamById = new Map(), startNumber = 1) => {
+    return Array.from({ length: group.playersPerGroup || Math.max(assignedTeamIds.length, 2) }, (_, index) => {
+        const rank = index + 1;
+        const teamId = assignedTeamIds[index] || null;
+        const team = teamId ? teamById.get(teamId.toString()) : null;
+        const placeholderName = `Team ${startNumber + index}`;
+        return {
+            teamId,
+            placeholderName,
+            name: team ? getTeamDisplayName(team) : placeholderName,
+            slotCode: `${group.groupCode}-P${rank}`,
+            sourceLabel: `${group.name} / Vị trí ${rank}`,
+            rank
+        };
+    });
+};
+
+const buildStandingRows = (slotEntries) => slotEntries.map((slot) => ({
+    teamId: slot.teamId,
+    slotCode: slot.slotCode,
+    placeholderName: slot.placeholderName,
+    sourceLabel: slot.sourceLabel,
+    rank: slot.rank,
+    played: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    goalDifference: 0,
+    points: 0
+}));
+
+const buildKnockoutSeedEntries = (stageConfig, groupsForClient) => {
+    const byBranch = {};
+    stageConfig.branches.forEach((branch, branchIndex) => {
+        const branchName = branch.name || 'Nhánh chính';
+        const selectedRanks = branch.selectedRanks?.length ? branch.selectedRanks : [1, 2];
+        const branchGroups = groupsForClient.filter((group) => group.branchIndex === branchIndex + 1);
+        byBranch[branchName] = [];
+
+        selectedRanks.forEach((rank) => {
+            branchGroups.forEach((group) => {
+                const standing = group.standings?.find((row) => row.rank === rank);
+                if (standing) {
+                    byBranch[branchName].push({
+                        teamId: standing.teamId || null,
+                        placeholderName: standing.placeholderName || `Team ${rank}`,
+                        name: standing.placeholderName || `Team ${rank}`,
+                        slotCode: standing.slotCode,
+                        groupName: group.name,
+                        rank
+                    });
+                }
+            });
+        });
+    });
+
+    return byBranch;
 };
 
 const findTeamsForSport = async (tournamentId, sportType, session) => {
@@ -155,13 +241,25 @@ const toClientMatch = (match, teamMap) => {
         _id: match._id,
         matchNumber: match.matchNumber,
         round: match.round,
+        roundName: match.roundName,
+        matchName: match.matchName,
         teamA: teamMap.get(team1Id) || null,
         teamB: teamMap.get(team2Id) || null,
+        team1Name: match.team1Name,
+        team2Name: match.team2Name,
+        team1SlotCode: match.team1SlotCode,
+        team2SlotCode: match.team2SlotCode,
+        slotCode: match.slotCode,
+        winnerTarget: match.winnerTarget,
+        loserTarget: match.loserTarget,
+        nextMatchNumber: match.nextMatchNumber,
+        nextMatchSide: match.nextMatchSide,
         scheduledStartTime: match.scheduledStartTime,
         courtName: match.courtName,
         status: match.status,
         scoreA: match.team1Score,
-        scoreB: match.team2Score
+        scoreB: match.team2Score,
+        matchType: match.matchType
     };
 };
 
@@ -182,12 +280,27 @@ const buildClientGroups = async (groups, matches, session) => {
     return groups.map((group) => ({
         _id: group._id,
         name: group.name,
+        groupCode: group.groupCode,
         teams: (group.teamInGroup || []).map((teamId) => teamMap.get(teamId.toString())).filter(Boolean),
         standings: group.standings || [],
         matches: matches
             .filter((match) => match.groupId?.toString() === group._id.toString())
             .map((match) => toClientMatch(match, teamMap))
     }));
+};
+
+const attachNextMatchIds = async (matches, session) => {
+    const byNumber = new Map(matches.map((match) => [match.matchNumber, match]));
+    const operations = matches
+        .filter((match) => match.nextMatchNumber && byNumber.has(match.nextMatchNumber))
+        .map((match) => ({
+            updateOne: {
+                filter: { _id: match._id },
+                update: { nextMatchId: byNumber.get(match.nextMatchNumber)._id }
+            }
+        }));
+
+    if (operations.length) await Match.bulkWrite(operations, { session });
 };
 
 export const initializeTournamentFromStageRule = async (req, res) => {
@@ -198,12 +311,7 @@ export const initializeTournamentFromStageRule = async (req, res) => {
         const { tournamentId } = req.params;
         const { stageRuleId, ruleId, baseRuleId, method = 'random', startTime, courts = [], matchDuration } = req.body;
 
-        const { baseRule, stageRule } = await resolveRuleContext({
-            tournamentId,
-            ruleId,
-            baseRuleId,
-            stageRuleId
-        }, session);
+        const { baseRule, stageRule } = await resolveRuleContext({ tournamentId, ruleId, baseRuleId, stageRuleId }, session);
         const stageConfig = normalizeStageRule(stageRule);
         const sportType = stageConfig.sportType || baseRule?.sport || baseRule?.sportType || 'Other';
         const ruleObjectId = baseRule?._id || stageRule._id;
@@ -224,196 +332,208 @@ export const initializeTournamentFromStageRule = async (req, res) => {
             tournamentId,
             stageId: stageRule._id,
             sport: sportType,
-            name: `${sportType} - ${stageConfig.stageName || 'Vòng bảng'}`,
+            name: `${sportType} - Khung thi đấu`,
             numberOfGroup: 0,
             groups: [],
             totalTeams: 0,
             status: 'pending'
         }], { session });
 
-        // 1. Tìm danh sách đội tham gia môn thể thao này
         const teams = await findTeamsForSport(tournamentId, sportType, session);
-        if (teams.length < 2) {
-            throw new Error(`Cần ít nhất 2 đội để khởi tạo giải đấu, hiện chỉ có ${teams.length} đội.`);
-        }
+        const teamIds = teams.map((team) => team._id);
+        const teamById = new Map(teams.map((team) => [team._id.toString(), team]));
 
-        // 2. Tạo cấu trúc các bảng đấu (Seeds) dựa trên cấu hình vòng đấu
         const groupDocs = buildGroupSeeds(stageConfig, tournamentId, bracket._id);
         const groups = await Group.insertMany(groupDocs, { session });
+        const assignedGroups = teamIds.length
+            ? await assignTeamsToGroups(teamIds, groups.length, method)
+            : Array.from({ length: groups.length }, () => []);
 
-        // 3. Phân bổ các đội vào bảng (mặc định là ngẫu nhiên nếu không chọn seeding)
-        const teamIds = teams.map(t => t._id);
-        const assignedGroups = await assignTeamsToGroups(teamIds, groups.length, method);
-
-        let allMatches = [];
+        let groupMatches = [];
         let globalMatchCount = 0;
+        let globalSlotNumber = 1;
+        const groupsForClient = [];
 
         for (let i = 0; i < groups.length; i++) {
-            const groupTeamIds = assignedGroups[i] || [];
-            if (groupTeamIds.length < 2) continue;
+            const rawGroup = groupDocs[i];
+            const assignedTeamIds = assignedGroups[i] || [];
+            const slotEntries = buildGroupSlotEntries(rawGroup, assignedTeamIds, teamById, globalSlotNumber);
+            globalSlotNumber += slotEntries.length;
+            const standings = buildStandingRows(slotEntries);
+            const teamInGroup = assignedTeamIds.filter(Boolean);
 
-            // Cập nhật danh sách đội và khởi tạo bảng điểm (standings) cho từng bảng
             await Group.findByIdAndUpdate(groups[i]._id, {
-                teamInGroup: groupTeamIds,
-                standings: groupTeamIds.map(tid => ({
-                    teamId: tid,
-                    played: 0, wins: 0, draws: 0, losses: 0,
-                    goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0
-                }))
+                teamInGroup,
+                standings
             }, { session });
 
-            // Gán tên bảng vào thông tin đội để dễ truy vấn hiển thị
-            await Team.updateMany(
-                { _id: { $in: groupTeamIds } },
-                { group: groups[i].name },
-                { session }
-            );
+            if (teamInGroup.length) {
+                await Team.updateMany({ _id: { $in: teamInGroup } }, { group: groups[i].name }, { session });
+            }
 
-            // 4. Tạo lịch thi đấu vòng tròn cho bảng đấu hiện tại
-            const groupMatches = createRoundRobinMatches(
-                groupTeamIds,
+            const matchesForGroup = createRoundRobinMatches(
+                slotEntries,
                 groups[i]._id,
                 tournamentId,
                 bracket._id,
                 stageRule._id,
                 sportType,
-                ruleObjectId
+                ruleObjectId,
+                { groupCode: rawGroup.groupCode }
             );
 
-            // Tự động sắp xếp thời gian thi đấu và gán sân
-            groupMatches.forEach((match) => {
+            matchesForGroup.forEach((match) => {
                 const matchOffset = globalMatchCount * matchDurationMinutes * 60 * 1000;
                 match.scheduledStartTime = new Date(scheduleStart.getTime() + matchOffset);
                 match.courtName = courtList[globalMatchCount % courtList.length];
                 match.matchNumber = globalMatchCount + 1;
+                match.slotCode = `${rawGroup.groupCode}-M${match.matchNumber}`;
                 globalMatchCount++;
             });
 
-            allMatches = allMatches.concat(groupMatches);
+            groupMatches = groupMatches.concat(matchesForGroup);
+            groupsForClient.push({
+                ...groups[i].toObject(),
+                ...rawGroup,
+                _id: groups[i]._id,
+                teamInGroup,
+                standings
+            });
         }
 
-        // Lưu tất cả các trận đấu đã tạo vào Database
-        if (allMatches.length > 0) {
-            await Match.insertMany(allMatches, { session });
-        }
+        const knockoutSeedEntries = buildKnockoutSeedEntries(stageConfig, groupsForClient);
+        const qualifiedSlotCount = Object.values(knockoutSeedEntries).reduce((sum, slots) => sum + slots.length, 0);
+        const knockoutStages = getKnockoutStages(stageRule, stageConfig, qualifiedSlotCount);
+        const knockoutMatches = createAllKnockoutMatches(
+            knockoutStages,
+            knockoutSeedEntries,
+            {
+                tournamentId,
+                bracketId: bracket._id,
+                stageRuleId: stageRule._id,
+                sportType,
+                ruleId: ruleObjectId,
+                startTime: startTime || new Date(),
+                courts: courtList,
+                matchDuration: matchDurationMinutes
+            }
+        );
 
-        // Cập nhật lại thông tin tổng quát cho Bracket (nhánh đấu)
+        const savedGroupMatches = groupMatches.length ? await Match.insertMany(groupMatches, { session }) : [];
+        const savedKnockoutMatches = knockoutMatches.length ? await Match.insertMany(knockoutMatches, { session }) : [];
+        await attachNextMatchIds(savedKnockoutMatches, session);
+
         await Bracket.findByIdAndUpdate(bracket._id, {
             numberOfGroup: groups.length,
             groups: groups.map(g => g._id),
-            totalTeams: teams.length
+            totalTeams: Math.max(teams.length, groupDocs.reduce((sum, group) => sum + group.playersPerGroup, 0))
         }, { session });
 
-        // Hoàn tất giao dịch
         await session.commitTransaction();
 
-        // Lấy dữ liệu đã định dạng lại để phản hồi về phía Frontend
-        const clientGroups = await buildClientGroups(groups, allMatches, session);
+        const clientGroups = await buildClientGroups(groupsForClient, savedGroupMatches);
 
         return res.status(200).json({
             success: true,
-            message: 'Khởi tạo vòng bảng và xếp lịch thi đấu tự động thành công!',
+            message: 'Đã tạo sẵn bảng, slot Team 1, Team 2 và nhánh knock-out theo cấu hình đã lưu.',
             data: {
                 bracketId: bracket._id,
-                groups: clientGroups
+                groups: clientGroups,
+                knockoutMatches: savedKnockoutMatches
             }
         });
-
     } catch (error) {
-        if (session.inTransaction()) {
-            await session.abortTransaction();
-        }
+        if (session.inTransaction()) await session.abortTransaction();
         console.error('initializeTournamentFromStageRule Error:', error);
-        return res.status(500).json({ 
-            success: false, 
-            message: error.message || 'Lỗi hệ thống trong quá trình khởi tạo giải đấu tự động' 
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Lỗi hệ thống trong quá trình khởi tạo khung giải đấu'
         });
     } finally {
         session.endSession();
     }
 };
 
-/**
- * Xem trước danh sách các đội đủ điều kiện đi tiếp từ vòng bảng
- */
 export const previewQualifiedTeams = async (req, res) => {
     try {
         const { tournamentId } = req.params;
-        const { sportType } = req.query;
+        const { sportType, stageRuleId, ruleId, baseRuleId } = req.query;
+        const { baseRule, stageRule } = await resolveRuleContext({ tournamentId, stageRuleId, ruleId, baseRuleId });
+        const stageConfig = normalizeStageRule(stageRule);
+        const resolvedSportType = sportType || stageConfig.sportType || baseRule?.sport || baseRule?.sportType;
 
-        const groups = await Group.find({ tournamentId, sport: sportType })
-            .populate('teamInGroup', 'name logo')
-            .lean();
+        const filter = { tournamentId };
+        if (resolvedSportType) filter.sport = resolvedSportType;
 
+        const groups = await Group.find(filter).populate('teamInGroup', 'name logo').lean();
         if (!groups.length) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin bảng đấu.' });
         }
 
-        // Sử dụng helper để tính toán đội đi tiếp dựa trên BXH hiện tại
-        const qualifiedData = await getQualifiedTeamsFromGroupStage(groups);
+        const qualifiedData = getQualifiedTeamsFromGroupStage(stageConfig, groups);
 
         return res.status(200).json({
             success: true,
-            data: qualifiedData
+            data: { qualifiedTeams: qualifiedData }
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
 
-/**
- * Chuyển từ vòng bảng sang vòng Knock-out (Tạo lịch thi đấu loại trực tiếp)
- */
 export const advanceToKnockoutStage = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
         const { tournamentId } = req.params;
-        const { stageRuleId, startTime, courts = [], matchDuration } = req.body;
+        const { stageRuleId, ruleId, baseRuleId } = req.body;
 
-        // 1. Lấy thông tin luật thi đấu cho vòng Knock-out
-        const { stageRule } = await resolveRuleContext({ tournamentId, stageRuleId }, session);
+        const { baseRule, stageRule } = await resolveRuleContext({ tournamentId, stageRuleId, ruleId, baseRuleId }, session);
         const stageConfig = normalizeStageRule(stageRule);
-        const sportType = stageConfig.sportType;
+        const sportType = stageConfig.sportType || baseRule?.sport || baseRule?.sportType || 'Other';
 
-        // 2. Lấy danh sách đội đã vượt qua vòng bảng
         const groups = await Group.find({ tournamentId, sport: sportType }).session(session).lean();
-        const qualifiedTeams = await getQualifiedTeamsFromGroupStage(groups);
+        const qualifiedTeams = getQualifiedTeamsFromGroupStage(stageConfig, groups);
+        const qualifiedBySlot = new Map();
 
-        if (!qualifiedTeams || qualifiedTeams.length < 2) {
-            throw new Error('Không đủ đội đủ điều kiện để tạo vòng Knock-out.');
-        }
-
-        // 3. Tạo Bracket mới cho vòng Knock-out (nếu chưa có)
-        const [knockoutBracket] = await Bracket.create([{
-            tournamentId,
-            stageId: stageRule._id,
-            sport: sportType,
-            name: `${sportType} - ${stageConfig.stageName || 'Vòng loại trực tiếp'}`,
-            totalTeams: qualifiedTeams.length,
-            status: 'pending'
-        }], { session });
-
-        // 4. Tạo các trận đấu Knock-out dựa trên sơ đồ (Round of 16, Quarter, Semi, Final...)
-        const knockoutMatches = await createAllKnockoutMatches({
-            teams: qualifiedTeams,
-            tournamentId,
-            bracketId: knockoutBracket._id,
-            stageRuleId: stageRule._id,
-            startTime: startTime || new Date(),
-            courts: courts.length ? courts : ['Sân 1'],
-            matchDuration: matchDuration || 60
+        Object.values(qualifiedTeams).flat().forEach((entry) => {
+            if (entry.slotCode) qualifiedBySlot.set(entry.slotCode, entry);
         });
 
-        if (knockoutMatches.length > 0) {
-            await Match.insertMany(knockoutMatches, { session });
+        const firstRound = await Match.find({ tournamentId, sportType, matchType: 'knockout' })
+            .sort({ round: 1, matchNumber: 1 })
+            .session(session);
+        const firstRoundNumber = firstRound[0]?.round;
+        const firstRoundMatches = firstRound.filter((match) => match.round === firstRoundNumber);
+
+        for (const match of firstRoundMatches) {
+            const left = qualifiedBySlot.get(match.team1SlotCode);
+            const right = qualifiedBySlot.get(match.team2SlotCode);
+            if (left?.teamId) {
+                match.team1 = left.teamId;
+                match.team1Name = left.placeholderName || match.team1Name;
+            }
+            if (right?.teamId) {
+                match.team2 = right.teamId;
+                match.team2Name = right.placeholderName || match.team2Name;
+            }
+            await match.save({ session });
         }
 
         await session.commitTransaction();
+
+        const matches = await Match.find({ tournamentId, sportType, matchType: 'knockout' })
+            .populate('team1 team2 winnerTeamId', 'name logo')
+            .sort({ matchNumber: 1 })
+            .lean();
+
         return res.status(200).json({
             success: true,
-            message: 'Đã tiến hành bốc thăm và tạo lịch thi đấu vòng Knock-out thành công!',
-            data: { bracketId: knockoutBracket._id, matchCount: knockoutMatches.length }
+            message: 'Đã thay đội thật vào nhánh knock-out theo đúng luồng slot ban đầu.',
+            data: {
+                matches,
+                qualifiedTeams
+            }
         });
     } catch (error) {
         await session.abortTransaction();
@@ -423,26 +543,22 @@ export const advanceToKnockoutStage = async (req, res) => {
     }
 };
 
-/**
- * Công khai bảng đấu (Chuyển trạng thái từ pending sang progress)
- */
 export const publishGroupStage = async (req, res) => {
     try {
         const { tournamentId } = req.params;
         await Group.updateMany({ tournamentId }, { status: 'progress' });
+        await Match.updateMany({ tournamentId, matchType: 'group' }, { isPublished: true });
         return res.status(200).json({ success: true, message: 'Đã công khai danh sách bảng đấu.' });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
 
-/**
- * Công khai vòng Knock-out (Chuyển trạng thái từ pending sang progress)
- */
 export const publishKnockoutStage = async (req, res) => {
     try {
         const { tournamentId } = req.params;
         await Bracket.updateMany({ tournamentId }, { status: 'progress' });
+        await Match.updateMany({ tournamentId, matchType: 'knockout' }, { isPublished: true });
         return res.status(200).json({ success: true, message: 'Đã công khai vòng loại trực tiếp.' });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });

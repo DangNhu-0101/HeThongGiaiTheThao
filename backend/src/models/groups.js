@@ -7,6 +7,10 @@ const groupSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    groupCode: { type: String, default: '' },
+    branchName: { type: String, default: '' },
+    branchIndex: { type: Number, default: 1 },
+    groupIndex: { type: Number, default: 1 },
     bracketId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Bracket',
@@ -34,8 +38,12 @@ const groupSchema = new mongoose.Schema({
         teamId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Team',
-            required: true
+            default: null
         },
+        slotCode: { type: String, default: '' },
+        placeholderName: { type: String, default: '' },
+        sourceLabel: { type: String, default: '' },
+        rank: { type: Number, default: 0 },
         played: { type: Number, default: 0 },
         wins: { type: Number, default: 0 },
         draws: { type: Number, default: 0 },

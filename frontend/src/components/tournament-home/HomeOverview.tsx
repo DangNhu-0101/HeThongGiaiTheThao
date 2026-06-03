@@ -1,11 +1,8 @@
 import type React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Building2,
   CalendarDays,
-  CreditCard,
-  ExternalLink,
   FileText,
   Info,
   MapPin,
@@ -62,25 +59,7 @@ const formatTime = (value?: string) => {
   });
 };
 
-const formatCurrency = (value?: number) => {
-  if (!value) return "Miễn phí";
-  return `${value.toLocaleString("vi-VN")} VND/VĐV`;
-};
 
-const getRegistrationUrl = (tournament: Tournament) => {
-  const raw = getRawTournament(tournament);
-  return getText(raw.registrationFormUrl) || getText(raw.registrationUrl) || getText(raw.formRegistrationUrl);
-};
-
-const getEntryFee = (tournament: Tournament) => {
-  const firstConfig = tournament.sportsConfig?.find((item) => item.feeEntry || item.feePerAthlete);
-  return firstConfig?.feeEntry || firstConfig?.feePerAthlete || 0;
-};
-
-const getMaxTeams = (tournament: Tournament) => {
-  const total = tournament.sportsConfig?.reduce((sum, item) => sum + (Number(item.maxTeams) || 0), 0) || 0;
-  return total > 0 ? total : null;
-};
 
 const getContacts = (tournament: Tournament) => {
   const raw = getRawTournament(tournament);
@@ -102,15 +81,6 @@ const getContacts = (tournament: Tournament) => {
   return [];
 };
 
-const getExtraRegistrationNotes = (tournament: Tournament) => {
-  const raw = getRawTournament(tournament);
-  return [
-    getText(raw.registrationNote),
-    getText(raw.zaloGroupNote),
-    getText(raw.bankTransferContent) && `Nội dung chuyển khoản: ${getText(raw.bankTransferContent)}`,
-    getText(raw.paymentNote),
-  ].filter(Boolean);
-};
 
 const InfoCard = ({
   icon,
@@ -133,11 +103,8 @@ const InfoCard = ({
 );
 
 export function HomeOverview({ tournament, ruleInfo }: HomeOverviewProps) {
-  const registrationUrl = getRegistrationUrl(tournament);
-  const entryFee = getEntryFee(tournament);
-  const maxTeams = getMaxTeams(tournament);
+
   const contacts = getContacts(tournament);
-  const registrationNotes = getExtraRegistrationNotes(tournament);
   const rawTournament = getRawTournament(tournament);
   const formatDescription = ruleInfo?.formatDescription || getText(rawTournament.formatDescription);
   const ruleDescription = ruleInfo?.ruleDescription || getText(rawTournament.ruleDescription);
@@ -248,47 +215,7 @@ export function HomeOverview({ tournament, ruleInfo }: HomeOverviewProps) {
         </div>
 
         <aside className="space-y-6">
-          <Card className="border-sky-100 bg-sky-50/50 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base text-sky-800">
-                <CreditCard className="h-5 w-5" />
-                Thông tin đăng ký
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {registrationUrl ? (
-                <Button asChild className="h-10 w-full bg-sky-700 text-white hover:bg-sky-800">
-                  <a href={registrationUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-4 w-4" />
-                    Form đăng ký
-                  </a>
-                </Button>
-              ) : null}
-
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase text-slate-500">Hạn đăng ký</p>
-                  <p className="font-bold text-slate-800">{formatDate(tournament.timeLine?.registrationEnd)}</p>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase text-slate-500">Chỉ tiêu</p>
-                  <p className="font-bold text-slate-800">{maxTeams ? `${maxTeams} đội/cặp` : "Đang cập nhật"}</p>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase text-slate-500">Lệ phí</p>
-                  <p className="text-xl font-extrabold text-sky-700">{formatCurrency(entryFee)}</p>
-                </div>
-              </div>
-
-              {registrationNotes.length > 0 ? (
-                <div className="space-y-2 border-t border-sky-100 pt-4 text-sm text-slate-700">
-                  {registrationNotes.map((note, index) => (
-                    <p key={index}>{note}</p>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+          
 
           <Card className="border-slate-200 shadow-sm">
             <CardHeader className="pb-3">

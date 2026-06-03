@@ -22,6 +22,12 @@ export interface GroupMatch {
   courtName?: string;
   team1?: TeamRef | string;
   team2?: TeamRef | string;
+  team1Name?: string;
+  team2Name?: string;
+  team1SlotCode?: string;
+  team2SlotCode?: string;
+  slotCode?: string;
+  winnerTarget?: string;
   team1Score?: number;
   team2Score?: number;
   status: string;
@@ -55,7 +61,6 @@ interface ProcessedMatch {
   result: { t1: number; t2: number };
   slotCode: string;
   winnerTarget?: string;
-  loserTarget?: string;
 }
 
 interface GroupSlot {
@@ -69,7 +74,7 @@ interface GroupSlot {
   }>;
 }
 
-const getTeamName = (team: TeamRef | string | undefined, fallback = "Dang cho"): string => {
+const getTeamName = (team: TeamRef | string | undefined, fallback = "Chờ đội"): string => {
   if (!team) return fallback;
   if (typeof team === "string") return team;
   return team.name || team.teamName || team.teamname || fallback;
@@ -81,13 +86,11 @@ const getTeamId = (team: TeamRef | string | undefined): string => {
   return team._id || "";
 };
 
-const getSlotCode = (groupCode: string, rank: number) => `${groupCode}-P${rank}`;
-
 const normalizeName = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 const formatTime = (value?: string) =>
-  value ? new Date(value).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "Chua xep lich";
+  value ? new Date(value).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "Chưa xếp lịch";
 
 const buildSlotsFromStages = (stages: IStage[]): GroupSlot[] => {
   const groupStages = stages.filter((stage) => stage.type === "GROUP_STAGE");
@@ -106,8 +109,8 @@ const buildSlotsFromStages = (stages: IStage[]): GroupSlot[] => {
             const rank = idx + 1;
             return {
               rank,
-              slotCode: getSlotCode(groupCode, rank),
-              sourceLabel: `${groupName} / Vi tri ${rank}`,
+              slotCode: `${groupCode}-P${rank}`,
+              sourceLabel: `${groupName} / Vị trí ${rank}`,
               advances: branch.selectedRanks.includes(rank),
             };
           }),
@@ -126,15 +129,13 @@ const buildSlotsFromMatches = (matches: GroupMatch[]): GroupSlot[] => {
     const groupName = match.groupId?.name || match.group || "Chưa phân bảng";
     if (!grouped.has(groupName)) grouped.set(groupName, new Set());
     const teamIds = grouped.get(groupName);
-    const team1Id = getTeamId(match.team1);
-    const team2Id = getTeamId(match.team2);
-    if (team1Id) teamIds?.add(team1Id);
-    if (team2Id) teamIds?.add(team2Id);
+    if (match.team1SlotCode) teamIds?.add(match.team1SlotCode);
+    if (match.team2SlotCode) teamIds?.add(match.team2SlotCode);
   });
 
-  return Array.from(grouped.entries()).map(([groupName, teamIds], index) => {
-    const groupCode = `R1-B1-G${index + 1}`;
-    const slotCount = Math.max(2, teamIds.size);
+  return Array.from(grouped.entries()).map(([groupName, slotCodes], index) => {
+    const groupCode = Array.from(slotCodes)[0]?.replace(/-P\d+$/, "") || `R1-B1-G${index + 1}`;
+    const slotCount = Math.max(2, slotCodes.size);
     return {
       groupName,
       groupCode,
@@ -142,7 +143,7 @@ const buildSlotsFromMatches = (matches: GroupMatch[]): GroupSlot[] => {
         const rank = slotIndex + 1;
         return {
           rank,
-          slotCode: getSlotCode(groupCode, rank),
+          slotCode: `${groupCode}-P${rank}`,
           sourceLabel: `${groupName} / Vị trí ${rank}`,
           advances: rank <= 2,
         };
@@ -151,9 +152,9 @@ const buildSlotsFromMatches = (matches: GroupMatch[]): GroupSlot[] => {
   });
 };
 
-const emptyRow = (slot: GroupSlot["teamSlots"][number], team?: TeamRef | string): TeamStanding => ({
-  teamId: getTeamId(team) || slot.slotCode,
-  teamName: team ? getTeamName(team) : "Chờ đội",
+const emptyRow = (slot: GroupSlot["teamSlots"][number], teamName = "Chờ đội"): TeamStanding => ({
+  teamId: slot.slotCode,
+  teamName,
   slotCode: slot.slotCode,
   sourceLabel: slot.sourceLabel,
   played: 0,
@@ -165,36 +166,6 @@ const emptyRow = (slot: GroupSlot["teamSlots"][number], team?: TeamRef | string)
   goalDifference: 0,
   points: 0,
 });
-
-const getAdvanceTarget = (slotCode: string, rank: number, groups: GroupSlot[]) => {
-  if (rank > 2) return "";
-  const match = slotCode.match(/^R1-B(\d+)-G(\d+)-P\d+$/);
-  if (!match) return "";
-
-  const branch = Number(match[1]);
-  const group = Number(match[2]);
-  const branchGroups = groups
-    .flatMap((item) => {
-      const groupMatch = item.groupCode.match(/^R1-B(\d+)-G(\d+)$/);
-      return groupMatch && Number(groupMatch[1]) === branch ? [Number(groupMatch[2])] : [];
-    });
-  const numberOfGroups = Math.max(...branchGroups, group);
-  const seeds: string[] = [];
-
-  for (let groupNo = 1; groupNo <= numberOfGroups; groupNo += 1) {
-    const oppositeGroup = ((groupNo + Math.floor(numberOfGroups / 2) - 1) % numberOfGroups) + 1;
-    seeds.push(`R1-B${branch}-G${groupNo}-P1`);
-    seeds.push(`R1-B${branch}-G${oppositeGroup}-P2`);
-  }
-
-  const rankedSlotCode = `R1-B${branch}-G${group}-P${rank}`;
-  const seedIndex = seeds.findIndex((seed) => seed === rankedSlotCode);
-  if (seedIndex < 0) return "";
-
-  const matchNumber = Math.floor(seedIndex / 2) + 1;
-  const side = seedIndex % 2 === 0 ? 1 : 2;
-  return `R2-B${branch}-M${matchNumber}-${side}`;
-};
 
 export function GroupStageTab({ tournamentId }: { tournamentId: string }) {
   const [standingsData, setStandingsData] = useState<Record<string, TeamStanding[]>>({});
@@ -218,117 +189,87 @@ export function GroupStageTab({ tournamentId }: { tournamentId: string }) {
         if (!isMounted) return;
 
         const matches: GroupMatch[] = matchesRes?.data?.data || [];
-        if (!matches.length) {
-          setStageSlots([]);
-          setStandingsData({});
-          setMatchesData({});
-          setExpandedGroups({});
-          return;
-        }
-
         let configuredSlots = buildSlotsFromStages(stagesRes.data?.data || stagesRes.data?.rule?.stageTree || []);
         const hasMatchingConfiguredGroup = matches.some((match) => {
           const groupName = match.groupId?.name || match.group || "";
           return configuredSlots.some((slot) => normalizeName(slot.groupName) === normalizeName(groupName));
         });
         if (!configuredSlots.length || !hasMatchingConfiguredGroup) configuredSlots = buildSlotsFromMatches(matches);
+
         const nextStandings: Record<string, Record<string, TeamStanding>> = {};
         const nextMatches: Record<string, ProcessedMatch[]> = {};
-        const teamSlotByGroup: Record<string, Record<string, GroupSlot["teamSlots"][number]>> = {};
 
         configuredSlots.forEach((group) => {
           nextStandings[group.groupName] = {};
           nextMatches[group.groupName] = [];
-          teamSlotByGroup[group.groupName] = {};
           group.teamSlots.forEach((slot) => {
-            nextStandings[group.groupName][slot.slotCode] = emptyRow(slot);
+            const teamNumber = slot.rank;
+            nextStandings[group.groupName][slot.slotCode] = emptyRow(slot, `Team ${teamNumber}`);
           });
         });
 
         matches.forEach((match) => {
           const rawGroupName = match.groupId?.name || match.group || "Chưa phân bảng";
           const knownGroup = configuredSlots.find((slot) => normalizeName(slot.groupName) === normalizeName(rawGroupName));
-         
-
           if (!knownGroup) return;
-           const groupName = knownGroup?.groupName ;
-          const groupCode = knownGroup?.groupCode ;
 
-          if (!nextStandings[groupName]) nextStandings[groupName] = {};
-          if (!nextMatches[groupName]) nextMatches[groupName] = [];
-          if (!teamSlotByGroup[groupName]) teamSlotByGroup[groupName] = {};
-
-          const team1Id = getTeamId(match.team1);
-          const team2Id = getTeamId(match.team2);
-          const assignSlot = (teamId: string, team?: TeamRef | string) => {
-            if (!teamId) return null;
-            if (!teamSlotByGroup[groupName][teamId]) {
-              const usedSlotCodes = new Set(Object.values(teamSlotByGroup[groupName]).map((slot) => slot.slotCode));
-              const nextSlot = knownGroup.teamSlots.find((slot) => !usedSlotCodes.has(slot.slotCode))
-                || { slotCode: `${groupCode}-P${usedSlotCodes.size + 1}`, sourceLabel: `${groupName} / slot`, rank: usedSlotCodes.size + 1, advances: false };
-              teamSlotByGroup[groupName][teamId] = nextSlot;
-            }
-
-            const slot = teamSlotByGroup[groupName][teamId];
-            const existingRow = nextStandings[groupName][slot.slotCode] || emptyRow(slot);
-            nextStandings[groupName][slot.slotCode] = {
-              ...existingRow,
-              teamId,
-              teamName: getTeamName(team),
-              slotCode: slot.slotCode,
-              sourceLabel: slot.sourceLabel,
-            };
-            return nextStandings[groupName][slot.slotCode];
+          const groupName = knownGroup.groupName;
+          const ensureRow = (slotCode?: string, team?: TeamRef | string, fallback?: string) => {
+            if (!slotCode) return null;
+            const slot = knownGroup.teamSlots.find((item) => item.slotCode === slotCode)
+              || { slotCode, sourceLabel: `${groupName} / slot`, rank: 0, advances: false };
+            const row = nextStandings[groupName][slotCode] || emptyRow(slot, fallback || "Chờ đội");
+            row.teamId = getTeamId(team) || slotCode;
+            row.teamName = getTeamName(team, fallback || row.teamName);
+            nextStandings[groupName][slotCode] = row;
+            return row;
           };
 
-          const row1 = assignSlot(team1Id, match.team1);
-          const row2 = assignSlot(team2Id, match.team2);
+          const row1 = ensureRow(match.team1SlotCode, match.team1, match.team1Name || "Team 1");
+          const row2 = ensureRow(match.team2SlotCode, match.team2, match.team2Name || "Team 2");
 
-          if (match.status === "COMPLETED") {
+          if (match.status === "COMPLETED" && row1 && row2) {
             const score1 = match.team1Score ?? 0;
             const score2 = match.team2Score ?? 0;
+            row1.played += 1;
+            row2.played += 1;
+            row1.goalsFor += score1;
+            row1.goalsAgainst += score2;
+            row2.goalsFor += score2;
+            row2.goalsAgainst += score1;
+            row1.goalDifference = row1.goalsFor - row1.goalsAgainst;
+            row2.goalDifference = row2.goalsFor - row2.goalsAgainst;
 
-            if (row1 && row2) {
-              row1.played += 1;
-              row2.played += 1;
-              row1.goalsFor += score1;
-              row1.goalsAgainst += score2;
-              row2.goalsFor += score2;
-              row2.goalsAgainst += score1;
-              row1.goalDifference = row1.goalsFor - row1.goalsAgainst;
-              row2.goalDifference = row2.goalsFor - row2.goalsAgainst;
-
-              if (score1 > score2) {
-                row1.wins += 1; row2.losses += 1; row1.points += 3;
-              } else if (score2 > score1) {
-                row2.wins += 1; row1.losses += 1; row2.points += 3;
-              } else {
-                row1.draws += 1; row2.draws += 1; row1.points += 1; row2.points += 1;
-              }
+            if (score1 > score2) {
+              row1.wins += 1; row2.losses += 1; row1.points += 3;
+            } else if (score2 > score1) {
+              row2.wins += 1; row1.losses += 1; row2.points += 3;
+            } else {
+              row1.draws += 1; row2.draws += 1; row1.points += 1; row2.points += 1;
             }
           }
 
-          const matchIndex = nextMatches[groupName].length + 1;
           nextMatches[groupName].push({
             id: match._id,
-            team1: getTeamName(match.team1),
-            team2: getTeamName(match.team2),
-            court: match.courtId?.name || match.courtName || "Chua xep san",
+            team1: getTeamName(match.team1, match.team1Name || "Team 1"),
+            team2: getTeamName(match.team2, match.team2Name || "Team 2"),
+            court: match.courtId?.name || match.courtName || "Chưa xếp sân",
             time: formatTime(match.scheduledStartTime || match.actualStartTime || match.createdAt),
             status: match.status,
             result: { t1: match.team1Score ?? 0, t2: match.team2Score ?? 0 },
-            slotCode: `${groupCode}-M${matchIndex}`,
-            winnerTarget: "Bảng xếp hạng sẽ mặc định seed knockout",
+            slotCode: match.slotCode || `${knownGroup.groupCode}-M${nextMatches[groupName].length + 1}`,
+            winnerTarget: match.winnerTarget || "Xếp hạng bảng sẽ seed vào knock-out",
           });
         });
 
         const sortedStandings: Record<string, TeamStanding[]> = {};
         Object.entries(nextStandings).forEach(([groupName, rows]) => {
-          sortedStandings[groupName] = Object.values(rows).sort((a, b) => {
-            const aEmpty = a.teamName === "Chờ đội" ? 1 : 0;
-            const bEmpty = b.teamName === "Chờ đội" ? 1 : 0;
-            return aEmpty - bEmpty || b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor || a.slotCode.localeCompare(b.slotCode);
-          });
+          sortedStandings[groupName] = Object.values(rows).sort((a, b) =>
+            b.points - a.points ||
+            b.goalDifference - a.goalDifference ||
+            b.goalsFor - a.goalsFor ||
+            a.slotCode.localeCompare(b.slotCode)
+          );
         });
 
         setStageSlots(configuredSlots);
@@ -369,7 +310,7 @@ export function GroupStageTab({ tournamentId }: { tournamentId: string }) {
     return (
       <Card className="mt-4 border-dashed border-slate-300 bg-slate-50">
         <CardContent className="p-6 text-sm text-slate-500">
-          Chưa có slot vòng bảng. Hay lưu cấu hình vòng đấu hoặc khởi tạo phân bảng.
+          Chưa có slot vòng bảng. Hãy lưu cấu hình vòng đấu hoặc khởi tạo khung phân bảng.
         </CardContent>
       </Card>
     );
@@ -404,17 +345,16 @@ export function GroupStageTab({ tournamentId }: { tournamentId: string }) {
                   <TableHead className="text-center">B</TableHead>
                   <TableHead className="text-center">HS</TableHead>
                   <TableHead className="text-center font-bold text-sky-800">Điểm</TableHead>
-                  <TableHead className="text-center">Đi tiếp</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {standingsData[groupName].map((item, idx) => (
-                  <TableRow key={`${item.teamId}-${item.slotCode}`} className={idx === 0 && item.teamName !== "Chờ đội" ? "bg-sky-50/50" : ""}>
+                {standingsData[groupName].map((item) => (
+                  <TableRow key={`${item.teamId}-${item.slotCode}`}>
                     <TableCell className="text-center">
                       <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">{item.slotCode}</span>
                     </TableCell>
                     <TableCell>
-                      <div className={item.teamName === "Chờ đội" ? "font-semibold italic text-slate-300" : "font-bold text-slate-800"}>{item.teamName}</div>
+                      <div className="font-bold text-slate-800">{item.teamName}</div>
                       <div className="text-[10px] text-slate-400">{item.sourceLabel}</div>
                     </TableCell>
                     <TableCell className="text-center">{item.played}</TableCell>
@@ -422,9 +362,6 @@ export function GroupStageTab({ tournamentId }: { tournamentId: string }) {
                     <TableCell className="text-center">{item.losses}</TableCell>
                     <TableCell className="text-center">{item.goalDifference > 0 ? `+${item.goalDifference}` : item.goalDifference}</TableCell>
                     <TableCell className="text-center text-base font-extrabold text-sky-800">{item.points}</TableCell>
-                    <TableCell className="text-center text-[10px] font-bold text-emerald-600">
-                      {idx < 2 && item.teamName !== "Chờ đội" ? `Tới ${getAdvanceTarget(item.slotCode, idx + 1, stageSlots) || "knockout"}` : "-"}
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -437,7 +374,7 @@ export function GroupStageTab({ tournamentId }: { tournamentId: string }) {
                 <div className="space-y-3">
                   {(matchesData[groupName] || []).length === 0 ? (
                     <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-xs text-slate-400">
-                     Chưa có trận.Slot bảng đã sẵn sàng, đội sẽ được đổ vào sau khi phân bảng.
+                      Slot bảng đã sẵn sàng, đội thật sẽ được đổ vào sau khi import/phân bảng.
                     </div>
                   ) : matchesData[groupName]?.map((match) => (
                     <div key={match.id} className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">

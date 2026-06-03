@@ -1,6 +1,6 @@
 import express from 'express';
-import { 
-    initializeTournamentFromStageRule, 
+import {
+    initializeTournamentFromStageRule,
     advanceToKnockoutStage,
     previewQualifiedTeams,
     publishGroupStage,
@@ -10,7 +10,7 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Khởi tạo toàn bộ giải đấu (tạo group, phân đội, xếp lịch vòng bảng)
+// Khởi tạo toàn bộ giải đấu: tạo bảng, phân đội, xếp lịch vòng bảng
 router.post('/tournament/:tournamentId/initialize', protectedRoute('org'), initializeTournamentFromStageRule);
 router.patch('/tournament/:tournamentId/publish-groups', protectedRoute('org'), publishGroupStage);
 router.patch('/tournament/:tournamentId/publish-knockout', protectedRoute('org'), publishKnockoutStage);

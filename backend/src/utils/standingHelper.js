@@ -1,13 +1,24 @@
 import Group from '../models/groups.js';
 
+const sameId = (a, b) => a && b && a.toString() === b.toString();
+
 export const updateStandingsAfterMatch = async (match, team1Score, team2Score, session) => {
     if (!match.groupId) return;
     const group = await Group.findById(match.groupId).session(session);
     if (!group) return;
 
-    let standing1 = group.standings.find(s => s.teamId.toString() === match.team1.toString());
-    let standing2 = group.standings.find(s => s.teamId.toString() === match.team2.toString());
+    const standing1 = group.standings.find(s =>
+        (match.team1SlotCode && s.slotCode === match.team1SlotCode) ||
+        sameId(s.teamId, match.team1)
+    );
+    const standing2 = group.standings.find(s =>
+        (match.team2SlotCode && s.slotCode === match.team2SlotCode) ||
+        sameId(s.teamId, match.team2)
+    );
     if (!standing1 || !standing2) return;
+
+    if (match.team1 && !standing1.teamId) standing1.teamId = match.team1;
+    if (match.team2 && !standing2.teamId) standing2.teamId = match.team2;
 
     standing1.played += 1;
     standing2.played += 1;

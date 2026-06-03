@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, ChevronRight, Flag, GitBranch, Layers, RotateCcw, Settings, Trophy, Users } from "lucide-react";
+import { CheckCircle2, Flag, GitBranch, Layers, RotateCcw, Settings, Trophy, Users } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/api/axiosConfig";
 import { MatchCard } from "./MatchCard";
@@ -27,7 +27,7 @@ const toInputDateTime = (date = new Date()) => {
   return local.toISOString().slice(0, 16);
 };
 
-const buildCourtNames = (count: number) => Array.from({ length: Math.max(1, count) }, (_, index) => `SÃ¢n ${index + 1}`);
+const buildCourtNames = (count: number) => Array.from({ length: Math.max(1, count) }, (_, index) => `Sân ${index + 1}`);
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   const response = typeof error === 'object' && error && 'response' in error
@@ -48,6 +48,15 @@ const toMatch = (raw: Record<string, unknown>): Match => {
     matchName: raw.matchName as string | undefined,
     teamA: raw.teamA as QualifiedTeam | undefined || (team1?._id ? { _id: team1._id, name: team1.name, logo: team1.logo } : undefined),
     teamB: raw.teamB as QualifiedTeam | undefined || (team2?._id ? { _id: team2._id, name: team2.name, logo: team2.logo } : undefined),
+    team1Name: raw.team1Name as string | undefined,
+    team2Name: raw.team2Name as string | undefined,
+    team1SlotCode: raw.team1SlotCode as string | undefined,
+    team2SlotCode: raw.team2SlotCode as string | undefined,
+    slotCode: raw.slotCode as string | undefined,
+    winnerTarget: raw.winnerTarget as string | undefined,
+    loserTarget: raw.loserTarget as string | undefined,
+    nextMatchNumber: raw.nextMatchNumber as number | undefined,
+    nextMatchSide: raw.nextMatchSide as number | undefined,
     scheduledStartTime: raw.scheduledStartTime as string | undefined,
     courtName: raw.courtName as string | undefined,
     status: String(raw.status || 'SCHEDULED'),
@@ -110,7 +119,9 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
         startTime?: string;
         courtCount?: number;
       };
-      setCurrentStep(parsed.step || 1);
+      // Chuyển step 3 cũ về step 2 do đã gộp bước
+      const savedStep = parsed.step === 3 ? 2 : (parsed.step || 1);
+      setCurrentStep(savedStep);
       setGroups(parsed.groups || []);
       setKnockoutMatches(parsed.knockout || []);
       setQualifiedTeams(parsed.qualified || {});
@@ -155,23 +166,24 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
     try {
       const res = await api.post(`/automator/${tournamentId}/init-groups`, requestBody());
       const nextGroups = res.data?.groups || res.data?.data?.groups || [];
+      const nextKnockout = (res.data?.data?.knockoutMatches || []).map((match: Record<string, unknown>) => toMatch(match));
       setGroups(nextGroups);
-      setKnockoutMatches([]);
+      setKnockoutMatches(nextKnockout);
       setQualifiedTeams({});
       setCurrentStep(1);
       persist({
         step: 1,
         groups: nextGroups,
-        knockout: [],
+        knockout: nextKnockout,
         qualified: {},
         selectedRuleId: selectedRule?._id || '',
         drawMethod,
         startTime,
         courtCount
       });
-      toast.success("ÄÃ£ phÃ¢n báº£ng vÃ  xáº¿p lá»‹ch vÃ²ng báº£ng.");
+      toast.success("Đã tạo sẵn bảng, slot Team 1, Team 2 và nhánh knock-out.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "KhÃ´ng thá»ƒ khá»Ÿi táº¡o giáº£i Ä‘áº¥u.";
+      const message = error instanceof Error ? error.message : "Không thể khởi tạo giải đấu.";
       toast.error(message);
     } finally {
       setIsProcessing(false);
@@ -184,11 +196,9 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
       await api.patch(`/automator/${tournamentId}/publish-groups`, {
         sportType: selectedRule?.sport,
       });
-      setCurrentStep(2);
-      persist({ step: 2 });
-      toast.success("VÃ²ng báº£ng Ä‘Ã£ Ä‘Æ°á»£c cÃ´ng khai.");
+      toast.success("Vòng bảng đã được công khai và sẵn sàng thi đấu.");
     } catch {
-      toast.error("KhÃ´ng thá»ƒ cÃ´ng khai vÃ²ng báº£ng.");
+      toast.error("Không thể công khai vòng bảng.");
     } finally {
       setIsProcessing(false);
     }
@@ -202,11 +212,11 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
       });
       const nextQualified = res.data?.data?.qualifiedTeams || {};
       setQualifiedTeams(nextQualified);
-      setCurrentStep(3);
-      persist({ step: 3, qualified: nextQualified });
-      toast.success("ÄÃ£ láº¥y danh sÃ¡ch Ä‘á»™i Ä‘i tiáº¿p.");
+      setCurrentStep(2);
+      persist({ step: 2, qualified: nextQualified });
+      toast.success("Đã lấy danh sách đội đi tiếp.");
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Khong the lay danh sach doi di tiep."));
+      toast.error(getApiErrorMessage(error, "Không thể lấy danh sách đội đi tiếp."));
     } finally {
       setIsProcessing(false);
     }
@@ -230,11 +240,11 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
       const nextQualified = res.data?.data?.qualifiedTeams || qualifiedTeams;
       setKnockoutMatches(nextMatches);
       setQualifiedTeams(nextQualified);
-      setCurrentStep(3);
-      persist({ step: 3, knockout: nextMatches, qualified: nextQualified });
-      toast.success("ÄÃ£ táº¡o lá»‹ch knock-out.");
+      setCurrentStep(2);
+      persist({ step: 2, knockout: nextMatches, qualified: nextQualified });
+      toast.success("Đã tạo lịch knock-out.");
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Khong the tao lich knock-out."));
+      toast.error(getApiErrorMessage(error, "Không thể tạo lịch knock-out."));
     } finally {
       setIsProcessing(false);
     }
@@ -246,9 +256,9 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
       await api.patch(`/automator/${tournamentId}/publish-knockout`, {
         sportType: selectedRule?.sport,
       });
-      toast.success("ÄÃ£ cÃ´ng khai vÃ²ng knock-out.");
+      toast.success("Đã công khai vòng knock-out.");
     } catch {
-      toast.error("KhÃ´ng thá»ƒ cÃ´ng khai vÃ²ng knock-out.");
+      toast.error("Không thể công khai vòng knock-out.");
     } finally {
       setIsProcessing(false);
     }
@@ -265,9 +275,9 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
       setKnockoutMatches(nextKnockout);
       persist({ groups: nextGroups, knockout: nextKnockout });
       setEditingMatch(null);
-      toast.success("ÄÃ£ cáº­p nháº­t lá»‹ch thi Ä‘áº¥u.");
+      toast.success("Đã cập nhật lịch thi đấu.");
     } catch {
-      toast.error("KhÃ´ng thá»ƒ cáº­p nháº­t lá»‹ch.");
+      toast.error("Không thể cập nhật lịch.");
     } finally {
       setIsProcessing(false);
     }
@@ -275,13 +285,12 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
 
   const renderStepper = () => {
     const steps = [
-      { id: 1, label: "PhÃ¢n báº£ng" },
-      { id: 2, label: "CÃ´ng khai" },
-      { id: 3, label: "Knock-out" }
+      { id: 1, label: "Vòng bảng" },
+      { id: 2, label: "Knock-out" }
     ];
 
     return (
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {steps.map((step) => (
           <button
             key={step.id}
@@ -304,7 +313,7 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
     if (!branches.length) {
       return (
         <Alert className="border-slate-200 bg-slate-50">
-          <AlertDescription>ChÆ°a cÃ³ dá»¯ liá»‡u Ä‘á»™i Ä‘i tiáº¿p. HÃ£y láº¥y danh sÃ¡ch sau khi Ä‘Ã£ cáº­p nháº­t káº¿t quáº£ vÃ²ng báº£ng.</AlertDescription>
+          <AlertDescription>Chưa có dữ liệu đội đi tiếp. Hãy lấy danh sách sau khi đã cập nhật kết quả vòng bảng.</AlertDescription>
         </Alert>
       );
     }
@@ -320,7 +329,7 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
               {teams.map((entry, index) => {
                 const teamValue = typeof entry === 'object' && 'teamId' in entry ? entry.teamId : entry;
                 const teamId = typeof teamValue === 'object' && teamValue && '_id' in teamValue ? teamValue._id : String(teamValue || index);
-                const teamName = typeof teamValue === 'object' && teamValue && 'name' in teamValue ? teamValue.name : String(teamValue || "Äá»™i chá» xÃ¡c Ä‘á»‹nh");
+                const teamName = typeof teamValue === 'object' && teamValue && 'name' in teamValue ? teamValue.name : String(teamValue || "Đội chờ xác định");
                 const rank = typeof entry === 'object' && 'rank' in entry ? entry.rank : undefined;
                 return (
                   <div key={`${branch}-${teamId}`} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm last:border-b-0">
@@ -342,49 +351,49 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="bg-sky-100 text-sky-700">{sportType}</Badge>
-            <Badge variant="outline">{totalGroupMatches} tráº­n vÃ²ng báº£ng</Badge>
-            <Badge variant="outline">{groups.length} báº£ng</Badge>
+            <Badge variant="outline">{totalGroupMatches} trận vòng bảng</Badge>
+            <Badge variant="outline">{groups.length} bảng</Badge>
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{tournamentName}</h1>
-            <p className="text-sm text-slate-500">Äiá»u hÃ nh phÃ¢n báº£ng, xáº¿p lá»‹ch vÃ²ng báº£ng vÃ  táº¡o nhÃ¡nh knock-out theo cáº¥u hÃ¬nh vÃ²ng Ä‘áº¥u Ä‘Ã£ lÆ°u.</p>
+            <p className="text-sm text-slate-500">Điều hành phân bảng, xếp lịch vòng bảng và tạo nhánh knock-out theo cấu hình vòng đấu đã lưu.</p>
           </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <label className="text-xs font-bold uppercase text-slate-500">Cáº¥u hÃ¬nh vÃ²ng Ä‘áº¥u</label>
+            <label className="text-xs font-bold uppercase text-slate-500">Cấu hình vòng đấu</label>
             <Select value={selectedRuleId} onValueChange={setSelectedRuleId}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Tá»± dÃ¹ng cáº¥u hÃ¬nh má»›i nháº¥t" /></SelectTrigger>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Tự dùng cấu hình mới nhất" /></SelectTrigger>
               <SelectContent>
                 {rules.map((rule) => (
                   <SelectItem key={rule._id} value={rule._id}>
-                    {rule.ruleName}{rule.matchDuration ? ` - ${rule.matchDuration} phÃºt/tráº­n` : ''}
+                    {rule.ruleName}{rule.matchDuration ? ` - ${rule.matchDuration} phút/trận` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {!rules.length && (
-              <p className="text-[11px] text-slate-500">KhÃ´ng cáº§n BaseRule; há»‡ thá»‘ng sáº½ tÃ¬m cáº¥u hÃ¬nh vÃ²ng Ä‘áº¥u má»›i nháº¥t cá»§a giáº£i khi khá»Ÿi táº¡o.</p>
+              <p className="text-[11px] text-slate-500">Không cần BaseRule; hệ thống sẽ tìm cấu hình vòng đấu mới nhất của giải khi khởi tạo.</p>
             )}
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-bold uppercase text-slate-500">Kiá»ƒu phÃ¢n báº£ng</label>
+            <label className="text-xs font-bold uppercase text-slate-500">Kiểu phân bảng</label>
             <Select value={drawMethod} onValueChange={setDrawMethod}>
               <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="random">Ngáº«u nhiÃªn</SelectItem>
+                <SelectItem value="random">Ngẫu nhiên</SelectItem>
                 <SelectItem value="snake">Snake seed</SelectItem>
-                <SelectItem value="skill">Theo trÃ¬nh Ä‘á»™</SelectItem>
+                <SelectItem value="skill">Theo trình độ</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-bold uppercase text-slate-500">Báº¯t Ä‘áº§u</label>
+            <label className="text-xs font-bold uppercase text-slate-500">Bắt đầu</label>
             <Input type="datetime-local" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="h-10" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-bold uppercase text-slate-500">Sá»‘ sÃ¢n</label>
+            <label className="text-xs font-bold uppercase text-slate-500">Số sân</label>
             <Input type="number" min={1} value={courtCount} onChange={(event) => setCourtCount(Number(event.target.value) || 1)} className="h-10" />
           </div>
         </div>
@@ -398,25 +407,40 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
             <div className="flex flex-wrap gap-2 text-sm text-slate-500">
               {courts.map((court) => <Badge key={court} variant="outline">{court}</Badge>)}
             </div>
-            <Button onClick={handleInitialize} disabled={isProcessing} className="gap-2 bg-sky-600 hover:bg-sky-700">
-              {groups.length ? <RotateCcw className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
-              {groups.length ? "Khá»Ÿi táº¡o láº¡i" : "PhÃ¢n báº£ng & xáº¿p lá»‹ch"}
-            </Button>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              {groups.length > 0 && (
+                <Button onClick={handlePublish} disabled={isProcessing} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                  <Flag className="h-4 w-4" /> Công khai vòng bảng
+                </Button>
+              )}
+              <Button onClick={handleInitialize} disabled={isProcessing} variant={groups.length ? "outline" : "default"} className={!groups.length ? "gap-2 bg-sky-600 hover:bg-sky-700" : "gap-2"}>
+                {groups.length ? <RotateCcw className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
+                {groups.length ? "Khởi tạo lại" : "Phân bảng & xếp lịch"}
+              </Button>
+            </div>
           </div>
 
           {groups.length === 0 ? (
             <Alert className="border-sky-200 bg-sky-50">
               <GitBranch className="h-4 w-4 text-sky-600" />
-              <AlertDescription className="text-sky-900">Chá»n cáº¥u hÃ¬nh vÃ²ng Ä‘áº¥u náº¿u cÃ³, thá»i gian báº¯t Ä‘áº§u vÃ  sá»‘ sÃ¢n rá»“i khá»Ÿi táº¡o Ä‘á»ƒ táº¡o báº£ng Ä‘áº¥u cÃ¹ng lá»‹ch vÃ²ng báº£ng. Náº¿u chÆ°a chá»n, backend sáº½ Æ°u tiÃªn cáº¥u hÃ¬nh vÃ²ng Ä‘áº¥u má»›i nháº¥t cá»§a giáº£i.</AlertDescription>
+              <AlertDescription className="text-sky-900">Chọn cấu hình vòng đấu nếu có, thời gian bắt đầu và số sân rồi khởi tạo để tạo bảng đấu cùng lịch vòng bảng. Nếu chưa chọn, backend sẽ ưu tiên cấu hình vòng đấu mới nhất của giải.</AlertDescription>
             </Alert>
           ) : (
             <div className="space-y-5">
+              <Alert className="border-amber-200 bg-amber-50">
+                <Flag className="h-4 w-4 text-amber-700" />
+                <AlertDescription className="text-amber-900">
+                  Hãy kiểm tra kỹ lịch, sân và danh sách đội trong từng bảng. Bấm <strong className="font-semibold">Công khai vòng bảng</strong> để hệ thống đánh dấu các trận đấu sẵn sàng thi đấu.
+                </AlertDescription>
+              </Alert>
+
               {groups.map((group) => (
                 <Card key={group._id} className="border-slate-200">
                   <CardHeader className="border-b border-slate-100 py-3">
                     <CardTitle className="flex items-center justify-between gap-3 text-base">
                       <span className="flex items-center gap-2"><Users className="h-4 w-4 text-sky-600" /> {group.name}</span>
-                      <Badge variant="secondary">{group.teams?.length || 0} Ä‘á»™i</Badge>
+                      <Badge variant="secondary">{group.teams?.length || 0} đội</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4 p-4">
@@ -437,48 +461,26 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
       )}
 
       {currentStep === 2 && (
-        <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          <Alert className="border-amber-200 bg-amber-50">
-            <Flag className="h-4 w-4 text-amber-700" />
-            <AlertDescription className="text-amber-900">
-              Kiá»ƒm tra lá»‹ch, sÃ¢n vÃ  danh sÃ¡ch Ä‘á»™i trong tá»«ng báº£ng trÆ°á»›c khi cÃ´ng khai. Sau khi cÃ´ng khai, cÃ¡c tráº­n vÃ²ng báº£ng sáº½ Ä‘Æ°á»£c Ä‘Ã¡nh dáº¥u sáºµn sÃ ng thi Ä‘áº¥u.
-            </AlertDescription>
-          </Alert>
-          <Card className="border-slate-200">
-            <CardContent className="space-y-3 p-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><p className="text-slate-500">Báº£ng</p><p className="font-bold text-slate-900">{groups.length}</p></div>
-                <div><p className="text-slate-500">Tráº­n</p><p className="font-bold text-slate-900">{totalGroupMatches}</p></div>
-              </div>
-              <Button onClick={handlePublish} disabled={isProcessing || groups.length === 0} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
-                <ChevronRight className="h-4 w-4" /> CÃ´ng khai vÃ²ng báº£ng
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
-      {currentStep === 3 && (
         <section className="space-y-5">
           <div className="flex flex-wrap justify-between gap-3">
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={handlePreviewQualified} disabled={isProcessing || !isGroupStageComplete} className="gap-2">
-                <Trophy className="h-4 w-4" /> Láº¥y Ä‘á»™i Ä‘i tiáº¿p
+                <Trophy className="h-4 w-4" /> Lấy đội đi tiếp
               </Button>
               <Button onClick={handleCreateKnockout} disabled={isProcessing || !isGroupStageComplete} className="gap-2 bg-violet-600 hover:bg-violet-700">
-                <Layers className="h-4 w-4" /> Táº¡o lá»‹ch knock-out
+                <Layers className="h-4 w-4" /> Thay đội thật vào knock-out
               </Button>
               <Button variant="outline" onClick={handlePublishKnockout} disabled={isProcessing || knockoutMatches.length === 0} className="gap-2">
-                <Flag className="h-4 w-4" /> CÃ´ng khai knock-out
+                <Flag className="h-4 w-4" /> Công khai knock-out
               </Button>
             </div>
-            <Badge variant="outline">{knockoutMatches.length} tráº­n knock-out</Badge>
+            <Badge variant="outline">{knockoutMatches.length} trận knock-out</Badge>
           </div>
 
           {!isGroupStageComplete && (
             <Alert className="border-amber-200 bg-amber-50">
               <AlertDescription className="text-amber-900">
-                Can cap nhat ket qua tat ca tran vong bang truoc khi lay doi di tiep va tao lich knock-out. Da hoan tat {completedGroupMatches}/{totalGroupMatches} tran, con {incompleteGroupMatches} tran.
+                Cần cập nhật kết quả tất cả trận vòng bảng trước khi lấy đội đi tiếp và tạo lịch knock-out. Đã hoàn tất {completedGroupMatches}/{totalGroupMatches} trận, còn {incompleteGroupMatches} trận.
               </AlertDescription>
             </Alert>
           )}
@@ -488,7 +490,7 @@ export const TournamentAutomatorView: React.FC<TournamentAutomatorViewProps> = (
           {knockoutMatches.length > 0 && (
             <Card className="border-slate-200">
               <CardHeader className="border-b border-slate-100 py-3">
-                <CardTitle className="text-base">Lá»‹ch knock-out</CardTitle>
+                <CardTitle className="text-base">Lịch knock-out</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
                 {knockoutMatches.map((match) => (
