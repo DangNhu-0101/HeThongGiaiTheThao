@@ -1,42 +1,34 @@
 import mongoose from "mongoose";
 
 const matchSchema = new mongoose.Schema({
-    tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true, index: true },
-    matchcode: { type: String, required: true, unique: true },
+    // Thông tin cơ bản
+    tournamentItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentItem', required: true },
+    stageId: { type: mongoose.Schema.Types.ObjectId, ref: 'StageRule', required: true },
+    bracketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bracket' },
+    groupId:{type: mongoose.Schema.Types.ObjectId, ref: 'Group'},
 
-    // Liên kết trận tiếp theo (dùng cho knock-out)
-    nextMatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match', default: null },
-    nextMatchSlot: { type: String, enum: ['team1', 'team2'], default: null },
+    name: { type: String, required: true },
+    round: { type: Number, required: true }, // Số thứ tự vòng đấu (1, 2, 3...)
+    previousMatches: [{
+        matchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match' },
+        position: { type: String, enum: ['WINNER', 'LOSER'], default: 'WINNER' }, // Vị trí vào trận này từ thắng hay thua?
+    }],
 
-    bracketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bracket', required: true },
-    stageRuleId: { type: mongoose.Schema.Types.ObjectId, ref: 'StageRule', required: true },
-    groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null },
-    round: { type: Number, required: true }, // 1-based: vòng bảng=1, tứ kết=2, bán kết=3, chung kết=4...
-    matchNumber: { type: Number, required: true },
-    matchType: { type: String, enum: ['group', 'knockout'], required: true },
-    sportType: { type: String, required: true },
-    ruleId: { type: mongoose.Schema.Types.ObjectId, ref: 'BaseRule', required: true },
+    // Các tham chiếu đến trận đấu tiếp theo (quan trọng nhất)
+    nextMatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match', default: null }, // Người thắng sẽ đi tiếp vào trận nào?
+    nextLoserMatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match', default: null }, // Người thua sẽ rơi vào trận nào? (Chỉ dùng cho nhánh thua)
 
-    team1: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-    team2: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-    winnerTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
-    team1Score: { type: Number, default: 0 },
-    team2Score: { type: Number, default: 0 },
+    // Các đối thủ của trận đấu
+    matchResultId: { type: mongoose.Schema.Types.ObjectId, ref: 'MatchResult', default: null },
 
-    courtId: { type: mongoose.Schema.Types.ObjectId, ref: 'Court', default: null },
-    scheduledStartTime: { type: Date, required: true },
-    actualStartTime: { type: Date, default: null },
-    endTime: { type: Date, default: null },
-    durationMinutes: { type: Number, default: 90 },
+    // Trạng thái
+    status: { type: String, enum: ['pending', 'live', 'completed', 'walkover'], default: 'pending' },
+    scheduledTime: { type: Date },
+    courtId: { type: mongoose.Schema.Types.ObjectId, ref: 'Court' },
 
-    status: { type: String, enum: ['SCHEDULED', 'IN_PROGRESS', 'PAUSED', 'COMPLETED', 'CANCELED', 'POSTPONED'], default: 'SCHEDULED' },
-    refereeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Referee', default: null },
-    lineReferees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Referee' }],
+    // Kết quả tổng hợp cuối cùng
+    winnerParticipantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Participant', default: null },
 }, { timestamps: true });
 
-// Index hỗ trợ truy vấn
-matchSchema.index({ tournamentId: 1, matchType: 1, round: 1, matchNumber: 1 });
-matchSchema.index({ nextMatchId: 1 });
-
-const Match = mongoose.model("Match", matchSchema);
+const Match = mongoose.model('Match',matchSchema);
 export default Match;

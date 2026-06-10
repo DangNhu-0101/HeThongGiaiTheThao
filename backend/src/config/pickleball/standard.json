@@ -1,0 +1,16 @@
+{
+    "sportType": "pickleball",
+    "templateName": "Pickleball_Standard",
+    "version": "1.0",
+    "language": "vi",
+    "categoryCodes": [
+        "MS",
+        "MD",
+        "WD",
+        "XD"
+    ],
+    "stageNames": [
+        "Vòng bảng",
+        "Vòng loại trực tiếp"
+    ]
+}

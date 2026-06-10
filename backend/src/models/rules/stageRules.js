@@ -1,22 +1,28 @@
 import mongoose from 'mongoose';
 
-const stageRuleSchema = new mongoose.Schema({
-    tuornamnetId:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref: 'Tuornament',
-        required: true
-    },
-
-    SportRuleId:{
+const StageRuleSchema = new mongoose.Schema({
+    tournamentItemId:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'SportRule',
-        required: true
+        ref:'TournamentItem'
+    },
+    number:{
+        type:Number,
+        reuired:true
+    },
+    name:{
+        type:String,
+        required:true,
     },
 
-    ScoringSystem:{
 
+    pointsConfig: {
+        win: { type: Number, default: 3 },
+        draw: { type: Number, default: 1 }, // nếu có hòa
+        loss: { type: Number, default: 0 },
+        // có thể mở rộng: bonusPoint, v.v.
     },
 
+    // Tiêu chí xếp hạng (GROUP_STAGE)
     rankingCriteria: [
         {
             type: String,
@@ -32,29 +38,24 @@ const stageRuleSchema = new mongoose.Schema({
             ],
         },
     ],
-    timeLine:{
-        openTime: Date,
-        closeTime:Date,
+
+    totalTeamsIn: {
+        type: Number,
+        required: true,
+        min: 2,
     },
-    hasBracket:{
-        type:Boolean,
-        default:false,
-    },
-    hasBronzeMatch: {
-        type: Boolean,
-        default: false,
-    },
-    hasHomeAway: {
-        type: Boolean,
-        default: false,
-    },
+
+    hasWildcards: { type: Boolean, default: false },
+    wildcardsCount: { type: Number, default: 0, min: 0 },
+
     status:{
         type:String,
-        enum:["comingsoon","active","completed",]
+        enum:['pending', 'active', 'completed'],
+        default:'pending'
     }
-
 },
 {timestamps:true});
 
-const StageRule = mongoose.model("StageRule",stageRuleSchema);
-export default StageRule;
+const StageRule = mongoose.model('StageRule',StageRuleSchema)
+
+export default StageRule

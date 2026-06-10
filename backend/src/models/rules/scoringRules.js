@@ -1,75 +1,41 @@
-import mongoose from "mongoose";
-import Tournament from "../tournaments.js";
-import BaseRule from "./baseRules.js";
+// models/ScoringRule.js
+import mongoose from 'mongoose';
 
-// Schema cho Scoring Format
-const scoringFormatSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true
-    },
-    pointsToWin: {
-        type: Number,
-        required: true
-    },
-    switchSidesAt: {
-        type: Number,
-        required: false
-    }
-}, { _id: false });
+const scoringRuleSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    description: { type: String, trim: true },
+    sportType: { type: String, required: true },
 
-// Schema cho Standard Side Out
-const standardSideOutSchema = new mongoose.Schema({
-    description: String,
-    winByTwo: {
-        type: Boolean,
-        default: false
+    // Hệ thống điểm (thắng, hòa, thua)
+    pointSystem: {
+        win: { type: Number, default: 3 },
+        draw: { type: Number, default: 1 },
+        loss: { type: Number, default: 0 }
     },
-    formats: [scoringFormatSchema]
-}, { _id: false });
 
-// Schema cho Rally Scoring
-const rallyScoringSchema = new mongoose.Schema({
-    enabled: {
-        type: Boolean,
-        default: false
+    // Xử lý bỏ cuộc (walkover)
+    walkover: {
+        pointsAwarded: { type: Number, default: 3 },
+        defaultScoreFor: { type: Number, default: 3 },
+        defaultScoreAgainst: { type: Number, default: 0 }
     },
-    description: String,
-    pointsToWin: Number
-}, { _id: false });
 
-// Main Scoring Rules Schema
-const scoringRulesSchema = new mongoose.Schema({
-    tournamentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Tournament',
-        required: false
+    // Tính điểm theo set/game (cho các môn như tennis, pickleball, cầu lông)
+    setsCalculation: {
+        isSupported: { type: Boolean, default: false },
+        method: { type: String, enum: ['BY_SET_WINS', 'BY_TOTAL_POINTS', ''], default: '' },
+        numberOfSets: { type: Number, default: 1 },
+        targetScore: { type: Number, default: 11 },
+        winByGap: { type: Number, default: 2 },
+        changeSideAtPoint: { type: Number, default: 6 }
     },
-    baseRuleId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'BaseRule', 
-        required: true 
-    },
-    sport: {
-        type: String,
-        required: true,
-        enum: ['Soccer', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Other']
-    },
-    ruleName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    description: String,
-    standardSideOut: {
-        type: standardSideOutSchema,
-        required: false
-    },
-    rallyScoring: {
-        type: rallyScoringSchema,
-        required: false
-    },
+
+    // Tính điểm trực tiếp (rally scoring)
+    rallyScoring: { type: Boolean, default: false },
+    winByTwo: { type: Boolean, default: true },
+
+    // Mở rộng
+    customScoring: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 
-const ScoringRule = mongoose.model("ScoringRule", scoringRulesSchema);
-export default ScoringRule;
+export default mongoose.model('ScoringRule', scoringRuleSchema);

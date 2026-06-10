@@ -7,17 +7,11 @@ const courtSchema = new mongoose.Schema({
         trim: true,
         // Ví dụ: "Sân Đa Năng A1", "Sân Pickleball & Tennis 01"
     },
-    tournamentId: {
+    tournamentItemId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Tournament',
+        ref: 'TournamentItem',
         required: true
     },
-    sportTypes: [{
-        type: String,
-        required: true,
-        enum: ['Pickleball', 'Tennis', 'Badminton', 'Table Tennis','Football', 'Volleyball'],
-        default: 'Pickleball'
-    }],
     status: {
         type: String,
         enum: ['empty', 'busy', 'maintenance', 'inactive'],

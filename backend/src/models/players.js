@@ -4,8 +4,8 @@ const playerSchema = new moogoose.Schema({
     userId: {
         type: moogoose.Schema.Types.ObjectId,
         ref: 'User',
-        unique: true,
-        default: null
+        required: true,
+        unique: true
     },
     name: {
         type: String,

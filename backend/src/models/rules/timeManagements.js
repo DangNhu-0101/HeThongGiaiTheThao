@@ -1,61 +1,33 @@
-import mongoose from "mongoose";
-import Tournament from "../tournaments.js";
-import BaseRule from "./baseRules.js";
-// Main Time Management Rules Schema
-const timeManagementRulesSchema = new mongoose.Schema({
-    tournamentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Tournament',
-        required: false
-    },
-    baseRuleId:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'BaseRule',
-        required: false
-    },
-    sport: {
-        type: String,
-        required: true,
-        enum: ['Soccer', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Other']
-    },
-    ruleName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    description: String,
-    warmUpMinutes: {
-        type: Number,
-        required: false,
-        default: 5
-    },
-    standardTimeOutsPerSet: {
-        type: Number,
-        required: false,
-        default: 2
-    },
-    timeOutDurationSeconds: {
-        type: Number,
-        required: false,
-        default: 60
-    },
-    medicalTimeOutMinutes: {
-        type: Number,
-        required: false,
-        default: 15
-    },
-    betweenSetRestMinutes: {
-        type: Number,
-        required: false,
-        default: 2
-    },
-    maxWaitTimeBeforeForfeit: {
-        type: Number,
-        required: false,
-        default: 15
+// models/TimeManagementRule.js
+import mongoose from 'mongoose';
+
+const timeManagementRuleSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    description: { type: String, trim: true },
+    sportType: { type: String, required: true },
+
+    // Hiệp/set
+    periods: {
+        numberOfPeriods: { type: Number, default: 2 },   // 2 hiệp bóng đá, 3 set tennis,...
+        durationPerPeriod: { type: Number, default: 45 }, // phút
+        halfTimeBreak: { type: Number, default: 15 }      // phút nghỉ giữa hiệp
     },
 
+    // Timeout
+    timeouts: {
+        allowed: { type: Boolean, default: false },
+        countPerMatch: { type: Number, default: 0 },
+        durationSeconds: { type: Number, default: 60 }
+    },
+
+    warmUpMinutes: { type: Number, default: 5 },
+    medicalTimeOutMinutes: { type: Number, default: 15 },
+    betweenSetRestMinutes: { type: Number, default: 2 },
+    maxWaitTimeBeforeForfeit: { type: Number, default: 15 },
+
+    changeSideAt: { type: String, default: 'HALF_TIME' }, // hoặc 'SET_END', ...
+
+    customTimeRules: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 
-const TimeManagementRule = mongoose.model("TimeManagementRule", timeManagementRulesSchema);
-export default TimeManagementRule;
+export default mongoose.model('TimeManagementRule', timeManagementRuleSchema);

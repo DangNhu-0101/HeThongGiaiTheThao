@@ -9,7 +9,6 @@ const orgsSchema = new mongoose.Schema({
 
     name: {
         type: String,
-        required: true,
     },
     logo: { type: String },
 
@@ -17,7 +16,6 @@ const orgsSchema = new mongoose.Schema({
 
     contactEmail: {
         type: String,
-        required: true
     },
 
     address: {
@@ -28,7 +26,6 @@ const orgsSchema = new mongoose.Schema({
 
     contactPhone: {
         type: String,
-        required: true
     },
 }, { timestamps: true });
 

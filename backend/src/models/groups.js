@@ -1,3 +1,4 @@
+// models/Group.js
 import mongoose from "mongoose";
 
 const groupSchema = new mongoose.Schema({
@@ -5,6 +6,10 @@ const groupSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
+    },
+    tournamentItemId:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref:'TournamentItem'
     },
     bracketId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -18,21 +23,17 @@ const groupSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'StageRule',
     },
-    standings: [{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'Standing'
-    }],
+
     status: {
-         type: String,
-         enum: ['pending', 'progress', 'completed'],
+        type: String,
+        enum: ['pending', 'progress', 'completed'],
         default: 'pending'
     }
-}, 
-    { timestamps: true });
-    
-    // Tạo index để tối ưu query
+}, { timestamps: true });
+
+// Tạo index để tối ưu query
 groupSchema.index({ bracketId: 1 });
 groupSchema.index({ stageRuleId: 1 });
-    
+
 const Group = mongoose.model('Group', groupSchema);
 export default Group;

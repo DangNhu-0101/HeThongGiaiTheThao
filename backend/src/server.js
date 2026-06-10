@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 import { connectDB } from './libs/db.js';
-import initRoles from './scripts/initRoles.js';
+import initRoles from './scripts/initialRole.js';
 
 dotenv.config();
 

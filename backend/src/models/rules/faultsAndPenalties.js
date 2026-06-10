@@ -1,51 +1,22 @@
-import mongoose from "mongoose";
+// models/FaultsAndPenalties.js
+import mongoose from 'mongoose';
 
-
-// Schema cho Conduct Penalties
-const conductPenaltiesSchema = new mongoose.Schema({
-    yellowCard: String,
-    redCard: String,
-    verbalWarning: String,
-    pointDeduction: String,
-    disqualification: String
-}, { _id: false });
-
-// Main Faults and Penalties Schema
 const faultsAndPenaltiesSchema = new mongoose.Schema({
-    tournamentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Tournament',
-        required: false
-    },
+    name: { type: String, required: true },
+    description: { type: String, trim: true },
+    sportType: { type: String, required: true },
 
-    baseRuleId:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'BaseRule'
-    },
-    sport: {
-        type: String,
-        required: true,
-        enum: ['Soccer', 'Basketball', 'Volleyball', 'Tennis', 'Table Tennis', 'Badminton', 'Pickleball', 'Other']
-    },
-    ruleName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    description: String,
-    technicalFaults: [
-        {
-            faultName: String,
-            description: String,
-            penalty: String
-        }
-    ],
+    technicalFaults: [{ type: String }],   // mảng các lỗi kỹ thuật
+
     conductPenalties: {
-        type: conductPenaltiesSchema,
-        required: false
+        yellowCard: { type: String, default: 'Cảnh cáo' },
+        redCard: { type: String, default: 'Truất quyền thi đấu' },
+        verbalWarning: { type: String, default: 'Nhắc nhở' }
     },
-}, 
-    { timestamps: true });
 
-const FaultsAndPenalties = mongoose.model("FaultsAndPenalties", faultsAndPenaltiesSchema);
-export default FaultsAndPenalties;
+    penaltyPoints: { type: Number, default: 0 }, // nếu có trừ điểm
+
+    customFaults: { type: mongoose.Schema.Types.Mixed, default: {} }
+}, { timestamps: true });
+
+export default mongoose.model('FaultsAndPenalties', faultsAndPenaltiesSchema);

@@ -4,6 +4,7 @@ import Organization from '../models/orgs.js';
 import User from '../models/users.js';
 import Player from '../models/players.js';
 
+
 export const getAllTournaments = async (req, res) => {
     try {
         const { page = 1, limit = 10, status, sportType, organizerId, sortBy = 'createdAt', order = 'desc' } = req.query;
@@ -24,18 +25,24 @@ export const getAllTournaments = async (req, res) => {
 
         const sort = { [sortBy]: order === 'desc' ? -1 : 1 };
         const skip = (parseInt(page) - 1) * parseInt(limit);
+        const limitNum = parseInt(limit);
 
         const tournaments = await Tournament.find(filter)
-            .populate('organizer', 'name')
+            .populate('organizer', 'name logo')
             .sort(sort)
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(limitNum);
 
         const total = await Tournament.countDocuments(filter);
 
         return res.status(200).json({
             data: tournaments,
-            pagination: { page: parseInt(page), limit: parseInt(limit), total, totalPages: Math.ceil(total / limit) }
+            pagination: {
+                page: parseInt(page),
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum)
+            }
         });
     } catch (error) {
         console.error("Lỗi trong getAllTournaments:", error);
@@ -43,28 +50,97 @@ export const getAllTournaments = async (req, res) => {
     }
 };
 
+// GET /api/tournaments/organization/my?page=1&limit=10&status=upcoming&sportType=Football
 export const getTournamentByOrganization = async (req, res) => {
-    const userId = req.user._id;
     try {
-        const organization = await Organization.findOne({ ownerId: userId });
-        if (!organization) {
-            return res.status(404).json({ message: "Tổ chức không tồn tại" });
+        const userId = req.user._id;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
+
+        const hasAdminRole = user.roleNames.includes('admin');
+        let orgFilter = {};
+
+        if (!hasAdminRole) {
+            const organization = await Organization.findOne({ ownerId: userId });
+            if (!organization) {
+                return res.status(404).json({ message: "Bạn chưa có tổ chức nào" });
+            }
+            orgFilter = { organizer: organization._id };
+        } else {
+            // Admin: nếu có query organizationId thì lọc theo, không thì lấy tất cả
+            const { organizationId } = req.query;
+            if (organizationId) {
+                orgFilter = { organizer: organizationId };
+            }
         }
-        const tournaments = await Tournament.find({ organizer: organization._id }).populate('organizer', 'name');
-        return res.status(200).json(tournaments);
+
+        const { page = 1, limit = 10, status, sportType } = req.query;
+        const filter = { ...orgFilter };
+        if (status) filter.status = status;
+        if (sportType) filter.sportType = { $in: sportType.split(',') };
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const limitNum = parseInt(limit);
+
+        const tournaments = await Tournament.find(filter)
+            .populate('organizer', 'name logo')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Tournament.countDocuments(filter);
+
+        return res.status(200).json({
+            data: tournaments,
+            pagination: {
+                page: parseInt(page),
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        });
     } catch (error) {
-        console.error("Lỗi trong hàm getTournamentByOrganization:", error);
+        console.error("Lỗi trong getTournamentByOrganization:", error);
         return res.status(500).json({ message: error.message });
     }
 };
 
+// GET /api/tournaments/:id
 export const getTournamentById = async (req, res) => {
-    const { id } = req.params;
     try {
-        const tournament = await Tournament.findById(id).populate('organizer', 'name').populate('baseRule');
+        const { id } = req.params;
+        const tournament = await Tournament.findById(id)
+            .populate('organizer', 'name logo contactEmail contactPhone address')
+            .populate('baseRule'); // baseRule là array ObjectId ref SportRule
+
         if (!tournament) {
             return res.status(404).json({ message: "Không tìm thấy giải đấu" });
         }
+
+        // Kiểm tra quyền xem nếu giải bị cancelled
+        const userId = req.user?._id;
+        let canView = true;
+        if (tournament.status === 'cancelled') {
+            if (!userId) {
+                canView = false;
+            } else {
+                const user = await User.findById(userId);
+                if (user) {
+                    const hasAdminRole = user.roleNames.includes('admin');
+                    const isOwner = await Organization.findOne({ _id: tournament.organizer, ownerId: userId });
+                    if (!hasAdminRole && !isOwner) {
+                        canView = false;
+                    }
+                } else {
+                    canView = false;
+                }
+            }
+        }
+
+        if (!canView) {
+            return res.status(403).json({ message: "Bạn không có quyền xem giải đấu đã bị hủy" });
+        }
+
         return res.status(200).json(tournament);
     } catch (error) {
         console.error("Lỗi trong getTournamentById:", error);
@@ -75,127 +151,301 @@ export const getTournamentById = async (req, res) => {
 export const createTournament = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { name, description, sportType, timeLine, location, logo, banner, budget, paymentQR, prize, galaConfig } = req.body;
+        const {
+            name, description, sportType,
+            registrationStart, registrationEnd,
+            tournamentStart, tournamentEnd,
+            location, organizationId, baseRuleIds,
+            banner, logo, prizes, galaConfig, budget, paymentQR
+        } = req.body;
 
+        // 1. Kiểm tra user
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: "không tìm thấy người dùng" });
-        }
-        const organization = await Organization.findOne({ ownerId: userId });
-        if (!organization) {
-            return res.status(404).json({ message: "Tổ chức không tồn tại" });
+            return res.status(404).json({ message: "Người dùng không tồn tại" });
         }
 
-        const tournament = new Tournament({
+        // 2. Kiểm tra vai trò
+        const hasOrgRole = user.roleNames.includes('org');
+        const hasAdminRole = user.roleNames.includes('admin');
+        if (!hasOrgRole && !hasAdminRole) {
+            return res.status(403).json({
+                message: "Bạn không có quyền tạo giải đấu. Chỉ tổ chức (org) hoặc quản trị viên (admin) mới được phép."
+            });
+        }
+
+        // 3. Kiểm tra sportType
+        if (!sportType || !Array.isArray(sportType) || sportType.length === 0) {
+            return res.status(400).json({ message: "Vui lòng cung cấp sportType là mảng các môn thể thao." });
+        }
+
+        // 4. Xử lý organizationId
+        let finalOrganizationId = null;
+        if (hasOrgRole) {
+            const organization = await Organization.findOne({ ownerId: userId });
+            if (!organization) {
+                return res.status(400).json({ message: "Bạn chưa có tổ chức nào. Vui lòng tạo tổ chức trước." });
+            }
+            finalOrganizationId = organization._id;
+        } else if (hasAdminRole) {
+            if (!organizationId) {
+                return res.status(400).json({ message: "Admin cần cung cấp organizationId." });
+            }
+            const organization = await Organization.findById(organizationId);
+            if (!organization) {
+                return res.status(404).json({ message: "Tổ chức không tồn tại" });
+            }
+            finalOrganizationId = organization._id;
+        }
+
+        // 5. Xử lý thời gian
+        const parseDate = (dateStr, fieldName) => {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) {
+                throw new Error(`${fieldName} không hợp lệ`);
+            }
+            return d;
+        };
+
+        let regStart, regEnd, tourStart, tourEnd;
+        try {
+            regStart = parseDate(registrationStart, 'registrationStart');
+            regEnd = parseDate(registrationEnd, 'registrationEnd');
+            tourStart = parseDate(tournamentStart, 'tournamentStart');
+            tourEnd = parseDate(tournamentEnd, 'tournamentEnd');
+        } catch (err) {
+            return res.status(400).json({ message: err.message });
+        }
+
+        // 6. Xử lý galaConfig
+        const finalGalaConfig = {
+            hasGala: galaConfig?.hasGala || false,
+            time: galaConfig?.time ? new Date(galaConfig.time) : null,
+            venue: galaConfig?.venue || "",
+            description: galaConfig?.description || ""
+        };
+
+        // 7. Xử lý budget
+        const finalBudget = {
+            totalSponsor: budget?.totalSponsor || 0,
+            totalExpense: budget?.totalExpense || 0
+        };
+
+        // 8. Tạo tournament
+        const newTournament = new Tournament({
             name,
-            description: description || '',
-            sportType: Array.isArray(sportType) ? sportType : [sportType],
-            banner: banner || '',
-            logo: logo || '',
-            timeLine: timeLine,
-            location: location || { city: '', district: '' },
-            prizes: prize || '',
-            galaConfig: galaConfig || { hasGala: false },
-            paymentQR: paymentQR || '',
-            organizer: organization._id,
-            budget: budget || { totalSponsor: 0, totalExpense: 0 },
-            baseRule: [],
+            description: description || "",
+            sportType,
+            timeLine: {
+                registrationStart: regStart,
+                registrationEnd: regEnd,
+                tournamentStart: tourStart,
+                tournamentEnd: tourEnd
+            },
+            location: {
+                city: location?.city || "",
+                district: location?.district || ""
+            },
+            organizer: finalOrganizationId,
+            baseRule: baseRuleIds || [],
+            banner: banner || "",
+            logo: logo || "",
+            prizes: prizes || "",
+            galaConfig: finalGalaConfig,
+            budget: finalBudget,
+            paymentQR: paymentQR || "",
+            sponsors: [],
             status: 'upcoming'
         });
 
-        const savedTournament = await tournament.save();
-        res.status(201).json(savedTournament);
+        await newTournament.save();
+
+        return res.status(201).json({
+            message: "Tạo giải đấu thành công",
+            tournament: newTournament
+        });
+
     } catch (error) {
-        console.error("Lỗi trong hàm createTournament:", error);
-        res.status(500).json({ message: error.message });
+        console.error("Lỗi trong createTournament:", error);
+        return res.status(500).json({ message: error.message });
     }
 };
 
 export const updateTournament = async (req, res) => {
     try {
-        const { id } = req.params;
         const userId = req.user._id;
-        const { name, description, sportType, timeLine, location, logo, banner, budget, paymentQR, prize, galaConfig } = req.body;
+        const { tournamentId } = req.params;
+        const updateData = req.body;
 
+        const tournament = await Tournament.findById(tournamentId);
+        if (!tournament) {
+            return res.status(404).json({ message: "Giải đấu không tồn tại" });
+        }
+
+        // Kiểm tra quyền
         const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: "không tìm thấy người dùng" });
-
-        const organization = await Organization.findOne({ ownerId: userId });
-        if (!organization) return res.status(404).json({ message: "Tổ chức không tồn tại" });
-
-        const tournament = await Tournament.findById(id);
-        if (!tournament) return res.status(404).json({ message: "Tournament not found" });
-        if (tournament.organizer.toString() !== organization._id.toString()) {
+        const hasAdminRole = user.roleNames.includes('admin');
+        const isOwner = await Organization.findOne({ _id: tournament.organizer, ownerId: userId });
+        if (!hasAdminRole && !isOwner) {
             return res.status(403).json({ message: "Bạn không có quyền cập nhật giải đấu này" });
         }
 
-        tournament.name = name || tournament.name;
-        tournament.description = description || tournament.description;
-        tournament.sportType = sportType || tournament.sportType;
-        tournament.timeLine = timeLine || tournament.timeLine;
-        tournament.location = location || tournament.location;
-        tournament.prizes = prize || tournament.prizes;
-        tournament.galaConfig = galaConfig || tournament.galaConfig;
-        tournament.paymentQR = paymentQR || tournament.paymentQR;
-        tournament.logo = logo || tournament.logo;
-        tournament.banner = banner || tournament.banner;
-        tournament.budget = budget || tournament.budget;
+        // Nếu giải đang playing hoặc completed, chỉ cho phép update một số field nhẹ
+        const isLocked = ['playing', 'completed'].includes(tournament.status);
 
-        const updatedTournament = await tournament.save();
-        res.status(200).json(updatedTournament);
+        // Danh sách field được phép cập nhật khi bị khóa (chỉ thông tin hiển thị)
+        const safeFieldsWhenLocked = ['description', 'banner', 'logo', 'prizes', 'paymentQR', 'galaConfig'];
+        // Danh sách field cần kiểm soát chặt (không cho update khi đã playing/completed)
+        const criticalFields = ['sportType', 'timeLine', 'baseRule', 'name', 'location', 'budget'];
+
+        if (isLocked) {
+            // Kiểm tra xem có field quan trọng nào bị thay đổi không
+            const hasCriticalUpdate = criticalFields.some(field => {
+                if (field === 'timeLine') return updateData.timeLine !== undefined;
+                if (field === 'baseRule') return updateData.baseRuleIds !== undefined || updateData.baseRule !== undefined;
+                return updateData[field] !== undefined;
+            });
+            if (hasCriticalUpdate) {
+                return res.status(400).json({ message: `Giải đấu đã ${tournament.status}, không thể cập nhật cấu hình quan trọng (sportType, timeline, baseRule, tên, địa điểm, ngân sách).` });
+            }
+        }
+
+        // Các field được phép update (bao gồm cả baseRuleIds)
+        const allowedUpdates = [
+            'name', 'description', 'sportType', 'banner', 'logo', 'prizes',
+            'timeLine.registrationStart', 'timeLine.registrationEnd',
+            'timeLine.tournamentStart', 'timeLine.tournamentEnd',
+            'location.city', 'location.district', 'galaConfig', 'budget', 'paymentQR',
+            'baseRuleIds'  // thêm dòng này để cho phép update baseRule
+        ];
+
+        // Áp dụng update
+        allowedUpdates.forEach(field => {
+            let value;
+            if (field === 'baseRuleIds') {
+                value = updateData.baseRuleIds; // lấy trực tiếp từ body
+            } else {
+                value = field.includes('.')
+                    ? field.split('.').reduce((obj, key) => obj?.[key], updateData)
+                    : updateData[field];
+            }
+            if (value !== undefined) {
+                if (field === 'baseRuleIds') {
+                    tournament.baseRule = value; // baseRule là mảng ObjectId
+                } else if (field.includes('.')) {
+                    const [parent, child] = field.split('.');
+                    if (!tournament[parent]) tournament[parent] = {};
+                    tournament[parent][child] = value;
+                } else {
+                    tournament[field] = value;
+                }
+            }
+        });
+
+        // Xử lý ngày tháng nếu có
+        if (updateData.timeLine && !isLocked) {
+            if (updateData.timeLine.registrationStart) tournament.timeLine.registrationStart = new Date(updateData.timeLine.registrationStart);
+            if (updateData.timeLine.registrationEnd) tournament.timeLine.registrationEnd = new Date(updateData.timeLine.registrationEnd);
+            if (updateData.timeLine.tournamentStart) tournament.timeLine.tournamentStart = new Date(updateData.timeLine.tournamentStart);
+            if (updateData.timeLine.tournamentEnd) tournament.timeLine.tournamentEnd = new Date(updateData.timeLine.tournamentEnd);
+        }
+
+        // Nếu cập nhật galaConfig.time thì chuyển thành Date
+        if (updateData.galaConfig && updateData.galaConfig.time) {
+            tournament.galaConfig.time = new Date(updateData.galaConfig.time);
+        }
+
+        await tournament.save();
+        return res.status(200).json({ message: "Cập nhật giải đấu thành công", tournament });
     } catch (error) {
-        console.error("Lỗi trong hàm updateTournament:", error);
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        return res.status(500).json({ message: error.message });
     }
 };
 
-export const deleteTournament = async (req, res) => {
+export const softDeleteTournament = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { id } = req.params;
+        const { tournamentId } = req.params;
+
+        const tournament = await Tournament.findById(tournamentId);
+        if (!tournament) {
+            return res.status(404).json({ message: "Giải đấu không tồn tại" });
+        }
+
+        // ✅ Không cho soft delete nếu đã playing hoặc completed
+        const blockedStatuses = ['playing', 'completed'];
+        if (blockedStatuses.includes(tournament.status)) {
+            return res.status(400).json({
+                message: `Không thể hủy giải đấu đang ở trạng thái ${tournament.status}.`
+            });
+        }
 
         const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: "không tìm thấy người dùng" });
-        const organization = await Organization.findOne({ ownerId: userId });
-        if (!organization) return res.status(404).json({ message: "Tổ chức không tồn tại" });
+        const hasAdminRole = user.roleNames.includes('admin');
+        const isOwner = await Organization.findOne({ _id: tournament.organizer, ownerId: userId });
 
-        const tournament = await Tournament.findById(id);
-        if (!tournament) return res.status(404).json({ message: "Tournament not found" });
-        if (tournament.organizer.toString() !== organization._id.toString()) {
-            return res.status(403).json({ message: "Bạn không có quyền xóa giải đấu này" });
+        if (!hasAdminRole && !isOwner) {
+            return res.status(403).json({ message: "Bạn không có quyền hủy giải đấu này" });
         }
 
         tournament.status = 'cancelled';
         await tournament.save();
-        res.status(200).json({ message: "Tournament cancelled successfully" });
+
+        return res.status(200).json({ message: "Giải đấu đã bị hủy (soft delete)", tournament });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 };
 
-export const getPlayerTournament = async (req, res) => {
+
+export const changeTournamentStatus = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { tournamentId, sport } = req.query;
+        const { tournamentId } = req.params;
+        const { newStatus } = req.body;
 
-        const tournament = await Tournament.findById(tournamentId);
-        if (!tournament) return res.status(404).json({ message: "Giải đấu không tồn tại" });
-
-        const organization = await Organization.findOne({ ownerId: userId });
-        if (!organization || tournament.organizer.toString() !== organization._id.toString()) {
-            return res.status(403).json({ message: "Không có quyền xem player của giải này" });
+        const allowedStatuses = ['upcoming', 'actived', 'playing', 'completed', 'cancelled'];
+        if (!newStatus || !allowedStatuses.includes(newStatus)) {
+            return res.status(400).json({ message: "Status không hợp lệ. Cho phép: " + allowedStatuses.join(', ') });
         }
 
-        const filter = {};
-        if (tournamentId) filter.tournamentId = tournamentId;
-        if (sport) filter['sports.category'] = sport; // tùy chỉnh
+        const tournament = await Tournament.findById(tournamentId);
+        if (!tournament) {
+            return res.status(404).json({ message: "Giải đấu không tồn tại" });
+        }
 
-        const players = await Player.find(filter).populate('userId', 'username email').sort({ createdAt: -1 });
+        // ✅ CHẶN: nếu đã playing hoặc completed thì không được chuyển nữa
+        const blockedStatuses = ['playing', 'completed'];
+        if (blockedStatuses.includes(tournament.status)) {
+            return res.status(400).json({
+                message: `Giải đấu đã ở trạng thái ${tournament.status}, không thể thay đổi trạng thái.`
+            });
+        }
 
-        return res.status(200).json({ message: 'Lấy dữ liệu thành công', data: players });
+        const user = await User.findById(userId);
+        const hasAdminRole = user.roleNames.includes('admin');
+        const isOwner = await Organization.findOne({ _id: tournament.organizer, ownerId: userId });
+
+        if (!hasAdminRole && !isOwner) {
+            return res.status(403).json({ message: "Bạn không có quyền thay đổi trạng thái giải đấu" });
+        }
+
+        // Logic thứ tự (không bắt buộc, nhưng gợi ý)
+        const statusOrder = ['upcoming', 'actived', 'playing', 'completed'];
+        const currentIdx = statusOrder.indexOf(tournament.status);
+        const newIdx = statusOrder.indexOf(newStatus);
+        if (!hasAdminRole && newIdx < currentIdx && tournament.status !== 'cancelled') {
+            return res.status(400).json({ message: "Bạn không thể quay lại trạng thái cũ trừ khi có quyền admin" });
+        }
+
+        tournament.status = newStatus;
+        await tournament.save();
+
+        return res.status(200).json({ message: `Đã chuyển trạng thái giải sang ${newStatus}`, tournament });
     } catch (error) {
-        console.error("Lỗi trong getPlayerTournament:", error);
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        return res.status(500).json({ message: error.message });
     }
 };

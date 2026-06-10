@@ -1,71 +1,59 @@
 import mongoose from 'mongoose';
 
 const tournamentSchema = new mongoose.Schema({
-    name: {
+    tournamnetItem:[{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'TournamentItem'
+    }],
+    
+    name:{
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
-
-    description: { type: String, trim: true, default: "" },
-    logo:{
+    description: {
         type:String,
-        default:''
+        trim:true
+    },
+    logo: {
+        type: String,
+        default: ''
     },
 
     banner: { type: String },
 
-    sportType:[{
-        type: String,
-        required: true
-    }],
-
-    timeLine:{
-        registrationStart: {type: Date,required: true},
-        registrationEnd: {type: Date,required: true},
-        tournamentStart: {type: Date,required: true},
-        tournamentEnd: {type: Date,required: true},
+    startDate:{
+        type:Date,
+        required:true
     },
-    paymentQR: { type: String, default: "" },
-    prizes: { type: String, trim: true, default: "" },
-
-    galaConfig: {
-        hasGala: { type: Boolean, default: false },
-        time: { type: Date, default: null },
-        venue: { type: String, default: "" },
-        description: { type: String, default: "" }
-    },
-
-    location: {
-        city: String,
-        district: String,
-    },
-    baseRule:[{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'SportRule',
-    }],
-
-    budget: {
-        totalSponsor: { type: Number, default: 0 },
-        totalExpense: { type: Number, default: 0 },
-    },
-    organizer: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Organization',
+    endDate: {
+        type: Date,
         required: true
     },
-
-    sponsors: [{
+    location:{
+        type:String,
+        trim:true
+    },
+    organization:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Sponsor',
-    }],
+        ref: 'User'
+    },
+    numberOfSport:{
+        type:Number,
+        default:0
+    },
 
-    status:{
+    status: {
         type: String,
-        enum: ['upcoming', 'actived', 'playing','completed', 'cancelled'],
+        enum: ['upcoming', 'actived', 'playing', 'completed', 'cancelled'],
         default: 'upcoming'
     }
-}, 
-{ timestamps: true });
+
+
+},
+    {timestamp: true}
+);
 
 const Tournament = mongoose.model('Tournament', tournamentSchema);
+
 export default Tournament;

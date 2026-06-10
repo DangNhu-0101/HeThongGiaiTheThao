@@ -1,60 +1,38 @@
 import mongoose from 'mongoose';
+import TournamentItem from '../tournamentItem';
 
-const bracketSchema = new mongoose.Schema({
-    tuornamentId:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'Tuornament',
-        required: true
-    },
-    sportRuleId:{
+const bracketSchema =new mongoose.Schema({
+    TournamentItem:{
         type: mongoose.Schema.Types.ObjectId,
-        ref:"SportRule"
+        ref: 'TournamentItem',
+        required:true
     },
     stageId:{
         type: mongoose.Schema.Types.ObjectId,
-        ref:'StageRule',
-        required: true
-    },
-    type:{
-        type:String,
-        enum:["knockout","group_stage","round_robin"]
-    },
-    name:{
-        type:string,
-        trim:true,
+        ref: 'StageRule',
         required:true
     },
-    groups:[{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'Group'
-    }],
-    knockoutMatches:[{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'Match'
-    }],
-    slotTeamIn:{
-        type:Number,
-        default:2
+
+    type: {
+        type: String,
+        enum: ['group', 'knockout'],
+        required: true
     },
-    extraTimeDuration: {
+    name:{
+        type:String
+    },
+    totalTeamsIn: {
         type: Number,
-        default: 30,
+        required: true,
+        min: 2,
     },
-    
-    hasWildcards: { type: Boolean, default: false },
-    wildcardsCount: { type: Number, default: 0, min: 0 },
+    group:[{
+        type: mongoose.Schema.Types.ObjectId,
+        ref:'Group'
+    }]
+},
+{timestamps:true}
+);
 
-    timeBreak:{
-        hasBreak:{ type: Boolean, default:false},
-        breakDuration:{type:Number, default:0}, // đơn vị phút
-    },
-
-
-
-    pointsConfig: {
-        win: { type: Number, default: 3 },
-        draw: { type: Number, default: 1 }, // nếu có hòa
-        loss: { type: Number, default: 0 },
-
-    },
-})
+const Bracket =mongoose.model('Bracket',bracketSchema)
+export default Bracket;

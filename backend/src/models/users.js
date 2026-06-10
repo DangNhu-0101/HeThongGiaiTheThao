@@ -25,10 +25,7 @@ const userSchema = new mongoose.Schema({
     roles: [{ 
         type: mongoose.Schema.Types.ObjectId,
         ref: "Role" 
-        }], // mảng roles
-    roleNames: [{ 
-        type: String 
-    }],
+     }], 
     avatar: { type: String },
 
     status: {
@@ -36,7 +33,6 @@ const userSchema = new mongoose.Schema({
         enum: ['active', 'inactive', 'banned'],
         default: 'active'
     }
-
 }
 , { timestamps: true });
 

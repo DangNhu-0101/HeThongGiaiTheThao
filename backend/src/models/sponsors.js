@@ -16,9 +16,9 @@ const sponsorSchema = new mongoose.Schema({
     },
 
     // LIÊN KẾT GIẢI ĐẤU
-    tournamentId: {
+    tournamentItemId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Tournament',
+        ref: 'TournamentItem',
         required: true
     },
 
