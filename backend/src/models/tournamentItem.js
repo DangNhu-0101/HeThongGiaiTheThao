@@ -5,7 +5,7 @@ const tournamentItemSchema = new mongoose.Schema({
     tournamentId:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Tournament',
-        required: true,
+        default: null 
     },
     organization:{
         type: mongoose.Schema.Types.ObjectId,
@@ -14,22 +14,18 @@ const tournamentItemSchema = new mongoose.Schema({
     categoryRule: { type: mongoose.Schema.Types.ObjectId, ref: 'CategoryRule' },
 
     structure:{
-        stage:{
+        stage:[{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'StageRule'
-        },
-        bracket:{
+        }],
+        bracket:[{
             type: mongoose.Schema.Types.ObjectId,
             ref:'Bracket'
-        },
-        group:{
+        }],
+        group:[{
             type: mongoose.Schema.Types.ObjectId,
             ref:'Group'
-        },
-        round:{
-            type: mongoose.Schema.Types.ObjectId,
-            ref:'Round'
-        }
+        }],
     },
     name:{
         type:String,

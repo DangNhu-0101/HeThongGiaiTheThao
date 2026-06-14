@@ -7,7 +7,7 @@ const StageRuleSchema = new mongoose.Schema({
     },
     number:{
         type:Number,
-        reuired:true
+        required:true
     },
     name:{
         type:String,
@@ -20,6 +20,10 @@ const StageRuleSchema = new mongoose.Schema({
         draw: { type: Number, default: 1 }, // nếu có hòa
         loss: { type: Number, default: 0 },
         // có thể mở rộng: bonusPoint, v.v.
+    },
+    hasBracket:{
+        type: Boolean,
+        default: false
     },
 
     // Tiêu chí xếp hạng (GROUP_STAGE)
@@ -47,6 +51,9 @@ const StageRuleSchema = new mongoose.Schema({
 
     hasWildcards: { type: Boolean, default: false },
     wildcardsCount: { type: Number, default: 0, min: 0 },
+    // models/stageRules.js (thêm các dòng)
+    startDate: { type: Date, default: null },
+    endDate: { type: Date, default: null },
 
     status:{
         type:String,

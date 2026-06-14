@@ -23,6 +23,7 @@ const groupSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'StageRule',
     },
+    matches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Match' }],
 
     status: {
         type: String,
