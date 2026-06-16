@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import Session from '../models/session.js';
-import Role from '../models/Role.js';
+import Role from '../models/roles.js';
 import User from '../models/users.js';
 import Player from '../models/players.js';       // <--- THIẾU DÒNG NÀY ĐÂY!
 import Referee from '../models/refeeres.js';     // Import luôn cho chắc

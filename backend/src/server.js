@@ -4,33 +4,75 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import { fileURLToPath } from 'url';
 
 import { connectDB } from './libs/db.js';
 import initRoles from './scripts/initialRole.js';
 
+// Import routes
+import authRoutes from './routes/authRoutes.js';
+import tournamentRoutes from './routes/tournamentRoutes.js';
+import stageRoutes from './routes/stageRoutes.js';
+import ruleRoutes from './routes/ruleRoutes.js';
+import sponsorRoutes from './routes/sponsorRoutes.js';
+import courtRoutes from './routes/courtRoutes.js';
+// Import các route khác nếu có (bracket, group, match, participant, etc.)
+
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors());
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    credentials: true
+}));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/stages', stageRoutes);
+app.use('/api/rules', ruleRoutes);
+app.use('/api/sponsors', sponsorRoutes);
+app.use('/api/courts', courtRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err.stack);
+    res.status(500).json({ success: false, message: err.message || 'Internal Server Error' });
+});
+
+// 404 handler
 
 
+// Kết nối DB và khởi động server
 connectDB().then(async () => {
-    // Chỉ khởi tạo roles nếu cần (có thể kiểm tra số lượng roles)
-    const roleCount = await mongoose.model('Role').countDocuments();
-    if (roleCount === 0) {
-        await initRoles();
-    } else {
-        console.log('Roles already exist, skipping init.');
+    // Chỉ khởi tạo roles nếu cần
+    try {
+        const roleCount = await mongoose.model('Role').countDocuments();
+        if (roleCount === 0) {
+            await initRoles();
+            console.log('✅ Roles initialized');
+        } else {
+            console.log('✅ Roles already exist, skipping init.');
+        }
+    } catch (error) {
+        console.warn('⚠️ Không thể kiểm tra roles, bỏ qua init:', error.message);
     }
 
     app.listen(PORT, () => {
-        console.log(`Server started on port: ${PORT}`);
+        console.log(`🚀 Server started on port: ${PORT}`);
+        console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 }).catch((error) => {
-    console.error("Kết nối Database thất bại:", error);
+    console.error("❌ Kết nối Database thất bại:", error);
     process.exit(1);
 });
+
+export default app;
