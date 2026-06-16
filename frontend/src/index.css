@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand */
+  --color-primary: #D6001C;
+  --color-primary-hover: #B80018;
+  --color-primary-foreground: #FFFFFF;
+
+  /* Header */
+  --color-header: #00264D;
+  --color-header-foreground: #FFFFFF;
+
+  /* Hero */
+  --color-hero-start: #003B73;
+  --color-hero-end: #005AA7;
+
+  /* Background */
+  --color-background: #F8FAFC;
+  --color-foreground: #1E293B;
+
+  /* Surface */
+  --color-card: #FFFFFF;
+  --color-card-foreground: #334155;
+
+  /* Secondary */
+  --color-secondary: #EAF2FB;
+  --color-secondary-foreground: #003B73;
+
+  /* Accent */
+  --color-accent: #FFC857;
+  --color-accent-foreground: #00264D;
+
+  /* Muted */
+  --color-muted: #F1F5F9;
+  --color-muted-foreground: #64748B;
+
+  /* Border */
+  --color-border: #D9E2EC;
+  --color-input: #D9E2EC;
+  --color-ring: #005AA7;
+
+  /* Status */
+  --color-success: #22C55E;
+  --color-warning: #FFC857;
+  --color-destructive: #D6001C;
+
+  /* Text */
+  --color-title: #FFFFFF;
+  --color-subtitle: #D9E2EC;
+
+  /* Footer */
+  --color-footer-bg: #001B36;
+  --color-footer-foreground: #D9E2EC;
+}
+
+/* Nếu bạn có các thiết lập CSS thuần túy khác, hãy viết ở bên dưới dòng này */
