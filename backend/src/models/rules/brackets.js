@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import TournamentItem from '../tournamentItem';
+import TournamentItem from '../tournamentItem.js';
 
 const bracketSchema =new mongoose.Schema({
     TournamentItem:{

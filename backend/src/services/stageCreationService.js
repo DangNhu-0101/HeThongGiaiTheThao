@@ -1,9 +1,9 @@
 // services/stageCreationService.js
 import mongoose from 'mongoose';
-import StageRule from '../models/stageRules.js';
-import Bracket from '../models/brackets.js';
+import StageRule from '../models/rules/stageRules.js';
+import Bracket from '../models/rules/brackets.js';
 import Group from '../models/groups.js';
-import Match from '../models/match.js';
+import Match from '../models/matches.js';
 
 /**
  * Tạo các trận đấu vòng bảng (round-robin) cho một group

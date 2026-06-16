@@ -10,12 +10,12 @@ import { connectDB } from './libs/db.js';
 import initRoles from './scripts/initialRole.js';
 
 // Import routes
-import authRoutes from './routes/authRoutes.js';
-import tournamentRoutes from './routes/tournamentRoutes.js';
-import stageRoutes from './routes/stageRoutes.js';
-import ruleRoutes from './routes/ruleRoutes.js';
-import sponsorRoutes from './routes/sponsorRoutes.js';
-import courtRoutes from './routes/courtRoutes.js';
+import authRoutes from './routes/authRoute.js';
+import tournamentRoutes from './routes/tournamentRoute.js';
+import stageRoutes from './routes/stageRoute.js';
+import ruleRoutes from './routes/ruleRoute.js';
+import sponsorRoutes from './routes/sponsorRoute.js';
+import courtRoutes from './routes/courtRoute.js';
 // Import các route khác nếu có (bracket, group, match, participant, etc.)
 
 dotenv.config();

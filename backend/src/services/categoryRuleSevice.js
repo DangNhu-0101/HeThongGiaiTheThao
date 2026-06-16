@@ -1,10 +1,10 @@
 // services/categoryRuleService.js
 import CategoryRule from '../models/rules/categories.js';
 import CategoryTemplate from '../models/rules/ruleTemplate/categoryTemplate.js';
-import GameRule from '../models/rules/gameRule.js';
-import ScoringRule from '../models/rules/scoringRule.js';
-import TimeManagementRule from '../models/rules/timeManagementRule.js';
-import ResourceManagementRule from '../models/rules/resourceManagementRule.js';
+import GameRule from '../models/rules/gameRules.js';
+import ScoringRule from '../models/rules/scoringRules.js';
+import TimeManagementRule from '../models/rules/timeManagements.js';
+import ResourceManagementRule from '../models/rules/resourceManagements.js';
 import FaultsAndPenalties from '../models/rules/faultsAndPenalties.js';
 import mongoose from 'mongoose';
 

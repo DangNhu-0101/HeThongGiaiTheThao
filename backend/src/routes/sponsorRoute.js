@@ -8,7 +8,7 @@ import {
     deactivateSponsor,
     activateSponsor
 } from '../controllers/sponsorController.js';
-import { protectedRoute } from '../middlewares/auth.js';
+import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 

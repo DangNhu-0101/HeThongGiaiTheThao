@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import stageRules from './rules/stageRules';
+import stageRules from './rules/stageRules.js';
 
 const tournamentItemSchema = new mongoose.Schema({
     tournamentId:{

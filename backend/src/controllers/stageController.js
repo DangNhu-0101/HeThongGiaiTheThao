@@ -5,10 +5,10 @@ import TournamentItem from '../models/tournamentItem.js';
 import CategoryRule from '../models/rules/categories.js';
 import User from '../models/users.js';
 import Organization from '../models/orgs.js';
-import StageRule from '../models/stageRules.js';
-import Bracket from '../models/brackets.js';
+import StageRule from '../models/rules/stageRules.js';
+import Bracket from '../models/rules/brackets.js';
 import Group from '../models/groups.js';
-import Match from '../models/match.js';
+import Match from '../models/matches.js';
 
 // Tạo stage mới (có thể tạo một stage riêng lẻ)
 export const createStage = async (req, res) => {

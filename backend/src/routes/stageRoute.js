@@ -8,7 +8,7 @@ import {
     deleteStage,
     completeStage
 } from '../controllers/stageController.js';
-import { protectedRoute } from '../middlewares/auth.js';
+import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 

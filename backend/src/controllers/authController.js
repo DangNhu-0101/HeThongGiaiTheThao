@@ -5,7 +5,7 @@ import Session from '../models/session.js';
 import Role from '../models/roles.js';
 import User from '../models/users.js';
 import Player from '../models/players.js';       // <--- THIẾU DÒNG NÀY ĐÂY!
-import Referee from '../models/refeeres.js';     // Import luôn cho chắc
+import Referee from '../models/referees.js';     // Import luôn cho chắc
 import Organization from '../models/orgs.js'; // Import luôn cho chắc
 
 const ACCESS_TOKEN_TTL = 30 * 60 * 1000; // 30 phút (tính bằng ms để set Cookie)
