@@ -80,9 +80,7 @@ class CategoryRuleService {
         if (updateData.displayName) categoryRule.displayName = updateData.displayName;
         if (updateData.playerSlotsPerTeam) categoryRule.playerSlotsPerTeam = updateData.playerSlotsPerTeam;
         if (updateData.status) categoryRule.status = updateData.status;
-        // Cập nhật các rule tham chiếu (có thể tạo mới hoặc cập nhật rule cũ)
-        // Ở đây ta giả sử FE gửi các ruleId mới hoặc object rule mới
-        // Để đơn giản, ta chỉ cho phép cập nhật trực tiếp các ruleId (nếu có)
+       
         if (updateData.gameRule) categoryRule.gameRule = updateData.gameRule;
         if (updateData.scoringRule) categoryRule.scoringRule = updateData.scoringRule;
         if (updateData.timeManagementRule) categoryRule.timeManagementRule = updateData.timeManagementRule;

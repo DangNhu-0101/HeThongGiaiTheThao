@@ -42,9 +42,9 @@ export const protectedRoute = (...args) => {
             let userRoleNames = [];
             if (user.roles && user.roles.length > 0) {
                 userRoleNames = user.roles.map(role => role.name); // role đã được populate, có trường name
-            } else if (user.role) {
-                userRoleNames = [user.role];
-            } else if (user.roleName) {
+            } else if (user.roles) {
+                userRoleNames = [user.roles];
+            } else if (user.roles) {
                 userRoleNames = [user.roleName];
             }
 

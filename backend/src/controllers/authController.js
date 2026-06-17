@@ -8,7 +8,7 @@ import Player from '../models/players.js';       // <--- THIẾU DÒNG NÀY ĐÂ
 import Referee from '../models/referees.js';     // Import luôn cho chắc
 import Organization from '../models/orgs.js'; // Import luôn cho chắc
 
-const ACCESS_TOKEN_TTL = 30 * 60 * 1000; // 30 phút (tính bằng ms để set Cookie)
+const ACCESS_TOKEN_TTL = 30 * 60 * 60*1000; // 30 phút (tính bằng ms để set Cookie)
 const REFRESH_TOKEN_TTL = 12 * 24 * 60 * 60 * 1000; // 12 ngày
 
 // 1. ĐĂNG KÝ TÀI KHOẢN

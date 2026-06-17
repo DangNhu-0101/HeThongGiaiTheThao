@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import RuleService from '../services/ruleService.js';
-import categoryRuleService from '../services/categoryRuleSevice.js';
+import CategoryRuleService from '../services/categoryRuleSevice.js';
 
 // lấy tất cả luật system
 export const getTemplates = async (req, res) => {

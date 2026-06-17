@@ -1,3 +1,4 @@
+// models/courts.js
 import mongoose from "mongoose";
 
 const courtSchema = new mongoose.Schema({
@@ -5,7 +6,6 @@ const courtSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        // Ví dụ: "Sân Đa Năng A1", "Sân Pickleball & Tennis 01"
     },
     tournamentItemId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -20,15 +20,12 @@ const courtSchema = new mongoose.Schema({
     location: {
         type: String,
         trim: true,
-        // Lưu vị trí cụ thể trong cụm sân (VD: Khu A, Tầng 2)
     }
-}, { 
-    timestamps: true 
+}, {
+    timestamps: true
 });
 
-// Tạo Index cho tournamentId và sportTypes
-courtSchema.index({ tournamentId: 1 });
-courtSchema.index({ sportTypes: 1 });
-
+courtSchema.index({ tournamentItemId: 1 });
+courtSchema.index({ status: 1 });
 
 export default mongoose.model("Court", courtSchema);

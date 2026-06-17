@@ -1,7 +1,7 @@
 // routes/sponsorRoutes.js
 import express from 'express';
 import {
-    getSponsorsByTournament,
+    getSponsorsByTournamentItem,
     getSponsorById,
     createSponsor,
     updateSponsor,
@@ -12,22 +12,22 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Lấy danh sách nhà tài trợ của giải đấu (có phân trang, lọc)
-router.get('/', protectedRoute(), getSponsorsByTournament);
+// Lấy danh sách sponsor theo tournamentItemId (có phân trang, lọc)
+router.get('/tournament-item/:tournamentItemId', protectedRoute(), getSponsorsByTournamentItem);
 
-// Lấy chi tiết nhà tài trợ
+// Lấy chi tiết sponsor
 router.get('/:id', protectedRoute(), getSponsorById);
 
-// Tạo nhà tài trợ mới (yêu cầu admin hoặc org)
+// Tạo sponsor mới
 router.post('/', protectedRoute('admin', 'org'), createSponsor);
 
-// Cập nhật nhà tài trợ (yêu cầu admin hoặc org)
+// Cập nhật sponsor
 router.put('/:id', protectedRoute('admin', 'org'), updateSponsor);
 
-// Vô hiệu hóa nhà tài trợ (yêu cầu admin hoặc org)
+// Vô hiệu hóa sponsor
 router.patch('/:id/deactivate', protectedRoute('admin', 'org'), deactivateSponsor);
 
-// Kích hoạt lại nhà tài trợ (yêu cầu admin hoặc org)
+// Kích hoạt lại sponsor
 router.patch('/:id/activate', protectedRoute('admin', 'org'), activateSponsor);
 
 export default router;

@@ -1,59 +1,37 @@
+// models/tournaments.js
 import mongoose from 'mongoose';
 
 const tournamentSchema = new mongoose.Schema({
-    tournamnetItem:[{
+    tournamnetItem: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'TournamentItem'
     }],
-    
-    name:{
-        type: String,
-        required: true,
-        trim: true
+    name: { 
+        type: String, 
+        required: true, 
+        trim: true 
     },
-    description: {
-        type:String,
-        trim:true
+    description: { 
+        type: String, 
+        trim: true 
     },
-    logo: {
-        type: String,
-        default: ''
-    },
-
+    logo: { type: String, default: '' },
     banner: { type: String },
-
-    startDate:{
-        type:Date,
-        required:true
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
+    location: {
+        city: { type: String, default: '' },
+        district: { type: String, default: '' },
+        detail: { type: String, default: '' }
     },
-    endDate: {
-        type: Date,
-        required: true
-    },
-    location:{
-        type:String,
-        trim:true
-    },
-    organization:{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-    numberOfSport:{
-        type:Number,
-        default:0
-    },
-
+    organization: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    numberOfSport: { type: Number, default: 0 },
     status: {
         type: String,
         enum: ['upcoming', 'actived', 'playing', 'completed', 'cancelled'],
         default: 'upcoming'
     }
-
-
-},
-    {timestamp: true}
-);
+}, { timestamps: true });
 
 const Tournament = mongoose.model('Tournament', tournamentSchema);
-
 export default Tournament;

@@ -48,7 +48,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ success: false, message: err.message || 'Internal Server Error' });
 });
 
-// 404 handler
+
 
 
 // Kết nối DB và khởi động server
