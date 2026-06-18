@@ -1,8 +1,9 @@
-import moogoose from 'mongoose';
+// models/players.js
+import mongoose from 'mongoose';
 
-const playerSchema = new moogoose.Schema({
+const playerSchema = new mongoose.Schema({
     userId: {
-        type: moogoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
         unique: true
@@ -20,19 +21,24 @@ const playerSchema = new moogoose.Schema({
         enum: ['male', 'female', 'other'],
         required: true
     },
+    skill:{
+        type:Number,
+        required:true
+    },
     sports: [{
-        category: { type: String, },
-        level: { type: String, },
-        position: { type: String, }
+        category: { type: String },
+        level: { type: String },
+        position: { type: String }
     }],
+    // Trạng thái duyệt profile
 
+    // Trạng thái thi đấu (có thể giữ lại hoặc gộp chung, nhưng tôi đề xuất giữ riêng)
     status: {
         type: String,
-        enum: ['active', 'injured', 'unavailable', 'deleted'],
-        default: 'active'
+        enum: ['actived', 'injured', 'unavailable'],
+        default: 'actived'
     }
-
 }, { timestamps: true });
 
-const Player = moogoose.model('Player', playerSchema);
+const Player = mongoose.model('Player', playerSchema);
 export default Player;

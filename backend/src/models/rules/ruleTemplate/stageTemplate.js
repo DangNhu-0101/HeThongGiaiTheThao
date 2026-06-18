@@ -9,7 +9,7 @@ const stageTemplateSchema = new mongoose.Schema({
     scoring: { type: String },                      // "BEST_OF_3_TO_11"
     advanceCriteria: { type: String },              // "TOP_2_PER_GROUP"
     config: { type: mongoose.Schema.Types.Mixed, default: {} }, // chứa hasBronzeMatch, teamCount, ...
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' }
+    status: { type: String, enum: ['actived', 'inactived'], default: 'actived' }
 }, { timestamps: true });
 
 export default mongoose.model('StageTemplate', stageTemplateSchema);

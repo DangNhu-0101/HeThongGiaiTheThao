@@ -57,7 +57,7 @@ const StageRuleSchema = new mongoose.Schema({
 
     status:{
         type:String,
-        enum:['pending', 'active', 'completed'],
+        enum:['pending', 'actived', 'completed'],
         default:'pending'
     }
 },

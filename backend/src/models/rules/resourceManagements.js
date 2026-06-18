@@ -21,7 +21,7 @@ const resourceManagementRuleSchema = new mongoose.Schema({
         other: { type: mongoose.Schema.Types.Mixed, default: {} }
     },
     customResources: { type: mongoose.Schema.Types.Mixed, default: {} },
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' }
+    status: { type: String, enum: ['actived', 'inactived'], default: 'actived' }
 }, { timestamps: true });
 
 export default mongoose.model('ResourceManagementRule', resourceManagementRuleSchema);

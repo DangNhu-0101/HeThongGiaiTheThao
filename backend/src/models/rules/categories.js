@@ -25,7 +25,7 @@ const categoryRuleSchema = new mongoose.Schema({
     // Các trường mở rộng khác
     customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
 
-    status: { type: String, enum: ['active', 'inactive', 'cancelled'], default: 'active' }
+    status: { type: String, enum: ['actived', 'inactived', 'cancelled'], default: 'actived' }
 }, { timestamps: true });
 
 export default mongoose.model('CategoryRule', categoryRuleSchema);

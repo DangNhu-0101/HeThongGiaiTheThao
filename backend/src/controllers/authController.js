@@ -41,9 +41,7 @@ export const register = async (req, res) => {
             hashedPassword,
             email,
             phoneNumber,
-            role: defaultRole._id,      // gán ObjectId của role mặc định
-            roleName: defaultRole.name  // denormalized
-            // không có avatar, status sẽ mặc định 'active'
+            roles: defaultRole._id,      // gán ObjectId của role mặc định           // không có avatar, status sẽ mặc định 'active'
         });
 
         await newUser.save();
@@ -152,7 +150,7 @@ export const login = async (req, res) => {
             user: {
                 id: user._id,
                 username: user.username,
-                role: user.role
+                role: user.roles
             }
         });
 

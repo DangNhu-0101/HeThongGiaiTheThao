@@ -14,7 +14,7 @@ const courtSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['empty', 'busy', 'maintenance', 'inactive'],
+        enum: ['empty', 'busy', 'maintenance', 'inactived'],
         default: 'empty'
     },
     location: {

@@ -38,7 +38,7 @@ const gameRuleSchema = new mongoose.Schema({
     customRules: { type: mongoose.Schema.Types.Mixed, default: {} },
 
     // Trạng thái
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' }
+    status: { type: String, enum: ['actived', 'inactived'], default: 'actived' }
 }, { timestamps: true });
 
 // Index cho tìm kiếm

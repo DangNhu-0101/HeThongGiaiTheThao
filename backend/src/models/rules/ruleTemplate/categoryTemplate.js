@@ -14,7 +14,7 @@ const categoryTemplateSchema = new mongoose.Schema({
     timeManagementRules: { type: mongoose.Schema.Types.Mixed, default: {} },
     resourceManagementRules: { type: mongoose.Schema.Types.Mixed, default: {} },
     faultsAndPenaltiesRules: { type: mongoose.Schema.Types.Mixed, default: {} },
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' }
+    status: { type: String, enum: ['actived', 'inactived'], default: 'actived' }
 }, { timestamps: true });
 
 categoryTemplateSchema.index({ sportType: 1, code: 1 }, { unique: true });

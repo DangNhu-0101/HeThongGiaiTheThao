@@ -21,7 +21,7 @@ const timeManagementRuleSchema = new mongoose.Schema({
     maxWaitTimeBeforeForfeit: { type: Number, default: 15 },
     changeSideAt: { type: String, default: 'HALF_TIME' },
     customTimeRules: { type: mongoose.Schema.Types.Mixed, default: {} },
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' }
+    status: { type: String, enum: ['actived', 'inactived'], default: 'actived' }
 }, { timestamps: true });
 
 export default mongoose.model('TimeManagementRule', timeManagementRuleSchema);

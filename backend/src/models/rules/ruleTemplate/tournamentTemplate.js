@@ -8,7 +8,7 @@ const tournamentTemplateSchema = new mongoose.Schema({
     language: { type: String, default: 'vi' },
     categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CategoryTemplate' }],
     stages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'StageTemplate' }],
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' }
+    status: { type: String, enum: ['actived', 'inactived'], default: 'actived' }
 }, { timestamps: true });
 
 export default mongoose.model('TournamentTemplate', tournamentTemplateSchema);
