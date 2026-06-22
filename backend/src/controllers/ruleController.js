@@ -84,6 +84,21 @@ export const createCategoryRule = async (req, res) => {
     }
 };
 
+export const createCustomCategoryRule = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const categoryRule = await CategoryRuleService.createCustom(req.body, req.user._id, session);
+        await session.commitTransaction();
+        return res.status(201).json({ success: true, data: categoryRule });
+    } catch (error) {
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
 
 export const getCategoryRuleById = async (req, res) => {
     try {
@@ -130,8 +145,12 @@ export const deleteCategoryRule = async (req, res) => {
 
 export const getAllCategoryRules = async (req, res) => {
     try {
-        const { sportType } = req.query;
-        const list = await CategoryRuleService.getAll({ sportType });
+        const { sportType, availableOnly } = req.query;
+        const list = await CategoryRuleService.getAll({
+            sportType,
+            availableOnly: availableOnly === 'true',
+            createdBy: req.userRoleNames?.includes('admin') ? null : req.user._id
+        });
         res.json({ success: true, data: list });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

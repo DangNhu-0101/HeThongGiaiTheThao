@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 
 const categoryRuleSchema = new mongoose.Schema({
     tournamentItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentItem', default: null },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    source: { type: String, enum: ['system', 'custom'], default: 'system' },
 
     name: { type: String, required: true },         // "Đơn nam"
     sportType: { type: String, required: true },    // "pickleball"
@@ -24,6 +26,7 @@ const categoryRuleSchema = new mongoose.Schema({
 
     // Các trường mở rộng khác
     customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
+    formatConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
 
     status: { type: String, enum: ['actived', 'inactived', 'cancelled'], default: 'actived' }
 }, { timestamps: true });

@@ -10,7 +10,8 @@ import {
     getCategoryRuleById,
     updateCategoryRule,
     deleteCategoryRule,
-    getAllCategoryRules
+    getAllCategoryRules,
+    createCustomCategoryRule
 } from '../controllers/ruleController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
@@ -41,6 +42,7 @@ router.get('/category-rules/:id', protectedRoute(), getCategoryRuleById);
 
 // Tạo CategoryRule từ category template (yêu cầu admin hoặc org)
 router.post('/category-rules', protectedRoute('admin', 'org'), createCategoryRule);
+router.post('/category-rules/custom', protectedRoute('admin', 'org'), createCustomCategoryRule);
 
 // Cập nhật CategoryRule (yêu cầu admin hoặc org)
 router.put('/category-rules/:id', protectedRoute('admin', 'org'), updateCategoryRule);

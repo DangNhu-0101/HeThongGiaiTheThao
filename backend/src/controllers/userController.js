@@ -5,6 +5,94 @@ import Organization from '../models/orgs.js';
 import Referee from '../models/referees.js';
 import Role from '../models/roles.js';
 
+// ========== ADMIN USER MANAGEMENT ==========
+export const getUsers = async (req, res) => {
+    try {
+        const users = await User.find({})
+            .select('-hashedPassword')
+            .populate('roles', 'name')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        return res.status(200).json({
+            data: users.map((user) => ({
+                ...user,
+                roles: user.roles.map((role) => role.name)
+            }))
+        });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+export const approveRoleRequest = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+        if (user.roleRequestStatus !== 'pending' || !user.requestedRole) {
+            return res.status(400).json({ message: 'Người dùng không có yêu cầu vai trò đang chờ duyệt' });
+        }
+
+        const requestedRole = await Role.findOne({ name: user.requestedRole });
+        if (!requestedRole) return res.status(500).json({ message: 'Vai trò yêu cầu chưa được khởi tạo' });
+
+        const profile = user.requestedProfile || {};
+        if (user.requestedRole === 'org') {
+            await Organization.findOneAndUpdate(
+                { ownerId: user._id },
+                {
+                    ownerId: user._id,
+                    name: profile.orgName || profile.name || user.username,
+                    contactEmail: user.email,
+                    contactPhone: user.phoneNumber,
+                    address: typeof profile.address === 'string' ? { detail: profile.address } : profile.address,
+                    status: 'actived',
+                    verifiedAt: new Date(),
+                    verifiedBy: req.user._id
+                },
+                { upsert: true, new: true, runValidators: true }
+            );
+        } else if (user.requestedRole === 'referee') {
+            await Referee.findOneAndUpdate(
+                { userId: user._id },
+                {
+                    userId: user._id,
+                    phoneNumber: user.phoneNumber,
+                    name: profile.name || user.username,
+                    birthDate: profile.birthDate || profile.birthDay,
+                    gender: profile.gender,
+                    sports: profile.sports || [{ yearsOfExperience: Number(profile.experienceYears || 0) }],
+                    status: 'actived',
+                    verifiedAt: new Date(),
+                    verifiedBy: req.user._id
+                },
+                { upsert: true, new: true, runValidators: true }
+            );
+        }
+
+        if (!user.roles.some((roleId) => roleId.equals(requestedRole._id))) {
+            user.roles.push(requestedRole._id);
+        }
+        user.roleRequestStatus = 'approved';
+        user.roleReviewedAt = new Date();
+        user.roleReviewedBy = req.user._id;
+        await user.save();
+
+        const approvedUser = await User.findById(user._id)
+            .select('-hashedPassword')
+            .populate('roles', 'name')
+            .lean();
+
+        return res.status(200).json({
+            message: `Đã duyệt vai trò ${user.requestedRole}`,
+            data: { ...approvedUser, roles: approvedUser.roles.map((role) => role.name) }
+        });
+    } catch (error) {
+        console.error('Approve role request error:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
 // ========== AUTH ME ==========
 export const authMe = async (req, res) => {
     // req.user đã được gắn từ middleware protectedRoute, đã có roles populated

@@ -23,6 +23,11 @@ const tournamentItemSchema = new mongoose.Schema({
     feeEntry: { type: Number, default: 0 },
     paymentQR: { type: String, default: '' },
     prizes: { type: String, trim: true, default: '' },
+    overview: { type: mongoose.Schema.Types.Mixed, default: {} },
+    registrationConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+    paymentConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+    sponsorshipConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+    mediaConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
     location: {
         city: { type: String, default: '' },
         district: { type: String, default: '' },

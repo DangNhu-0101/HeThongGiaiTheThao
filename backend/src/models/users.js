@@ -25,7 +25,23 @@ const userSchema = new mongoose.Schema({
     roles: [{ 
         type: mongoose.Schema.Types.ObjectId,
         ref: "Role" 
-     }], 
+    }],
+    requestedRole: {
+        type: String,
+        enum: ['org', 'referee', null],
+        default: null
+    },
+    roleRequestStatus: {
+        type: String,
+        enum: ['none', 'pending', 'approved', 'rejected'],
+        default: 'none'
+    },
+    requestedProfile: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
+    },
+    roleReviewedAt: { type: Date, default: null },
+    roleReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     avatar: { type: String },
 
     status: {

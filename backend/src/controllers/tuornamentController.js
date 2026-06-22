@@ -187,7 +187,8 @@ export const createSingleSportTournament = async (req, res) => {
             name, description, categoryRuleId,
             registrationStart, registrationEnd, tournamentStart, tournamentEnd,
             location, banner, logo, prizes, galaConfig, paymentQR,
-            sportType, maxTeams, format
+            sportType, maxTeams, format, feeEntry,
+            overview, registrationConfig, paymentConfig, sponsorshipConfig, mediaConfig
         } = req.body;
 
         if (!categoryRuleId) throw new Error("Thiếu categoryRuleId");
@@ -217,9 +218,14 @@ export const createSingleSportTournament = async (req, res) => {
             banner: banner || '',
             logo: logo || '',
             timeLine: timeline,
-            feeEntry: 0,
+            feeEntry: Number(feeEntry || 0),
             paymentQR: paymentQR || '',
             prizes: prizes || '',
+            overview: overview || {},
+            registrationConfig: registrationConfig || {},
+            paymentConfig: paymentConfig || {},
+            sponsorshipConfig: sponsorshipConfig || {},
+            mediaConfig: mediaConfig || {},
             location: {
                 city: location?.city || '',
                 district: location?.district || '',
@@ -256,7 +262,8 @@ export const createMultiSportTournament = async (req, res) => {
         const {
             name, description, categoryRuleIds,
             registrationStart, registrationEnd, tournamentStart, tournamentEnd,
-            location, banner, logo, prizes, galaConfig, paymentQR
+            location, banner, logo, prizes, galaConfig, paymentQR, sportRules = [],
+            overview, registrationConfig, paymentConfig, sponsorshipConfig, mediaConfig
         } = req.body;
 
         if (!categoryRuleIds || !Array.isArray(categoryRuleIds) || categoryRuleIds.length === 0) {
@@ -285,6 +292,13 @@ export const createMultiSportTournament = async (req, res) => {
             description: description || '',
             logo: logo || '',
             banner: banner || '',
+            prizes: prizes || '',
+            overview: overview || {},
+            registrationConfig: registrationConfig || {},
+            paymentConfig: paymentConfig || {},
+            sponsorshipConfig: sponsorshipConfig || {},
+            mediaConfig: mediaConfig || {},
+            galaConfig: galaConfig || {},
             startDate: timeline.tournamentStart,
             endDate: timeline.tournamentEnd,
             location: {
@@ -301,6 +315,7 @@ export const createMultiSportTournament = async (req, res) => {
 
         const itemIds = [];
         for (const categoryRule of categoryRules) {
+            const sportRule = sportRules.find((rule) => String(rule.categoryRuleId) === String(categoryRule._id)) || {};
             const item = new TournamentItem({
                 tournamentId: tournament._id,
                 organization: userId,
@@ -309,9 +324,14 @@ export const createMultiSportTournament = async (req, res) => {
                 banner: banner || '',
                 logo: logo || '',
                 timeLine: timeline,
-                feeEntry: 0,
+                feeEntry: Number(sportRule.feePerAthlete || 0),
                 paymentQR: paymentQR || '',
                 prizes: prizes || '',
+                overview: overview || {},
+                registrationConfig: registrationConfig || {},
+                paymentConfig: paymentConfig || {},
+                sponsorshipConfig: sponsorshipConfig || {},
+                mediaConfig: mediaConfig || {},
                 location: {
                     city: location?.city || '',
                     district: location?.district || '',
@@ -321,8 +341,8 @@ export const createMultiSportTournament = async (req, res) => {
                 sponsors: [],
                 status: 'upcoming',
                 sportType: categoryRule.sportType || '',
-                maxTeams: 0,
-                format: '',
+                maxTeams: Number(sportRule.maxTeams || 0),
+                format: sportRule.format || '',
                 registeredTeams: 0
             });
             await item.save({ session });
@@ -369,7 +389,7 @@ export const updateSingleSportTournament = async (req, res) => {
         }
 
         // Cập nhật các field
-        const fields = ['name', 'description', 'banner', 'logo', 'prizes', 'paymentQR', 'feeEntry', 'sportType', 'maxTeams', 'format', 'registeredTeams'];
+        const fields = ['name', 'description', 'banner', 'logo', 'prizes', 'paymentQR', 'feeEntry', 'sportType', 'maxTeams', 'format', 'registeredTeams', 'overview', 'registrationConfig', 'paymentConfig', 'sponsorshipConfig', 'mediaConfig'];
         fields.forEach(f => { if (updateData[f] !== undefined) item[f] = updateData[f]; });
         if (updateData.location) item.location = { ...item.location, ...updateData.location };
         if (updateData.galaConfig) item.galaConfig = { ...item.galaConfig, ...updateData.galaConfig };
@@ -415,7 +435,7 @@ export const updateMultiSportTournament = async (req, res) => {
             if (invalid) return res.status(400).json({ message: "Hội thao đã bắt đầu, chỉ cập nhật được mô tả, banner, logo" });
         }
 
-        const fields = ['name', 'description', 'banner', 'logo'];
+        const fields = ['name', 'description', 'banner', 'logo', 'prizes', 'overview', 'registrationConfig', 'paymentConfig', 'sponsorshipConfig', 'mediaConfig', 'galaConfig'];
         fields.forEach(f => { if (updateData[f] !== undefined) tournament[f] = updateData[f]; });
         if (updateData.location) tournament.location = { ...tournament.location, ...updateData.location };
         if (updateData.startDate) tournament.startDate = new Date(updateData.startDate);

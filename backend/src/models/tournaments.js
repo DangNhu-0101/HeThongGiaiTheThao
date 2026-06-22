@@ -17,6 +17,13 @@ const tournamentSchema = new mongoose.Schema({
     },
     logo: { type: String, default: '' },
     banner: { type: String },
+    prizes: { type: String, trim: true, default: '' },
+    overview: { type: mongoose.Schema.Types.Mixed, default: {} },
+    registrationConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+    paymentConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+    sponsorshipConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+    mediaConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
+    galaConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     location: {

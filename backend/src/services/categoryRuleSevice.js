@@ -10,6 +10,27 @@ import mongoose from 'mongoose';
 
 class CategoryRuleService {
 
+    static async createCustom(data, createdBy, session = null) {
+        const { name, sportType, description = '', playerSlotsPerTeam, formatConfig = {}, customFields = {} } = data;
+        if (!name || !sportType) throw new Error('Missing required fields: name, sportType');
+
+        const categoryRule = new CategoryRule({
+            name,
+            displayName: name,
+            description,
+            sportType,
+            playerSlotsPerTeam: playerSlotsPerTeam || { min: 2, max: 2 },
+            createdBy,
+            source: 'custom',
+            formatConfig,
+            customFields,
+            status: 'actived'
+        });
+        if (session) await categoryRule.save({ session });
+        else await categoryRule.save();
+        return categoryRule;
+    }
+
     static async createFromTemplate(categoryTemplateId, editedRules, sportType, session = null) {
         // 1. Lấy template gốc
         const template = await CategoryTemplate.findById(categoryTemplateId);
@@ -25,7 +46,7 @@ class CategoryRuleService {
         // 3. Tạo các document rule chi tiết
         const createRule = async (Model, data) => {
             if (!data || Object.keys(data).length === 0) return null;
-            const rule = new Model({ ...data, sportType, status: 'active' });
+            const rule = new Model({ ...data, sportType, status: 'actived' });
             if (session) await rule.save({ session });
             else await rule.save();
             return rule._id;
@@ -51,7 +72,7 @@ class CategoryRuleService {
             timeManagementRule: timeRuleId,
             resourceManagementRule: resourceRuleId,
             faultsAndPenaltiesRule: faultsRuleId,
-            status: 'active'
+            status: 'actived'
         });
         if (session) await categoryRule.save({ session });
         else await categoryRule.save();
@@ -80,6 +101,9 @@ class CategoryRuleService {
         if (updateData.displayName) categoryRule.displayName = updateData.displayName;
         if (updateData.playerSlotsPerTeam) categoryRule.playerSlotsPerTeam = updateData.playerSlotsPerTeam;
         if (updateData.status) categoryRule.status = updateData.status;
+        if (updateData.description !== undefined) categoryRule.description = updateData.description;
+        if (updateData.formatConfig) categoryRule.formatConfig = updateData.formatConfig;
+        if (updateData.customFields) categoryRule.customFields = updateData.customFields;
        
         if (updateData.gameRule) categoryRule.gameRule = updateData.gameRule;
         if (updateData.scoringRule) categoryRule.scoringRule = updateData.scoringRule;
@@ -103,6 +127,8 @@ class CategoryRuleService {
     static async getAll(filter = {}) {
         const query = { status: { $ne: 'cancelled' } };
         if (filter.sportType) query.sportType = filter.sportType;
+        if (filter.availableOnly) query.tournamentItemId = null;
+        if (filter.createdBy) query.$or = [{ source: 'system' }, { source: { $exists: false } }, { createdBy: filter.createdBy }];
         return await CategoryRule.find(query)
             .populate('gameRule')
             .populate('scoringRule')

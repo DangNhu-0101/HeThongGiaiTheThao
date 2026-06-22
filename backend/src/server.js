@@ -16,6 +16,7 @@ import stageRoutes from './routes/stageRoute.js';
 import ruleRoutes from './routes/ruleRoute.js';
 import sponsorRoutes from './routes/sponsorRoute.js';
 import courtRoutes from './routes/courtRoute.js';
+import userRoutes from './routes/userRoute.js';
 // Import các route khác nếu có (bracket, group, match, participant, etc.)
 
 dotenv.config();
@@ -27,10 +28,10 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true
 }));
 
@@ -41,6 +42,7 @@ app.use('/api/stages', stageRoutes);
 app.use('/api/rules', ruleRoutes);
 app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/courts', courtRoutes);
+app.use('/api/users', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -1,10 +1,10 @@
 // routes/tournamentRoutes.js
 import express from 'express';
 import {
-    getAllTournaments, // hội thao
-    getTournamentByOrganization, // hội thao theo tổ chức
-    getAllSingleSportTournaments, // giải đơn môn
-    getSingleSportTournamentsByOrganization, // giải đơn môn theo tổ chức
+    getAllTournaments,
+    getTournamentByOrganization,
+    getAllSingleSportTournaments,
+    getSingleSportTournamentsByOrganization,
     getSingleTournamentById,
     getTournamentById,
     createSingleSportTournament,
@@ -20,19 +20,28 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// ==================== MULTI SPORT TOURNAMENTS (HỘI THAO) ====================
+// ==================== GET ====================
 router.get('/multi', protectedRoute(), getAllTournaments);
 router.get('/multi/organization/my', protectedRoute(), getTournamentByOrganization);
 router.get('/multi/:id', protectedRoute(), getTournamentById);
 
-// ==================== SINGLE SPORT TOURNAMENTS (GIẢI ĐƠN MÔN) ====================
 router.get('/single', protectedRoute(), getAllSingleSportTournaments);
 router.get('/single/organization/my', protectedRoute(), getSingleSportTournamentsByOrganization);
 router.get('/single/:id', protectedRoute(), getSingleTournamentById);
 
-// ==================== CREATE ====================
-router.post('/single', protectedRoute('admin', 'org'), createSingleSportTournament);
-router.post('/multi', protectedRoute('admin', 'org'), createMultiSportTournament);
+// ==================== CREATE (cần profile org) ====================
+// Dùng protectedRoute với profile: true (tự suy luận từ role org)
+router.post(
+    '/single',
+    protectedRoute('admin', 'org', { profile: true }),
+    createSingleSportTournament
+);
+
+router.post(
+    '/multi',
+    protectedRoute('admin', 'org', { profile: true }),
+    createMultiSportTournament
+);
 
 // ==================== UPDATE ====================
 router.put('/single/:id', protectedRoute('admin', 'org'), updateSingleSportTournament);
@@ -47,3 +56,4 @@ router.patch('/single/:id/status', protectedRoute('admin', 'org'), changeSingleS
 router.patch('/multi/:id/status', protectedRoute('admin', 'org'), changeMultiStatus);
 
 export default router;
+
