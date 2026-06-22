@@ -42,14 +42,6 @@ app.use('/api/rules', ruleRoutes);
 app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/courts', courtRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Error:', err.stack);
-    res.status(500).json({ success: false, message: err.message || 'Internal Server Error' });
-});
-
-
-
 
 // Kết nối DB và khởi động server
 connectDB().then(async () => {
