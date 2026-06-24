@@ -1,113 +1,82 @@
 import express from 'express';
 import {
-    createParticipant,
-    getParticipantsByTournament,
-    getParticipant,
-    updateParticipant,
-    deleteParticipant,
-    sendParticipantInvitation,
-    acceptParticipantInvitation,
-    rejectParticipantInvitation,
-    cancelParticipantInvitation,
-    getParticipantInvitations,
-    getMyParticipantInvitations,
-    removeMemberFromParticipant,
-    leaveParticipant
-} from '../controllers/teamController.js';
+    getAllTournaments,
+    getTournamentByOrganization,
+    getAllSingleSportTournaments,
+    getSingleSportTournamentsByOrganization,
+    getSingleTournamentById,
+    getTournamentById,
+    createSingleSportTournament,
+    createMultiSportTournament,
+    updateSingleSportTournament,
+    updateMultiSportTournament,
+    softDeleteSingleTournament,
+    softDeleteMultiTournament,
+    changeSingleStatus,
+    changeMultiStatus
+} from '../controllers/tuornamentController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
+// ==================== GET ====================
+// Multi-sport tournaments
+router.get('/multi', protectedRoute(), getAllTournaments);
+router.get('/multi/organization/my', protectedRoute(), getTournamentByOrganization);
+router.get('/multi/:id', protectedRoute(), getTournamentById);
+
+// Single-sport tournaments
+router.get('/single', protectedRoute(), getAllSingleSportTournaments);
+router.get('/single/organization/my', protectedRoute(), getSingleSportTournamentsByOrganization);
+router.get('/single/:id', protectedRoute(), getSingleTournamentById);
+
+// ==================== CREATE ====================
+// Yêu cầu role admin hoặc org và có profile tổ chức
 router.post(
-    '/',
-    protectedRoute('player', { profile: true }),
-    createParticipant
+    '/single',
+    protectedRoute('admin', 'org', { profile: true }),
+    createSingleSportTournament
 );
-
-
-router.get(
-    '/tournament/:tournamentItemId',
-    protectedRoute(),
-    getParticipantsByTournament
-);
-
-
-router.get(
-    '/:id',
-    protectedRoute(),
-    getParticipant
-);
-
-
-router.put(
-    '/:id',
-    protectedRoute('player'),
-    updateParticipant
-);
-
-
-router.delete(
-    '/:id',
-    protectedRoute('player'),
-    deleteParticipant
-);
-
-// ==================== Quản lý thành viên team ====================
-// Rời khỏi team (self) - yêu cầu profile player
 router.post(
-    '/:participantId/leave',
-    protectedRoute('player', { profile: true }),
-    leaveParticipant
+    '/multi',
+    protectedRoute('admin', 'org', { profile: true }),
+    createMultiSportTournament
 );
 
-// Captain/member xóa thành viên khỏi team - yêu cầu profile player
-router.delete(
-    '/:participantId/members/:memberId',
-    protectedRoute('player', { profile: true }),
-    removeMemberFromParticipant
-);
-
-// ==================== Invitations ====================
-// Gửi lời mời tham gia team - yêu cầu profile player
-router.post(
-    '/:participantId/invitations',
-    protectedRoute('player', { profile: true }),
-    sendParticipantInvitation
-);
-
-// Chấp nhận lời mời - yêu cầu profile player
+// ==================== UPDATE ====================
 router.put(
-    '/invitations/:invitationId/accept',
-    protectedRoute('player', { profile: true }),
-    acceptParticipantInvitation
+    '/single/:id',
+    protectedRoute('admin', 'org'),
+    updateSingleSportTournament
 );
-
-// Từ chối lời mời - yêu cầu profile player
 router.put(
-    '/invitations/:invitationId/reject',
-    protectedRoute('player', { profile: true }),
-    rejectParticipantInvitation
+    '/multi/:id',
+    protectedRoute('admin', 'org'),
+    updateMultiSportTournament
 );
 
-// Hủy lời mời (chỉ người gửi) - yêu cầu profile player
+// ==================== SOFT DELETE ====================
 router.delete(
-    '/invitations/:invitationId/cancel',
-    protectedRoute('player', { profile: true }),
-    cancelParticipantInvitation
+    '/single/:id',
+    protectedRoute('admin', 'org'),
+    softDeleteSingleTournament
+);
+router.delete(
+    '/multi/:id',
+    protectedRoute('admin', 'org'),
+    softDeleteMultiTournament
 );
 
-// Lấy danh sách lời mời của một participant (dành cho captain/member) - yêu cầu auth + profile player
-router.get(
-    '/:participantId/invitations',
-    protectedRoute('player', { profile: true }),
-    getParticipantInvitations
+// ==================== CHANGE STATUS ====================
+router.patch(
+    '/single/:id/status',
+    protectedRoute('admin', 'org'),
+    changeSingleStatus
 );
-
-// Lấy danh sách lời mời của user hiện tại (nhận được) - yêu cầu profile player
-router.get(
-    '/invitations/my',
-    protectedRoute('player', { profile: true }),
-    getMyParticipantInvitations
+router.patch(
+    '/multi/:id/status',
+    protectedRoute('admin', 'org'),
+    changeMultiStatus
 );
 
 export default router;
