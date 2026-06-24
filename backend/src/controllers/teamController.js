@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import Participant from '../models/participant.js';
+import Participant from '../models/participants.js';
 import TournamentItem from '../models/tournamentItem.js';
 import Player from '../models/players.js';
 import User from '../models/users.js';
 import CategoryRule from '../models/rules/categories.js';
-import ParticipantInvitation from '../models/participantInvitation.js';
+import Invitation from '../models/invitations.js'; // Đã import Invitation
 
 // ==================== HELPERS ====================
 
@@ -177,14 +177,14 @@ export const createParticipant = async (req, res) => {
                     await session.abortTransaction();
                     return res.status(409).json({ success: false, message: `Invitee ${inviteePlayer.name} is already registered in this tournament` });
                 }
-                const existingInvite = await ParticipantInvitation.findOne({
+                const existingInvite = await Invitation.findOne({
                     participantId: participant._id,
                     receiverId: inviteeId,
                     status: 'pending'
                 }).session(session);
                 if (existingInvite) continue;
 
-                const invitation = new ParticipantInvitation({
+                const invitation = new Invitation({
                     senderId: userId,
                     receiverId: inviteeId,
                     participantId: participant._id,
@@ -341,7 +341,7 @@ export const deleteParticipant = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Cannot delete participant after registration period' });
         }
 
-        await ParticipantInvitation.deleteMany({ participantId: id }).session(session);
+        await Invitation.deleteMany({ participantId: id }).session(session);
         await participant.deleteOne({ session });
         await session.commitTransaction();
         return res.status(200).json({ success: true, message: 'Participant deleted successfully' });
@@ -394,9 +394,9 @@ export const sendParticipantInvitation = async (req, res) => {
             return res.status(409).json({ success: false, message: 'Player is already registered in this tournament' });
         }
 
-        const existingInvite = await ParticipantInvitation.findOne({
-            participantId,
-            receiverId,
+        const existingInvite = await Invitation.findOne({
+            participantId: participant._id,
+            receiverId: receiverId,
             status: 'pending'
         }).session(session);
         if (existingInvite) {
@@ -404,10 +404,10 @@ export const sendParticipantInvitation = async (req, res) => {
             return res.status(409).json({ success: false, message: 'An invitation is already pending for this player' });
         }
 
-        const invitation = new ParticipantInvitation({
-            senderId,
-            receiverId,
-            participantId,
+        const invitation = new Invitation({
+            senderId: senderId,
+            receiverId: receiverId,
+            participantId: participant._id,
             message: message || `You are invited to join team ${participant.name}`
         });
         await invitation.save({ session });
@@ -429,7 +429,7 @@ export const acceptParticipantInvitation = async (req, res) => {
         const { invitationId } = req.params;
         const userId = req.user._id;
 
-        const invitation = await ParticipantInvitation.findById(invitationId).session(session);
+        const invitation = await Invitation.findById(invitationId).session(session);
         if (!invitation || invitation.status !== 'pending') {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'Invitation not valid or already processed' });
@@ -485,7 +485,7 @@ export const rejectParticipantInvitation = async (req, res) => {
         const { invitationId } = req.params;
         const userId = req.user._id;
 
-        const invitation = await ParticipantInvitation.findById(invitationId).session(session);
+        const invitation = await Invitation.findById(invitationId).session(session);
         if (!invitation || invitation.status !== 'pending') {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'Invitation not valid' });
@@ -515,7 +515,7 @@ export const cancelParticipantInvitation = async (req, res) => {
         const { invitationId } = req.params;
         const userId = req.user._id;
 
-        const invitation = await ParticipantInvitation.findById(invitationId).session(session);
+        const invitation = await Invitation.findById(invitationId).session(session);
         if (!invitation || invitation.status !== 'pending') {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'Invitation not valid' });
@@ -551,7 +551,7 @@ export const getParticipantInvitations = async (req, res) => {
             return res.status(403).json({ success: false, message: 'You are not a member of this team' });
         }
 
-        const invitations = await ParticipantInvitation.find({ participantId, status: 'pending' })
+        const invitations = await Invitation.find({ participantId, status: 'pending' })
             .populate('senderId', 'username email avatar')
             .populate('receiverId', 'username email avatar');
         return res.status(200).json({ success: true, data: invitations });
@@ -563,7 +563,7 @@ export const getParticipantInvitations = async (req, res) => {
 export const getMyParticipantInvitations = async (req, res) => {
     try {
         const userId = req.user._id;
-        const invitations = await ParticipantInvitation.find({ receiverId: userId, status: 'pending' })
+        const invitations = await Invitation.find({ receiverId: userId, status: 'pending' })
             .populate('senderId', 'username email avatar')
             .populate('participantId', 'name tournamentItemId');
         return res.status(200).json({ success: true, data: invitations });
@@ -608,7 +608,7 @@ export const removeMemberFromParticipant = async (req, res) => {
         participant.lineup.splice(memberIndex, 1);
         await participant.save({ session });
 
-        await ParticipantInvitation.updateMany(
+        await Invitation.updateMany(
             { participantId, receiverId: memberId, status: 'pending' },
             { status: 'rejected' },
             { session }

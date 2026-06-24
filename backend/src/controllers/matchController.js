@@ -6,7 +6,7 @@ import Group from '../models/groups.js';
 import TournamentItem from '../models/tournamentItem.js';
 import User from '../models/users.js';
 import Organization from '../models/orgs.js';
-import Participant from '../models/participant.js';
+import Participant from '../models/participants.js';
 
 // ==================== HELPERS ====================
 

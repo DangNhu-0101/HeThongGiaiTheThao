@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
 import User from "./users.js";
-import Team from "./teams.js";
-
 
 const invitationSchema = new mongoose.Schema({
     senderId: {
