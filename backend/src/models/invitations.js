@@ -15,9 +15,9 @@ const invitationSchema = new mongoose.Schema({
         required: true
     },
 
-    teamId: {
+    participantId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team',
+        ref: 'Participant',
         required: true
     },
     status: {

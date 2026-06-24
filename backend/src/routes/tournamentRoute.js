@@ -1,49 +1,113 @@
-// routes/tournamentRoutes.js
 import express from 'express';
 import {
-    getAllTournaments, // hội thao
-    getTournamentByOrganization, // hội thao theo tổ chức
-    getAllSingleSportTournaments, // giải đơn môn
-    getSingleSportTournamentsByOrganization, // giải đơn môn theo tổ chức
-    getSingleTournamentById,
-    getTournamentById,
-    createSingleSportTournament,
-    createMultiSportTournament,
-    updateSingleSportTournament,
-    updateMultiSportTournament,
-    softDeleteSingleTournament,
-    softDeleteMultiTournament,
-    changeSingleStatus,
-    changeMultiStatus
-} from '../controllers/tuornamentController.js';
+    createParticipant,
+    getParticipantsByTournament,
+    getParticipant,
+    updateParticipant,
+    deleteParticipant,
+    sendParticipantInvitation,
+    acceptParticipantInvitation,
+    rejectParticipantInvitation,
+    cancelParticipantInvitation,
+    getParticipantInvitations,
+    getMyParticipantInvitations,
+    removeMemberFromParticipant,
+    leaveParticipant
+} from '../controllers/teamController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// ==================== MULTI SPORT TOURNAMENTS (HỘI THAO) ====================
-router.get('/multi', protectedRoute(), getAllTournaments);
-router.get('/multi/organization/my', protectedRoute(), getTournamentByOrganization);
-router.get('/multi/:id', protectedRoute(), getTournamentById);
+router.post(
+    '/',
+    protectedRoute('player', { profile: true }),
+    createParticipant
+);
 
-// ==================== SINGLE SPORT TOURNAMENTS (GIẢI ĐƠN MÔN) ====================
-router.get('/single', protectedRoute(), getAllSingleSportTournaments);
-router.get('/single/organization/my', protectedRoute(), getSingleSportTournamentsByOrganization);
-router.get('/single/:id', protectedRoute(), getSingleTournamentById);
 
-// ==================== CREATE ====================
-router.post('/single', protectedRoute('admin', 'org'), createSingleSportTournament);
-router.post('/multi', protectedRoute('admin', 'org'), createMultiSportTournament);
+router.get(
+    '/tournament/:tournamentItemId',
+    protectedRoute(),
+    getParticipantsByTournament
+);
 
-// ==================== UPDATE ====================
-router.put('/single/:id', protectedRoute('admin', 'org'), updateSingleSportTournament);
-router.put('/multi/:id', protectedRoute('admin', 'org'), updateMultiSportTournament);
 
-// ==================== SOFT DELETE ====================
-router.delete('/single/:id', protectedRoute('admin', 'org'), softDeleteSingleTournament);
-router.delete('/multi/:id', protectedRoute('admin', 'org'), softDeleteMultiTournament);
+router.get(
+    '/:id',
+    protectedRoute(),
+    getParticipant
+);
 
-// ==================== CHANGE STATUS ====================
-router.patch('/single/:id/status', protectedRoute('admin', 'org'), changeSingleStatus);
-router.patch('/multi/:id/status', protectedRoute('admin', 'org'), changeMultiStatus);
+
+router.put(
+    '/:id',
+    protectedRoute('player'),
+    updateParticipant
+);
+
+
+router.delete(
+    '/:id',
+    protectedRoute('player'),
+    deleteParticipant
+);
+
+// ==================== Quản lý thành viên team ====================
+// Rời khỏi team (self) - yêu cầu profile player
+router.post(
+    '/:participantId/leave',
+    protectedRoute('player', { profile: true }),
+    leaveParticipant
+);
+
+// Captain/member xóa thành viên khỏi team - yêu cầu profile player
+router.delete(
+    '/:participantId/members/:memberId',
+    protectedRoute('player', { profile: true }),
+    removeMemberFromParticipant
+);
+
+// ==================== Invitations ====================
+// Gửi lời mời tham gia team - yêu cầu profile player
+router.post(
+    '/:participantId/invitations',
+    protectedRoute('player', { profile: true }),
+    sendParticipantInvitation
+);
+
+// Chấp nhận lời mời - yêu cầu profile player
+router.put(
+    '/invitations/:invitationId/accept',
+    protectedRoute('player', { profile: true }),
+    acceptParticipantInvitation
+);
+
+// Từ chối lời mời - yêu cầu profile player
+router.put(
+    '/invitations/:invitationId/reject',
+    protectedRoute('player', { profile: true }),
+    rejectParticipantInvitation
+);
+
+// Hủy lời mời (chỉ người gửi) - yêu cầu profile player
+router.delete(
+    '/invitations/:invitationId/cancel',
+    protectedRoute('player', { profile: true }),
+    cancelParticipantInvitation
+);
+
+// Lấy danh sách lời mời của một participant (dành cho captain/member) - yêu cầu auth + profile player
+router.get(
+    '/:participantId/invitations',
+    protectedRoute('player', { profile: true }),
+    getParticipantInvitations
+);
+
+// Lấy danh sách lời mời của user hiện tại (nhận được) - yêu cầu profile player
+router.get(
+    '/invitations/my',
+    protectedRoute('player', { profile: true }),
+    getMyParticipantInvitations
+);
 
 export default router;
