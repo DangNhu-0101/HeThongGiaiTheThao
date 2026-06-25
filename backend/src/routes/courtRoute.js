@@ -2,6 +2,7 @@
 import express from 'express';
 import {
     getCourtsByTournamentItem,
+    getCourtById,
     addCourt,
     updateCourt,
     updateCourtStatus,
@@ -11,19 +12,18 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Lấy danh sách sân theo tournamentItemId (có phân trang, lọc)
+// ========== GET ==========
 router.get('/tournament-item/:tournamentItemId', protectedRoute(), getCourtsByTournamentItem);
+router.get('/:courtId', protectedRoute(), getCourtById);
 
-// Thêm sân mới
-router.post('/', protectedRoute('admin', 'org'), addCourt);
+// ========== CREATE ==========
+router.post('/', protectedRoute('admin', 'org', { profile: true }), addCourt);
 
-// Cập nhật thông tin sân
-router.put('/:courtId', protectedRoute('admin', 'org'), updateCourt);
+// ========== UPDATE ==========
+router.put('/:courtId', protectedRoute('admin', 'org', { profile: true }), updateCourt);
+router.patch('/:courtId/status', protectedRoute('admin', 'org', { profile: true }), updateCourtStatus);
 
-// Cập nhật trạng thái sân
-router.patch('/:courtId/status', protectedRoute('admin', 'org'), updateCourtStatus);
-
-// Xóa sân
-router.delete('/:courtId', protectedRoute('admin', 'org'), deleteCourt);
+// ========== DELETE ==========
+router.delete('/:courtId', protectedRoute('admin', 'org', { profile: true }), deleteCourt);
 
 export default router;

@@ -5,8 +5,7 @@ const playerSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        unique: true
+        default: null
     },
     name: {
         type: String,
@@ -30,9 +29,6 @@ const playerSchema = new mongoose.Schema({
         level: { type: String },
         position: { type: String }
     }],
-    // Trạng thái duyệt profile
-
-    // Trạng thái thi đấu (có thể giữ lại hoặc gộp chung, nhưng tôi đề xuất giữ riêng)
     status: {
         type: String,
         enum: ['actived', 'injured', 'unavailable'],

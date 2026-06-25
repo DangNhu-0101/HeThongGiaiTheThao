@@ -5,25 +5,50 @@ import Bracket from '../models/rules/brackets.js';
 import Group from '../models/groups.js';
 import Match from '../models/matches.js';
 
-/**
- * Tạo các trận đấu vòng bảng (round-robin) cho một group
- */
-async function createRoundRobinMatches({ groupId, tournamentItemId, stageId, bracketId, startRound, numberOfTeams, session }) {
+// ------------------ ROUND-ROBIN ------------------
+function generateRoundRobinPairs(n) {
+    const teams = Array.from({ length: n }, (_, i) => i);
+    const rounds = [];
+    if (n % 2 === 1) {
+        teams.push(null);
+        n++;
+    }
+    const half = n / 2;
+    for (let round = 0; round < n - 1; round++) {
+        const roundPairs = [];
+        for (let i = 0; i < half; i++) {
+            const a = teams[i];
+            const b = teams[n - 1 - i];
+            if (a !== null && b !== null) {
+                roundPairs.push([a, b]);
+            }
+        }
+        rounds.push(roundPairs);
+        const last = teams.pop();
+        teams.splice(1, 0, last);
+    }
+    return rounds;
+}
+
+async function createRoundRobinMatches({ groupId, tournamentItemId, stageId, bracketId, numberOfTeams, startRound, session }) {
+    const pairs = generateRoundRobinPairs(numberOfTeams);
     const matches = [];
     let matchCounter = 0;
-    for (let i = 1; i <= numberOfTeams; i++) {
-        for (let j = i + 1; j <= numberOfTeams; j++) {
+    for (let round = 0; round < pairs.length; round++) {
+        const roundPairs = pairs[round];
+        for (const [teamA, teamB] of roundPairs) {
             const match = new Match({
                 tournamentItemId,
                 stageId,
                 bracketId,
                 groupId,
                 name: `Trận ${matchCounter + 1}`,
-                round: startRound + matchCounter,
+                round: startRound + round,
                 status: 'pending',
                 previousMatches: [],
                 nextMatchId: null,
-                winnerParticipantId: null
+                winnerParticipantId: null,
+                matchResultId: null
             });
             await match.save({ session });
             matches.push(match._id);
@@ -36,64 +61,129 @@ async function createRoundRobinMatches({ groupId, tournamentItemId, stageId, bra
     return matches;
 }
 
-/**
- * Tạo cây đấu loại trực tiếp (single elimination)
- */
-async function createKnockoutMatches({ bracketId, tournamentItemId, stageId, totalTeams, startRound, session }) {
-    const totalMatches = totalTeams - 1;
+// ------------------ KNOCKOUT ------------------
+function generateKnockoutBracket(teamCount) {
+    const n = teamCount;
+    const powerOfTwo = Math.pow(2, Math.ceil(Math.log2(n)));
+    const byeCount = powerOfTwo - n;
+    const byePositions = [];
+    for (let i = 0; i < byeCount; i++) {
+        byePositions.push(powerOfTwo - i);
+    }
+
     const matches = [];
-    for (let i = 0; i < totalMatches; i++) {
+    let matchId = 0;
+
+    function buildTree(start, end) {
+        if (start === end) {
+            return { position: start, isBye: byePositions.includes(start) };
+        }
+        const mid = Math.floor((start + end) / 2);
+        const left = buildTree(start, mid);
+        const right = buildTree(mid + 1, end);
+        const match = {
+            id: matchId++,
+            left,
+            right,
+            round: 0,
+            nextMatch: null
+        };
+        if (left.isBye && right.isBye) {
+            throw new Error('Invalid bracket: two byes in same match');
+        }
+        return match;
+    }
+
+    const root = buildTree(1, powerOfTwo);
+    const maxDepth = Math.ceil(Math.log2(powerOfTwo));
+
+    function assignRounds(node, depth) {
+        if (!node.left && !node.right) {
+            return depth;
+        }
+        const leftDepth = assignRounds(node.left, depth + 1);
+        const rightDepth = assignRounds(node.right, depth + 1);
+        node.round = Math.min(leftDepth, rightDepth);
+        return node.round;
+    }
+    assignRounds(root, 0);
+
+    const matchList = [];
+    function collect(node) {
+        if (!node.left && !node.right) return;
+        const matchDoc = {
+            id: node.id,
+            round: maxDepth - node.round,
+            left: node.left,
+            right: node.right,
+            nextMatch: null
+        };
+        matchList.push(matchDoc);
+        if (node.left && node.left.id !== undefined) {
+            const leftMatch = matchList.find(m => m.id === node.left.id);
+            if (leftMatch) leftMatch.nextMatch = node.id;
+            collect(node.left);
+        }
+        if (node.right && node.right.id !== undefined) {
+            const rightMatch = matchList.find(m => m.id === node.right.id);
+            if (rightMatch) rightMatch.nextMatch = node.id;
+            collect(node.right);
+        }
+    }
+    collect(root);
+
+    matchList.sort((a, b) => a.round - b.round);
+    const matchMap = {};
+    for (const m of matchList) matchMap[m.id] = m;
+
+    for (const m of matchList) {
+        if (m.nextMatch !== null) {
+            const next = matchMap[m.nextMatch];
+            m.nextMatch = next ? next.id : null;
+        }
+    }
+    return matchList;
+}
+
+async function createKnockoutMatches({ bracketId, tournamentItemId, stageId, totalTeams, startRound, session }) {
+    const matchList = generateKnockoutBracket(totalTeams);
+    const matchIds = [];
+    const matchMap = {};
+    for (const m of matchList) {
         const match = new Match({
             tournamentItemId,
             stageId,
             bracketId,
-            name: `Trận ${i + 1}`,
-            round: 0,
+            name: `Trận ${m.id + 1}`,
+            round: startRound + m.round,
             status: 'pending',
             previousMatches: [],
             nextMatchId: null,
-            winnerParticipantId: null
+            winnerParticipantId: null,
+            matchResultId: null
         });
         await match.save({ session });
-        matches.push(match);
+        matchIds.push(match._id);
+        matchMap[m.id] = match._id;
     }
-    const rounds = Math.ceil(Math.log2(totalTeams));
-    let roundMatches = [];
-    let startIdx = 0;
-    let matchesInRound = totalTeams / 2;
-    for (let r = 0; r < rounds; r++) {
-        const endIdx = startIdx + matchesInRound;
-        const roundSlice = matches.slice(startIdx, endIdx);
-        roundMatches.push(roundSlice);
-        startIdx = endIdx;
-        matchesInRound = Math.floor(matchesInRound / 2);
-    }
-    for (let r = 0; r < roundMatches.length; r++) {
-        const currentRoundMatches = roundMatches[r];
-        for (let i = 0; i < currentRoundMatches.length; i++) {
-            const match = currentRoundMatches[i];
-            match.round = startRound + r;
-            await match.save({ session });
-            if (r < roundMatches.length - 1) {
-                const nextRoundMatches = roundMatches[r + 1];
-                const nextIdx = Math.floor(i / 2);
-                if (nextRoundMatches[nextIdx]) {
-                    match.nextMatchId = nextRoundMatches[nextIdx]._id;
-                    await match.save({ session });
-                    nextRoundMatches[nextIdx].previousMatches.push({ matchId: match._id, position: 'WINNER' });
-                    await nextRoundMatches[nextIdx].save({ session });
-                }
+    for (const m of matchList) {
+        if (m.nextMatch !== null) {
+            const nextId = matchMap[m.nextMatch];
+            if (nextId) {
+                const current = await Match.findById(matchMap[m.id]).session(session);
+                current.nextMatchId = nextId;
+                await current.save({ session });
+                const next = await Match.findById(nextId).session(session);
+                next.previousMatches.push({ matchId: matchMap[m.id], position: 'WINNER' });
+                await next.save({ session });
             }
         }
     }
-    return matches.map(m => m._id);
+    return matchIds;
 }
 
-/**
- * Tạo stage cùng với brackets, groups, matches (nếu có)
- */
+// ------------------ MAIN EXPORT ------------------
 export const createStageWithBrackets = async ({ tournamentItemId, stageData, brackets, session }) => {
-    // 1. Tạo StageRule
     const stage = new StageRule({
         tournamentItemId,
         number: stageData.number,
@@ -127,33 +217,36 @@ export const createStageWithBrackets = async ({ tournamentItemId, stageData, bra
                 if (!bracketData.groups || !Array.isArray(bracketData.groups) || bracketData.groups.length === 0) {
                     throw new Error('Missing groups data for group bracket');
                 }
-                for (const groupData of bracketData.groups) {
+                const totalTeams = bracketData.totalTeamsIn;
+                const numGroups = bracketData.groups.length;
+                const teamsPerGroup = Math.ceil(totalTeams / numGroups);
+                for (let i = 0; i < bracketData.groups.length; i++) {
+                    const groupData = bracketData.groups[i];
+                    const numberOfTeams = groupData.numberOfTeams || teamsPerGroup;
                     const group = new Group({
-                        name: groupData.name,
+                        name: groupData.name || `Bảng ${String.fromCharCode(65 + i)}`,
                         tournamentItemId,
                         bracketId: bracket._id,
-                        sport: '', // sẽ update sau
+                        sport: '',
                         stageRuleId: stage._id,
                         status: 'pending',
                         matches: []
                     });
                     await group.save({ session });
                     bracket.group.push(group._id);
-                    const numberOfTeams = groupData.numberOfTeams;
-                    if (!numberOfTeams) throw new Error('Missing numberOfTeams for group');
                     const matches = await createRoundRobinMatches({
                         groupId: group._id,
                         tournamentItemId,
                         stageId: stage._id,
                         bracketId: bracket._id,
-                        startRound: globalRound,
                         numberOfTeams,
+                        startRound: globalRound,
                         session
                     });
                     group.matches = matches;
                     await group.save({ session });
-                    const totalMatches = (numberOfTeams * (numberOfTeams - 1)) / 2;
-                    globalRound += totalMatches;
+                    const roundsInGroup = numberOfTeams % 2 === 0 ? numberOfTeams - 1 : numberOfTeams;
+                    globalRound += roundsInGroup;
                 }
                 await bracket.save({ session });
             } else if (bracketData.type === 'knockout') {

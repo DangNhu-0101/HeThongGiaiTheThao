@@ -1,11 +1,13 @@
+// routes/tournamentRoutes.js
 import express from 'express';
+import { protectedRoute } from '../middlewares/authMiddleware.js';
 import {
     getAllTournaments,
-    getTournamentByOrganization,
     getAllSingleSportTournaments,
     getSingleSportTournamentsByOrganization,
-    getSingleTournamentById,
+    getTournamentByOrganization,
     getTournamentById,
+    getSingleTournamentById,
     createSingleSportTournament,
     createMultiSportTournament,
     updateSingleSportTournament,
@@ -15,68 +17,33 @@ import {
     changeSingleStatus,
     changeMultiStatus
 } from '../controllers/tuornamentController.js';
-import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// ==================== GET ====================
-// Multi-sport tournaments
-router.get('/multi', protectedRoute(), getAllTournaments);
-router.get('/multi/organization/my', protectedRoute(), getTournamentByOrganization);
-router.get('/multi/:id', protectedRoute(), getTournamentById);
-
-// Single-sport tournaments
+// ========== GET ==========
+router.get('/', protectedRoute(), getAllTournaments);
 router.get('/single', protectedRoute(), getAllSingleSportTournaments);
-router.get('/single/organization/my', protectedRoute(), getSingleSportTournamentsByOrganization);
+router.get('/multi/:id', protectedRoute(), getTournamentById);
 router.get('/single/:id', protectedRoute(), getSingleTournamentById);
 
-// ==================== CREATE ====================
-// Yêu cầu role admin hoặc org và có profile tổ chức
-router.post(
-    '/single',
-    protectedRoute('admin', 'org', { profile: true }),
-    createSingleSportTournament
-);
-router.post(
-    '/multi',
-    protectedRoute('admin', 'org', { profile: true }),
-    createMultiSportTournament
-);
+// ========== GET BY ORGANIZATION ==========
+router.get('/my/single', protectedRoute(), getSingleSportTournamentsByOrganization);
+router.get('/my/multi', protectedRoute(), getTournamentByOrganization);
 
-// ==================== UPDATE ====================
-router.put(
-    '/single/:id',
-    protectedRoute('admin', 'org'),
-    updateSingleSportTournament
-);
-router.put(
-    '/multi/:id',
-    protectedRoute('admin', 'org'),
-    updateMultiSportTournament
-);
+// ========== CREATE ==========
+router.post('/single', protectedRoute('admin', 'org', { profile: true }), createSingleSportTournament);
+router.post('/multi', protectedRoute('admin', 'org', { profile: true }), createMultiSportTournament);
 
-// ==================== SOFT DELETE ====================
-router.delete(
-    '/single/:id',
-    protectedRoute('admin', 'org'),
-    softDeleteSingleTournament
-);
-router.delete(
-    '/multi/:id',
-    protectedRoute('admin', 'org'),
-    softDeleteMultiTournament
-);
+// ========== UPDATE ==========
+router.put('/single/:id', protectedRoute('admin', 'org', { profile: true }), updateSingleSportTournament);
+router.put('/multi/:id', protectedRoute('admin', 'org', { profile: true }), updateMultiSportTournament);
 
-// ==================== CHANGE STATUS ====================
-router.patch(
-    '/single/:id/status',
-    protectedRoute('admin', 'org'),
-    changeSingleStatus
-);
-router.patch(
-    '/multi/:id/status',
-    protectedRoute('admin', 'org'),
-    changeMultiStatus
-);
+// ========== DELETE ==========
+router.delete('/single/:id', protectedRoute('admin', 'org', { profile: true }), softDeleteSingleTournament);
+router.delete('/multi/:id', protectedRoute('admin', 'org', { profile: true }), softDeleteMultiTournament);
+
+// ========== CHANGE STATUS ==========
+router.patch('/single/:id/status', protectedRoute('admin', 'org', { profile: true }), changeSingleStatus);
+router.patch('/multi/:id/status', protectedRoute('admin', 'org', { profile: true }), changeMultiStatus);
 
 export default router;

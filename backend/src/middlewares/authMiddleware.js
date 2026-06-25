@@ -5,28 +5,43 @@ import Organization from '../models/orgs.js';
 import Player from '../models/players.js';
 import Referee from '../models/referees.js';
 
+// Cấu hình profile cho từng loại
 const PROFILE_CONFIG = {
     organization: {
         model: Organization,
-        validStatus: ['actived'],
-        errorMessage: 'Bạn chưa có profile tổ chức. Vui lòng tạo tổ chức trước.'
+        validStatus: ['actived', 'active'], // chuẩn hóa
+        errorMessage: 'Bạn chưa có profile tổ chức hợp lệ. Vui lòng tạo tổ chức và chờ duyệt.',
+        notFoundMessage: 'Bạn chưa có profile tổ chức. Vui lòng tạo tổ chức trước.'
     },
     player: {
         model: Player,
-        validStatus: ['active'],
-        errorMessage: 'Bạn chưa có profile cầu thủ. Vui lòng tạo profile cầu thủ trước.'
+        validStatus: ['active', 'actived'],
+        errorMessage: 'Profile cầu thủ của bạn chưa được kích hoạt.',
+        notFoundMessage: 'Bạn chưa có profile cầu thủ. Vui lòng tạo profile cầu thủ trước.'
     },
     referee: {
         model: Referee,
-        validStatus: ['actived'],
-        errorMessage: 'Bạn chưa có profile trọng tài. Vui lòng tạo profile trọng tài trước.'
+        validStatus: ['actived', 'active'],
+        errorMessage: 'Profile trọng tài của bạn chưa được duyệt hoặc đã bị từ chối.',
+        notFoundMessage: 'Bạn chưa có profile trọng tài. Vui lòng tạo profile trọng tài và chờ duyệt.'
     }
 };
 
+/**
+ * Middleware chính: bảo vệ route với kiểm tra role và profile
+ * @param {...string|Object} args - Có thể là role (string) hoặc object option
+ * Sử dụng:
+ *   - protect() -> chỉ cần đăng nhập
+ *   - protect('admin') -> yêu cầu role admin
+ *   - protect('org', 'admin') -> yêu cầu role org hoặc admin
+ *   - protect('org', { profile: true }) -> yêu cầu role org và kiểm tra profile org
+ *   - protect('org', 'admin', { profile: true, allowAdminSkip: true }) -> admin được bỏ qua kiểm tra profile
+ *   - protect({ profile: 'player' }) -> kiểm tra profile player (không cần role cụ thể)
+ */
 export const protectedRoute = (...args) => {
     return async (req, res, next) => {
         try {
-            // Tách tham số: roles và options
+            // Phân tích tham số
             let allowedRoles = [];
             let options = { profile: false, allowAdminSkip: true };
 
@@ -38,7 +53,7 @@ export const protectedRoute = (...args) => {
                 }
             }
 
-            // 1. Lấy token
+            // 1. Lấy token từ cookie hoặc header
             let token = req.cookies?.jwt || req.cookies?.accessToken;
             const authHeader = req.headers['authorization'];
             if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -46,19 +61,19 @@ export const protectedRoute = (...args) => {
             }
 
             if (!token) {
-                return res.status(401).json({ message: "Không tìm thấy token xác thực" });
+                return res.status(401).json({ success: false, message: 'Không tìm thấy token xác thực' });
             }
 
             // 2. Verify token
             let decoded;
             try {
-                decoded = jwt.verify(token, process.env.ACCESS_TOKEN);
+                decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET || 'your_access_secret');
             } catch (err) {
-                return res.status(403).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+                return res.status(403).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn' });
             }
 
             if (!decoded.userId) {
-                return res.status(401).json({ message: "Token thiếu thông tin userId" });
+                return res.status(401).json({ success: false, message: 'Token thiếu userId' });
             }
 
             // 3. Tìm user và populate roles
@@ -67,18 +82,16 @@ export const protectedRoute = (...args) => {
                 .populate('roles', 'name');
 
             if (!user) {
-                return res.status(404).json({ message: "Người dùng không tồn tại" });
+                return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
             }
 
-            // 4. Lấy danh sách role names
-            let userRoleNames = [];
-            if (user.roles && user.roles.length > 0) {
-                userRoleNames = user.roles.map(role => role.name);
-            }
+            // Lấy danh sách role name
+            const userRoleNames = user.roles.map(role => role.name);
+            const isAdmin = userRoleNames.includes('admin');
 
-            // 5. Kiểm tra quyền role
+            // 4. Kiểm tra role (nếu có yêu cầu)
             if (allowedRoles.length > 0) {
-                const hasRequiredRole = userRoleNames.some(roleName => allowedRoles.includes(roleName));
+                const hasRequiredRole = userRoleNames.some(role => allowedRoles.includes(role));
                 if (!hasRequiredRole) {
                     return res.status(403).json({
                         success: false,
@@ -87,20 +100,19 @@ export const protectedRoute = (...args) => {
                 }
             }
 
-            // 6. Kiểm tra profile (nếu có yêu cầu)
+            // 5. Kiểm tra profile (nếu có yêu cầu)
             if (options.profile) {
                 // Xác định profileType
                 let profileType = null;
 
-                // Nếu options.profile là string (ví dụ: 'organization'), dùng trực tiếp
                 if (typeof options.profile === 'string') {
+                    // Nếu truyền trực tiếp tên profile: 'organization', 'player', 'referee'
                     profileType = options.profile;
                 } else {
-                    // Tự động suy luận từ allowedRoles (ưu tiên: org > player > referee)
-                    // Admin được coi là organization (nếu có)
+                    // Tự động suy luận từ allowedRoles (ưu tiên: admin/org -> organization, referee -> referee, player -> player)
                     const priorityMap = {
                         'org': 'organization',
-                        'admin': 'organization',
+                        'admin': 'organization', // admin có thể coi như organization nếu cần
                         'player': 'player',
                         'referee': 'referee'
                     };
@@ -110,52 +122,70 @@ export const protectedRoute = (...args) => {
                             break;
                         }
                     }
+                    // Nếu vẫn chưa có và user có role, lấy role đầu tiên
+                    if (!profileType && userRoleNames.length > 0) {
+                        const firstRole = userRoleNames[0];
+                        if (priorityMap[firstRole]) {
+                            profileType = priorityMap[firstRole];
+                        }
+                    }
                 }
 
-                // Nếu vẫn không xác định được profileType, bỏ qua (không kiểm tra)
+                // Nếu không xác định được profileType, bỏ qua check (có thể log warning)
                 if (!profileType) {
-                    // Nếu không có role nào khớp, bỏ qua check profile
+                    console.warn('Không xác định được profileType để kiểm tra, bỏ qua.');
+                    // Gán user và cho đi tiếp
                     req.user = user;
-                    req.userRoleNames = userRoleNames;
+                    req.userRoles = userRoleNames;
                     return next();
                 }
 
-                // Kiểm tra admin skip
-                const isAdmin = userRoleNames.some(r => r === 'admin' || r === 'SUPER_ADMIN');
+                // Admin có thể bỏ qua kiểm tra profile nếu được phép
                 if (options.allowAdminSkip && isAdmin) {
                     req.user = user;
-                    req.userRoleNames = userRoleNames;
+                    req.userRoles = userRoleNames;
                     req.profile = null;
                     req.profileType = profileType;
                     return next();
                 }
 
-                // Kiểm tra profile
+                // Lấy config cho profileType
                 const config = PROFILE_CONFIG[profileType];
                 if (!config) {
                     return res.status(500).json({
                         success: false,
-                        message: `Loại profile không hợp lệ: ${profileType}`
+                        message: `Cấu hình profile không hợp lệ: ${profileType}`
                     });
                 }
 
-                const profile = await config.model.findOne({ userId: user._id });
+                // Tìm profile trong DB
+                let profile;
+                if (profileType === 'organization') {
+                    profile = await config.model.findOne({ ownerId: user._id });
+                } else if (profileType === 'player' || profileType === 'referee') {
+                    profile = await config.model.findOne({ userId: user._id });
+                } else {
+                    // fallback generic
+                    profile = await config.model.findOne({ userId: user._id });
+                }
+
                 if (!profile) {
                     return res.status(403).json({
                         success: false,
-                        message: config.errorMessage,
+                        message: config.notFoundMessage || 'Profile không tồn tại.',
                         needCreate: true,
-                        profileType: profileType,
+                        profileType,
                         redirectTo: `/profile/create/${profileType}`
                     });
                 }
 
+                // Kiểm tra status profile có hợp lệ không
                 if (!config.validStatus.includes(profile.status)) {
                     return res.status(403).json({
                         success: false,
-                        message: `Profile ${profileType} đang ở trạng thái: ${profile.status}`,
+                        message: config.errorMessage || `Profile ${profileType} đang ở trạng thái: ${profile.status}`,
                         needCreate: false,
-                        profileType: profileType,
+                        profileType,
                         currentStatus: profile.status
                     });
                 }
@@ -165,13 +195,28 @@ export const protectedRoute = (...args) => {
                 req.profileType = profileType;
             }
 
-            // 7. Gán user vào req
+            // Gắn user và roles vào req
             req.user = user;
-            req.userRoleNames = userRoleNames;
+            req.userRoles = userRoleNames;
             next();
+
         } catch (error) {
-            console.error("Lỗi trong protectedRoute:", error);
-            return res.status(500).json({ success: false, message: "Lỗi hệ thống khi xác thực" });
+            console.error('Lỗi trong protect middleware:', error);
+            return res.status(500).json({ success: false, message: 'Lỗi hệ thống khi xác thực' });
         }
     };
+};
+
+
+export const requireRoles = (...roles) => {
+    return protect(...roles);
+};
+
+
+export const requireProfile = (profileType, options = {}) => {
+    return protect({ profile: profileType, ...options });
+};
+
+export const requireRoleAndProfile = (role, profileType, options = {}) => {
+    return protect(role, { profile: profileType, ...options });
 };

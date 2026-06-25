@@ -4,13 +4,12 @@ import { createStageWithBrackets } from '../services/stageCreationService.js';
 import TournamentItem from '../models/tournamentItem.js';
 import CategoryRule from '../models/rules/categories.js';
 import User from '../models/users.js';
-import Organization from '../models/orgs.js';
 import StageRule from '../models/rules/stageRules.js';
 import Bracket from '../models/rules/brackets.js';
 import Group from '../models/groups.js';
 import Match from '../models/matches.js';
+import { checkTournamentItemPermission } from '../utils/tournamentHelper.js';
 
-// Tạo stage mới (có thể tạo một stage riêng lẻ)
 export const createStage = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -18,39 +17,40 @@ export const createStage = async (req, res) => {
         const userId = req.user._id;
         const { tournamentItemId, stageData, brackets } = req.body;
 
-        const tournamentItem = await TournamentItem.findById(tournamentItemId).session(session);
-        if (!tournamentItem) {
-            await session.abortTransaction();
-            return res.status(404).json({ success: false, message: 'TournamentItem not found' });
-        }
-
-        const user = await User.findById(userId).populate('roles').session(session);
-        const hasAdmin = user.roles.some(r => r.name === 'admin');
-        const isOwner = await Organization.findOne({ _id: tournamentItem.organization, ownerId: userId }).session(session);
-        if (!hasAdmin && !isOwner) {
+        const { isAdmin, isOwner, item } = await checkTournamentItemPermission(tournamentItemId, userId);
+        if (!isAdmin && !isOwner) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'Permission denied' });
         }
 
-        const categoryRule = await CategoryRule.findById(tournamentItem.categoryRule).session(session);
+        // Kiểm tra số stage không trùng
+        const existingStages = await StageRule.find({ tournamentItemId }).sort({ number: 1 }).session(session);
+        if (existingStages.some(s => s.number === stageData.number)) {
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: `Stage number ${stageData.number} already exists` });
+        }
+
+        const categoryRule = await CategoryRule.findById(item.categoryRule).session(session);
         if (!categoryRule) {
             await session.abortTransaction();
             return res.status(404).json({ success: false, message: 'CategoryRule not found' });
         }
         const sportType = categoryRule.sportType;
 
-        // Tạo stage
         const stage = await createStageWithBrackets({ tournamentItemId, stageData, brackets, session });
 
-        // Cập nhật sport cho các group (nếu có)
+        // Cập nhật sport cho các group
         if (brackets && brackets.some(b => b.type === 'group')) {
             const bracketsOfStage = await Bracket.find({ stageId: stage._id }).session(session);
             const bracketIds = bracketsOfStage.map(b => b._id);
             await Group.updateMany({ bracketId: { $in: bracketIds } }, { sport: sportType }, { session });
         }
 
-        // Sau khi tạo stage, cập nhật lại mảng stages trong TournamentItem (nếu cần)
-        await TournamentItem.findByIdAndUpdate(tournamentItemId, { $addToSet: { 'structure.stage': stage._id } }, { session });
+        await TournamentItem.findByIdAndUpdate(
+            tournamentItemId,
+            { $addToSet: { 'structure.stage': stage._id } },
+            { session }
+        );
 
         await session.commitTransaction();
         return res.status(201).json({ success: true, message: 'Stage created', data: stage });
@@ -63,7 +63,6 @@ export const createStage = async (req, res) => {
     }
 };
 
-// Lấy danh sách stages của tournament item (sắp xếp theo number)
 export const getStagesByTournamentItem = async (req, res) => {
     try {
         const { tournamentItemId } = req.params;
@@ -74,7 +73,6 @@ export const getStagesByTournamentItem = async (req, res) => {
     }
 };
 
-// Lấy stage theo id kèm brackets, groups, matches
 export const getStageById = async (req, res) => {
     try {
         const stage = await StageRule.findById(req.params.id).lean();
@@ -88,7 +86,6 @@ export const getStageById = async (req, res) => {
     }
 };
 
-// Cập nhật stage (chỉ một số trường)
 export const updateStage = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -103,11 +100,8 @@ export const updateStage = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Stage not found' });
         }
 
-        const tournamentItem = await TournamentItem.findById(stage.tournamentItemId).session(session);
-        const user = await User.findById(userId).populate('roles').session(session);
-        const hasAdmin = user.roles.some(r => r.name === 'admin');
-        const isOwner = await Organization.findOne({ _id: tournamentItem.organization, ownerId: userId }).session(session);
-        if (!hasAdmin && !isOwner) {
+        const { isAdmin, isOwner } = await checkTournamentItemPermission(stage.tournamentItemId, userId);
+        if (!isAdmin && !isOwner) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'Permission denied' });
         }
@@ -128,7 +122,6 @@ export const updateStage = async (req, res) => {
     }
 };
 
-// Xóa stage (cascade xóa brackets, groups, matches)
 export const deleteStage = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -140,15 +133,14 @@ export const deleteStage = async (req, res) => {
             await session.abortTransaction();
             return res.status(404).json({ success: false, message: 'Stage not found' });
         }
-        const tournamentItem = await TournamentItem.findById(stage.tournamentItemId).session(session);
-        const user = await User.findById(userId).populate('roles').session(session);
-        const hasAdmin = user.roles.some(r => r.name === 'admin');
-        const isOwner = await Organization.findOne({ _id: tournamentItem.organization, ownerId: userId }).session(session);
-        if (!hasAdmin && !isOwner) {
+
+        const { isAdmin, isOwner, item } = await checkTournamentItemPermission(stage.tournamentItemId, userId);
+        if (!isAdmin && !isOwner) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'Permission denied' });
         }
 
+        // Xóa bracket, group, match
         const brackets = await Bracket.find({ stageId: stage._id }).session(session);
         for (const bracket of brackets) {
             const groups = await Group.find({ bracketId: bracket._id }).session(session);
@@ -160,7 +152,22 @@ export const deleteStage = async (req, res) => {
             await bracket.deleteOne({ session });
         }
         await stage.deleteOne({ session });
-        await TournamentItem.findByIdAndUpdate(stage.tournamentItemId, { $pull: { 'structure.stage': stage._id } }, { session });
+
+        await TournamentItem.findByIdAndUpdate(
+            stage.tournamentItemId,
+            { $pull: { 'structure.stage': stage._id } },
+            { session }
+        );
+
+        // Giải phóng categoryRule nếu không còn stage nào
+        const remainingStages = await StageRule.countDocuments({ tournamentItemId: stage.tournamentItemId }).session(session);
+        if (remainingStages === 0) {
+            await CategoryRule.findByIdAndUpdate(
+                item.categoryRule,
+                { tournamentItemId: null },
+                { session }
+            );
+        }
 
         await session.commitTransaction();
         return res.json({ success: true, message: 'Stage deleted' });
@@ -172,13 +179,12 @@ export const deleteStage = async (req, res) => {
     }
 };
 
-// Kích hoạt stage tiếp theo khi stage hiện tại hoàn thành
 export const completeStage = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
         const userId = req.user._id;
-        const { id } = req.params; // stageId cần hoàn thành
+        const { id } = req.params;
 
         const currentStage = await StageRule.findById(id).session(session);
         if (!currentStage) {
@@ -186,27 +192,21 @@ export const completeStage = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Stage not found' });
         }
 
-        const tournamentItem = await TournamentItem.findById(currentStage.tournamentItemId).session(session);
-        const user = await User.findById(userId).populate('roles').session(session);
-        const hasAdmin = user.roles.some(r => r.name === 'admin');
-        const isOwner = await Organization.findOne({ _id: tournamentItem.organization, ownerId: userId }).session(session);
-        if (!hasAdmin && !isOwner) {
+        const { isAdmin, isOwner } = await checkTournamentItemPermission(currentStage.tournamentItemId, userId);
+        if (!isAdmin && !isOwner) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'Permission denied' });
         }
 
-        // Kiểm tra nếu stage đã hoàn thành hoặc chưa active
         if (currentStage.status !== 'active') {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'Stage is not active' });
         }
 
-        // Cập nhật current stage thành completed
         currentStage.status = 'completed';
         currentStage.endDate = new Date();
         await currentStage.save({ session });
 
-        // Tìm stage tiếp theo (cùng tournamentItemId, number > currentStage.number)
         const nextStage = await StageRule.findOne({
             tournamentItemId: currentStage.tournamentItemId,
             number: { $gt: currentStage.number },
@@ -220,7 +220,11 @@ export const completeStage = async (req, res) => {
         }
 
         await session.commitTransaction();
-        return res.json({ success: true, message: 'Stage completed, next stage activated if exists', data: { currentStage, nextStage } });
+        return res.json({
+            success: true,
+            message: 'Stage completed, next stage activated if exists',
+            data: { currentStage, nextStage }
+        });
     } catch (error) {
         await session.abortTransaction();
         return res.status(500).json({ success: false, message: error.message });

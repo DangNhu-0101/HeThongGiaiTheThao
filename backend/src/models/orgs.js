@@ -24,8 +24,8 @@ const orgsSchema = new mongoose.Schema({
     // Thêm trạng thái duyệt
     status: {
         type: String,
-        enum: [ 'actived', 'rejected', 'inactived'],
-        default: 'actived'
+        enum: [ 'actived', 'rejected', 'inactived','pending'],
+        default: 'pending'
     },
     // Thêm thời gian và người duyệt
     verifiedAt: { type: Date, default: null },

@@ -3,44 +3,20 @@ import mongoose from "mongoose";
 import Court from "../models/courts.js";
 import TournamentItem from "../models/tournamentItem.js";
 import Tournament from "../models/tournaments.js";
-import Organization from "../models/orgs.js";
-import User from "../models/users.js";
+import { checkTournamentItemPermission, checkPermission } from "../utils/tournamentHelper.js";
+
+// ========== HELPERS ==========
 
 /**
- * Kiểm tra user có quyền quản lý court của tournamentItem này không
+ * Kiểm tra quyền quản lý court của tournamentItem
+ * - User phải là admin hoặc owner của tournamentItem
  */
 const canManageCourt = async (userId, tournamentItemId) => {
-    // 1. Kiểm tra admin
-    const user = await User.findById(userId).populate('roles');
-    const isAdmin = user?.roles?.some(r => r.name === 'admin');
-    if (isAdmin) return true;
-
-    // 2. Tìm tournamentItem
-    const tournamentItem = await TournamentItem.findById(tournamentItemId);
-    if (!tournamentItem) return false;
-
-    // 3. Tìm tổ chức của user
-    const org = await Organization.findOne({ ownerId: userId });
-    if (!org) return false;
-
-    // 4. Nếu tournamentItem có tournamentId (hội thao)
-    if (tournamentItem.tournamentId) {
-        const tournament = await Tournament.findById(tournamentItem.tournamentId);
-        if (tournament && tournament.organization) {
-            return tournament.organization.toString() === org._id.toString();
-        }
-    }
-
-    // 5. Nếu là giải đơn môn (tournamentId = null)
-    if (tournamentItem.organization) {
-        return tournamentItem.organization.toString() === org._id.toString();
-    }
-
-    return false;
+    const perm = await checkTournamentItemPermission(tournamentItemId, userId);
+    return perm.allowed;
 };
 
 // ========== GET ==========
-// Lấy danh sách sân theo tournamentItemId (có phân trang, lọc)
 export const getCourtsByTournamentItem = async (req, res) => {
     try {
         const { tournamentItemId } = req.params;
@@ -99,7 +75,7 @@ export const addCourt = async (req, res) => {
             });
         }
 
-        // Kiểm tra tên sân trùng trong cùng giải
+        // Kiểm tra tên sân trùng
         const existing = await Court.findOne({ name, tournamentItemId });
         if (existing) {
             return res.status(409).json({
@@ -142,7 +118,6 @@ export const updateCourt = async (req, res) => {
             return res.status(404).json({ success: false, message: "Sân không tồn tại" });
         }
 
-        // Kiểm tra quyền
         const hasPermission = await canManageCourt(userId, court.tournamentItemId);
         if (!hasPermission) {
             return res.status(403).json({
@@ -233,6 +208,23 @@ export const deleteCourt = async (req, res) => {
         });
     } catch (error) {
         console.error("deleteCourt error:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getCourtById = async (req, res) => {
+    try {
+        const { courtId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(courtId)) {
+            return res.status(400).json({ success: false, message: "ID sân không hợp lệ" });
+        }
+        const court = await Court.findById(courtId).lean();
+        if (!court) {
+            return res.status(404).json({ success: false, message: "Sân không tồn tại" });
+        }
+        return res.status(200).json({ success: true, data: court });
+    } catch (error) {
+        console.error("getCourtById error:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };

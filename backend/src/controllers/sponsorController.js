@@ -1,45 +1,20 @@
+// controllers/sponsorController.js
 import mongoose from "mongoose";
 import Sponsor from "../models/sponsors.js";
-import TournamentItem from "../models/tournamentItem.js";
-import Tournament from "../models/tournaments.js";
-import Organization from "../models/orgs.js";
-import User from "../models/users.js";
+import { checkTournamentItemPermission } from "../utils/tournamentHelper.js";
+
+// ========== HELPERS ==========
 
 /**
- * Kiểm tra user có quyền quản lý sponsor của tournamentItem này không
+ * Kiểm tra quyền quản lý sponsor của tournamentItem
  */
 const canManageSponsor = async (userId, tournamentItemId) => {
-    // 1. Kiểm tra admin
-    const user = await User.findById(userId).populate('roles');
-    const isAdmin = user?.roles?.some(r => r.name === 'admin');
-    if (isAdmin) return true;
-
-    // 2. Tìm tournamentItem
-    const tournamentItem = await TournamentItem.findById(tournamentItemId);
-    if (!tournamentItem) return false;
-
-    // 3. Tìm tổ chức của user
-    const org = await Organization.findOne({ ownerId: userId });
-    if (!org) return false;
-
-    // 4. Nếu tournamentItem có tournamentId (hội thao)
-    if (tournamentItem.tournamentId) {
-        const tournament = await Tournament.findById(tournamentItem.tournamentId);
-        if (tournament && tournament.organization) {
-            return tournament.organization.toString() === org._id.toString();
-        }
-    }
-
-    // 5. Nếu là giải đơn môn (tournamentId = null)
-    if (tournamentItem.organization) {
-        return tournamentItem.organization.toString() === org._id.toString();
-    }
-
-    return false;
+    const perm = await checkTournamentItemPermission(tournamentItemId, userId);
+    return perm.allowed;
 };
 
 // ========== GET ==========
-// Lấy danh sách sponsor theo tournamentItemId (có phân trang, lọc)
+
 export const getSponsorsByTournamentItem = async (req, res) => {
     try {
         const { tournamentItemId } = req.params;
@@ -77,7 +52,6 @@ export const getSponsorsByTournamentItem = async (req, res) => {
     }
 };
 
-// Lấy chi tiết sponsor theo id
 export const getSponsorById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -96,6 +70,7 @@ export const getSponsorById = async (req, res) => {
 };
 
 // ========== CREATE ==========
+
 export const createSponsor = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -152,6 +127,23 @@ export const createSponsor = async (req, res) => {
             });
         }
 
+        // Kiểm tra status hợp lệ
+        const validStatus = ['active', 'inactive'];
+        if (status && !validStatus.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `status không hợp lệ. Cho phép: ${validStatus.join(', ')}`
+            });
+        }
+
+        // Kiểm tra contactPerson (nếu có)
+        if (contactPerson && typeof contactPerson !== 'object') {
+            return res.status(400).json({
+                success: false,
+                message: "contactPerson phải là object"
+            });
+        }
+
         const newSponsor = await Sponsor.create({
             name: name.trim(),
             logo: logo || "",
@@ -176,6 +168,7 @@ export const createSponsor = async (req, res) => {
 };
 
 // ========== UPDATE ==========
+
 export const updateSponsor = async (req, res) => {
     try {
         const { id } = req.params;
@@ -209,6 +202,41 @@ export const updateSponsor = async (req, res) => {
             }
         });
 
+        // Validate lại các trường khi update
+        if (req.body.sponsorType) {
+            const validSponsorTypes = ['Diamond', 'Gold', 'Silver', 'Bronze', 'Other'];
+            if (!validSponsorTypes.includes(req.body.sponsorType)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `sponsorType không hợp lệ. Cho phép: ${validSponsorTypes.join(', ')}`
+                });
+            }
+        }
+        if (req.body.sponsorshipType) {
+            const validSponsorshipTypes = ['Money', 'Goods', 'Services'];
+            if (!validSponsorshipTypes.includes(req.body.sponsorshipType)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `sponsorshipType không hợp lệ. Cho phép: ${validSponsorshipTypes.join(', ')}`
+                });
+            }
+        }
+        if (req.body.status) {
+            const validStatus = ['active', 'inactive'];
+            if (!validStatus.includes(req.body.status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `status không hợp lệ. Cho phép: ${validStatus.join(', ')}`
+                });
+            }
+        }
+        if (req.body.amount !== undefined && (typeof req.body.amount !== 'number' || req.body.amount < 0)) {
+            return res.status(400).json({
+                success: false,
+                message: "amount phải là số lớn hơn hoặc bằng 0"
+            });
+        }
+
         await sponsor.save();
         return res.status(200).json({
             success: true,
@@ -222,6 +250,7 @@ export const updateSponsor = async (req, res) => {
 };
 
 // ========== DEACTIVATE ==========
+
 export const deactivateSponsor = async (req, res) => {
     try {
         const { id } = req.params;
@@ -251,6 +280,7 @@ export const deactivateSponsor = async (req, res) => {
 };
 
 // ========== ACTIVATE ==========
+
 export const activateSponsor = async (req, res) => {
     try {
         const { id } = req.params;
@@ -275,6 +305,41 @@ export const activateSponsor = async (req, res) => {
         });
     } catch (error) {
         console.error("activateSponsor error:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ========== DELETE ==========
+
+export const deleteSponsor = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ success: false, message: "ID không hợp lệ" });
+        }
+
+        const sponsor = await Sponsor.findById(id);
+        if (!sponsor) {
+            return res.status(404).json({ success: false, message: "Nhà tài trợ không tồn tại" });
+        }
+
+        const hasPermission = await canManageSponsor(userId, sponsor.tournamentItemId);
+        if (!hasPermission) {
+            return res.status(403).json({
+                success: false,
+                message: "Bạn không có quyền xóa nhà tài trợ này"
+            });
+        }
+
+        await Sponsor.findByIdAndDelete(id);
+        return res.status(200).json({
+            success: true,
+            message: "Xóa nhà tài trợ thành công"
+        });
+    } catch (error) {
+        console.error("deleteSponsor error:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };

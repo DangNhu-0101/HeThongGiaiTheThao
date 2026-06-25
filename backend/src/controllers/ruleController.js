@@ -64,7 +64,7 @@ export const createCategoryRule = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const { categoryTemplateId, editedRules, sportType } = req.body;
+        const { categoryTemplateId, editedRules, sportType, tournamentItemId } = req.body;
         if (!categoryTemplateId || !sportType) {
             throw new Error('Missing required fields: categoryTemplateId, sportType');
         }
@@ -72,6 +72,7 @@ export const createCategoryRule = async (req, res) => {
             categoryTemplateId,
             editedRules,
             sportType,
+            tournamentItemId || null, // thêm tham số
             session
         );
         await session.commitTransaction();

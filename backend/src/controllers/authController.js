@@ -1,68 +1,76 @@
+// controllers/authController.js
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import Session from '../models/session.js';
 import Role from '../models/roles.js';
 import User from '../models/users.js';
-import Player from '../models/players.js';       // <--- THIẾU DÒNG NÀY ĐÂY!
-import Referee from '../models/referees.js';     // Import luôn cho chắc
-import Organization from '../models/orgs.js'; // Import luôn cho chắc
 
-const ACCESS_TOKEN_TTL = 30 * 60 * 60*1000; // 30 phút (tính bằng ms để set Cookie)
+const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = 12 * 24 * 60 * 60 * 1000; // 12 ngày
 
-// 1. ĐĂNG KÝ TÀI KHOẢN
+// Helper: generate tokens
+const generateTokens = (userId) => {
+    const accessToken = jwt.sign(
+        { userId },
+        process.env.ACCESS_TOKEN_SECRET || 'your_access_secret',
+        { expiresIn: ACCESS_TOKEN_TTL }
+    );
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    return { accessToken, refreshToken };
+};
+
+// Helper: save session
+const saveSession = async (userId, refreshToken) => {
+    await Session.create({
+        userId,
+        refreshToken,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL)
+    });
+};
+
+// 1. Đăng ký (chỉ tạo user, mặc định role player)
 export const register = async (req, res) => {
     try {
-        // 1. Chỉ lấy các trường cơ bản, bỏ role và profileData
         const { username, password, email, phoneNumber } = req.body;
 
-        // 2. Kiểm tra dữ liệu đầu vào
+        // Validate cơ bản
         if (!username || !password || !email || !phoneNumber) {
-            return res.status(400).json({ message: "Vui lòng nhập đầy đủ username, password, email, số điện thoại" });
+            return res.status(400).json({ message: 'Vui lòng nhập đầy đủ username, password, email, số điện thoại' });
         }
 
-        // 3. Kiểm tra trùng lặp
-        const check = await User.findOne({ $or: [{ username }, { email }, { phoneNumber }] });
-        if (check) return res.status(409).json({ message: "Username, Email hoặc SĐT đã tồn tại!" });
+        // Kiểm tra trùng
+        const existingUser = await User.findOne({
+            $or: [{ username }, { email }, { phoneNumber }]
+        });
+        if (existingUser) {
+            return res.status(409).json({ message: 'Username, Email hoặc SĐT đã tồn tại!' });
+        }
 
-        // 4. Mã hóa mật khẩu
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // 5. Tìm role mặc định (isDefault: true)
+        // Lấy role mặc định (isDefault: true) – theo logic initRoles, đó là 'player'
         const defaultRole = await Role.findOne({ isDefault: true });
         if (!defaultRole) {
-            return res.status(500).json({ message: "Hệ thống chưa cấu hình role mặc định. Vui lòng liên hệ quản trị viên." });
+            return res.status(500).json({ message: 'Hệ thống chưa cấu hình role mặc định. Vui lòng liên hệ quản trị viên.' });
         }
 
-        // 6. Tạo user mới (chỉ có thông tin cơ bản + role mặc định)
+        // Mã hóa mật khẩu
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Tạo user mới với role mặc định
         const newUser = new User({
             username,
             hashedPassword,
             email,
             phoneNumber,
-            roles: defaultRole._id,      // gán ObjectId của role mặc định           // không có avatar, status sẽ mặc định 'active'
+            roles: [defaultRole._id]
         });
-
         await newUser.save();
 
-        // 8. Tạo token
-        const accessToken = jwt.sign(
-            { userId: newUser._id },
-            process.env.ACCESS_TOKEN || 'SECRET_KEY_TAM_THOI',
-            { expiresIn: '15m' }
-        );
+        // Tạo token
+        const { accessToken, refreshToken } = generateTokens(newUser._id);
+        await saveSession(newUser._id, refreshToken);
 
-        const refreshToken = crypto.randomBytes(64).toString('hex');
-
-        // 9. Lưu session
-        await Session.create({
-            userId: newUser._id,
-            refreshToken,
-            expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL)
-        });
-
-        // 10. Set cookie và trả về
+        // Set cookie refresh token
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -71,122 +79,76 @@ export const register = async (req, res) => {
         });
 
         return res.status(201).json({
-            message: "Đăng ký thành công!",
-            accessToken,
-            user: {
-                username: newUser.username,
-                email: newUser.email,
-                phoneNumber: newUser.phoneNumber,
-                role: defaultRole.name
-            }
+            message: 'Đăng ký thành công!',
         });
-
     } catch (error) {
-        console.error("LỖI TẠI REGISTER_FULL:", error);
-        return res.status(500).json({
-            message: "Server bị lỗi rồi: " + error.message
-        });
+        console.error('Register error:', error);
+        return res.status(500).json({ message: 'Lỗi server: ' + error.message });
     }
 };
 
-// 2. ĐĂNG NHẬP TRUYỀN THỐNG
+// 2. Đăng nhập
 export const login = async (req, res) => {
     try {
         const { username, password } = req.body;
-
         if (!username || !password) {
-            return res.status(400).json({
-                message: "Tên đăng nhập và mật khẩu không được để trống"
-            });
+            return res.status(400).json({ message: 'Tên đăng nhập và mật khẩu không được để trống' });
         }
 
-        // Tìm người dùng trong DB
-        const user = await User.findOne({ username });
+        // Tìm user và populate roles
+        const user = await User.findOne({
+            $or: [{ username }, { email: username }]
+        }).populate('roles', 'name');
 
         if (!user) {
-            return res.status(401).json({
-                message: "Tên đăng nhập hoặc mật khẩu không chính xác"
-            });
+            return res.status(401).json({ message: 'Sai tên đăng nhập hoặc mật khẩu' });
         }
 
-        // Kiểm tra mật khẩu đã mã hóa
-        const passwordCorrect = await bcrypt.compare(password, user.hashedPassword);
-
-        if (!passwordCorrect) {
-            return res.status(401).json({
-                message: "Tên đăng nhập hoặc mật khẩu không chính xác"
-            });
+        // So sánh mật khẩu
+        const isMatch = await bcrypt.compare(password, user.hashedPassword);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Sai tên đăng nhập hoặc mật khẩu' });
         }
 
-        // Tạo Access Token (JWT)
-        const accessToken = jwt.sign(
-            { userId: user._id },
-            process.env.ACCESS_TOKEN,
-            { expiresIn: ACCESS_TOKEN_TTL }
-        );
+        // Xóa session cũ (tùy chọn: chỉ giữ 1 phiên đăng nhập)
+        await Session.deleteMany({ userId: user._id });
 
-        // Tạo Refresh Token (Chuỗi ngẫu nhiên bảo mật cao)
-        const refreshToken = crypto.randomBytes(64).toString('hex');
+        // Tạo token mới
+        const { accessToken, refreshToken } = generateTokens(user._id);
+        await saveSession(user._id, refreshToken);
 
-        // Lưu phiên đăng nhập (Session) vào cơ sở dữ liệu
-        await Session.create({
-            userId: user._id,
-            refreshToken,
-            expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL),
-        });
-
-        // Gửi Refresh Token qua Cookie bảo mật
+        // Set cookie
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: REFRESH_TOKEN_TTL,
+            maxAge: REFRESH_TOKEN_TTL
         });
 
-        // Trả về Access Token cho phía Client
         return res.status(200).json({
-            message: `Chào mừng ${user.username}, bạn đã đăng nhập thành công!`,
-            accessToken,
-            user: {
-                id: user._id,
-                username: user.username,
-                role: user.roles
-            }
+            message: `Chào mừng ${user.username}`,
         });
-
     } catch (error) {
-        console.error("Lỗi trong hàm Đăng nhập:", error);
-        return res.status(500).json({
-            message: "Lỗi hệ thống khi đăng nhập"
-        });
+        console.error('Login error:', error);
+        return res.status(500).json({ message: 'Lỗi server' });
     }
-}
+};
 
-// 3. ĐĂNG XUẤT
+// 3. Đăng xuất
 export const logout = async (req, res) => {
     try {
-        const token = req.cookies?.refreshToken;
-        if (token) await Session.deleteOne({ refreshToken: token });
-
-        // Xóa phiên làm việc trong Database
-        if (token) {
-            await Session.deleteOne({ refreshToken: token });
+        const refreshToken = req.cookies?.refreshToken;
+        if (refreshToken) {
+            await Session.deleteOne({ refreshToken });
         }
-
-        // Xóa sạch Cookie ở trình duyệt
-        res.clearCookie("refreshToken", {
+        res.clearCookie('refreshToken', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: 'strict'
         });
-
-        return res.status(200).json({
-            message: "Đăng xuất thành công"
-        });
+        return res.status(200).json({ message: 'Đăng xuất thành công' });
     } catch (error) {
-        console.error("Lỗi trong hàm Đăng xuất:", error);
-        return res.status(500).json({
-            message: "Lỗi hệ thống khi đăng xuất"
-        });
+        console.error('Logout error:', error);
+        return res.status(500).json({ message: 'Lỗi server' });
     }
-}
+};
