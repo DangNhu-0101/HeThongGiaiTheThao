@@ -27,17 +27,6 @@ const PROFILE_CONFIG = {
     }
 };
 
-/**
- * Middleware chính: bảo vệ route với kiểm tra role và profile
- * @param {...string|Object} args - Có thể là role (string) hoặc object option
- * Sử dụng:
- *   - protect() -> chỉ cần đăng nhập
- *   - protect('admin') -> yêu cầu role admin
- *   - protect('org', 'admin') -> yêu cầu role org hoặc admin
- *   - protect('org', { profile: true }) -> yêu cầu role org và kiểm tra profile org
- *   - protect('org', 'admin', { profile: true, allowAdminSkip: true }) -> admin được bỏ qua kiểm tra profile
- *   - protect({ profile: 'player' }) -> kiểm tra profile player (không cần role cụ thể)
- */
 export const protectedRoute = (...args) => {
     return async (req, res, next) => {
         try {

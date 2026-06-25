@@ -24,7 +24,7 @@ const participantSchema = new mongoose.Schema({
     lineup:[{
         Player:{
             type:mongoose.Schema.Types.ObjectId,
-            ref:'User'
+            ref:'Player'
         }
     }]
 

@@ -80,6 +80,7 @@ export const register = async (req, res) => {
 
         return res.status(201).json({
             message: 'Đăng ký thành công!',
+            accessToken,
         });
     } catch (error) {
         console.error('Register error:', error);
@@ -127,6 +128,7 @@ export const login = async (req, res) => {
 
         return res.status(200).json({
             message: `Chào mừng ${user.username}`,
+            accessToken,
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -142,9 +144,6 @@ export const logout = async (req, res) => {
             await Session.deleteOne({ refreshToken });
         }
         res.clearCookie('refreshToken', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict'
         });
         return res.status(200).json({ message: 'Đăng xuất thành công' });
     } catch (error) {

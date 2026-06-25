@@ -148,7 +148,7 @@ export const updateCourtStatus = async (req, res) => {
         const { status } = req.body;
         const userId = req.user._id;
 
-        const allowedStatus = ['empty', 'busy', 'maintenance', 'inactive'];
+        const allowedStatus = ['empty', 'busy', 'maintenance', 'inactived'];
         if (!status || !allowedStatus.includes(status)) {
             return res.status(400).json({
                 success: false,
@@ -174,7 +174,6 @@ export const updateCourtStatus = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Cập nhật trạng thái sân thành công",
-            data: court
         });
     } catch (error) {
         console.error("updateCourtStatus error:", error);

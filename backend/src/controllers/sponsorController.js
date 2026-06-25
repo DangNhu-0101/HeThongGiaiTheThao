@@ -128,7 +128,7 @@ export const createSponsor = async (req, res) => {
         }
 
         // Kiểm tra status hợp lệ
-        const validStatus = ['active', 'inactive'];
+        const validStatus = ['actived', 'inactived'];
         if (status && !validStatus.includes(status)) {
             return res.status(400).json({
                 success: false,

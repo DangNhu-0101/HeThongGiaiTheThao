@@ -1,4 +1,3 @@
-// controllers/participantController.js
 import mongoose from 'mongoose';
 import Participant from '../models/participants.js';
 import TournamentItem from '../models/tournamentItem.js';
@@ -11,7 +10,7 @@ import { checkPermission } from '../utils/tournamentHelper.js';
 // ==================== HELPERS ====================
 
 /**
- * Kiểm tra xem một player đã đăng ký trong giải đấu chưa (tối ưu)
+ * Kiểm tra một player đã đăng ký trong giải đấu chưa (dùng Player._id)
  */
 const isPlayerRegistered = async (tournamentItemId, playerId) => {
     const participant = await Participant.findOne({
@@ -22,7 +21,7 @@ const isPlayerRegistered = async (tournamentItemId, playerId) => {
 };
 
 /**
- * Validate số lượng thành viên trong team dựa trên categoryRule
+ * Validate số lượng thành viên trong team (dùng CategoryRule.playerSlotsPerTeam)
  */
 const validateTeamSize = async (tournamentItemId, lineupLength) => {
     const tournamentItem = await TournamentItem.findById(tournamentItemId).populate('categoryRule');
@@ -31,7 +30,7 @@ const validateTeamSize = async (tournamentItemId, lineupLength) => {
     }
     const categoryRule = tournamentItem.categoryRule;
     if (!categoryRule) {
-        return { valid: true }; // Không có rule, bỏ qua
+        return { valid: true };
     }
     const min = categoryRule.playerSlotsPerTeam?.min ?? 1;
     const max = categoryRule.playerSlotsPerTeam?.max ?? 1;
@@ -55,20 +54,20 @@ const isRegistrationOpen = (tournamentItem) => {
 };
 
 /**
- * Kiểm tra user có phải thành viên của participant không
+ * Kiểm tra user có phải thành viên của participant không (dùng Player._id)
  */
-const isMemberOfParticipant = (participant, userId) => {
-    return participant.lineup.some(item => item.Player && item.Player.toString() === userId.toString());
+const isMemberOfParticipant = (participant, playerId) => {
+    return participant.lineup.some(item => item.Player && item.Player.toString() === playerId.toString());
 };
 
 /**
  * Kiểm tra quyền trên participant:
- * - User là thành viên participant
- * - Hoặc user là admin/owner của giải đấu
+ * - User là thành viên (có Player._id trong lineup)
+ * - Hoặc user là admin/owner của tournament
  */
-const checkParticipantPermission = async (participant, userId) => {
+const checkParticipantPermission = async (participant, userId, playerId) => {
     // 1. Kiểm tra thành viên
-    if (isMemberOfParticipant(participant, userId)) {
+    if (isMemberOfParticipant(participant, playerId)) {
         return { allowed: true, message: '' };
     }
     // 2. Kiểm tra admin/owner của tournament
@@ -89,8 +88,13 @@ export const createParticipant = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const userId = req.user._id;
-        const userPlayer = req.profile; // từ middleware
+        const userId = req.user._id; // User ID
+        const playerProfile = req.profile; // Player document (từ middleware)
+        if (!playerProfile) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'You must have an active player profile to register' });
+        }
+        const playerId = playerProfile._id; // Player._id
 
         const { tournamentItemId, type, name, logo, lineup, invitees } = req.body;
 
@@ -113,28 +117,22 @@ export const createParticipant = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid type. Must be "player" or "team"' });
         }
 
-        // 4. Kiểm tra profile player (user đã có player profile active chưa)
-        if (!userPlayer) {
-            await session.abortTransaction();
-            return res.status(403).json({ success: false, message: 'You must have an active player profile to register' });
-        }
-
-        // 5. Xử lý đăng ký cá nhân
+        // 4. Xử lý đăng ký cá nhân
         if (type === 'player') {
-            if (await isPlayerRegistered(tournamentItemId, userPlayer._id)) {
+            if (await isPlayerRegistered(tournamentItemId, playerId)) {
                 await session.abortTransaction();
                 return res.status(409).json({ success: false, message: 'You are already registered in this tournament' });
             }
 
-            const participantName = name || userPlayer.name;
-            const participantLogo = logo || userPlayer.avatar || '';
+            const participantName = name || playerProfile.name;
+            const participantLogo = logo || playerProfile.avatar || '';
 
             const participant = new Participant({
                 type: 'player',
                 tournamentItemId,
                 name: participantName,
                 logo: participantLogo,
-                lineup: [{ Player: userPlayer._id }]
+                lineup: [{ Player: playerId }]
             });
             await participant.save({ session });
 
@@ -146,22 +144,25 @@ export const createParticipant = async (req, res) => {
             });
         }
 
-        // 6. Xử lý đăng ký đội (type === 'team')
+        // 5. Xử lý đăng ký đội (type === 'team')
         let finalLineup = [];
         let invitedPlayerIds = [];
 
         if (lineup && Array.isArray(lineup) && lineup.length >= 1) {
-            const captainInLineup = lineup.some(item => item.Player && item.Player.toString() === userId.toString());
+            // Kiểm tra captain có trong lineup không (dùng playerId)
+            const captainInLineup = lineup.some(item => item.Player && item.Player.toString() === playerId.toString());
             if (!captainInLineup) {
                 await session.abortTransaction();
                 return res.status(400).json({ success: false, message: 'Captain (you) must be included in the lineup' });
             }
             const playerIds = lineup.map(item => item.Player);
+            // Kiểm tra các player có tồn tại và active không
             const players = await Player.find({ _id: { $in: playerIds }, status: 'active' }).session(session);
             if (players.length !== playerIds.length) {
                 await session.abortTransaction();
                 return res.status(400).json({ success: false, message: 'One or more players do not exist or are not active' });
             }
+            // Kiểm tra từng player đã đăng ký giải đấu chưa
             for (const pid of playerIds) {
                 if (await isPlayerRegistered(tournamentItemId, pid)) {
                     const player = await Player.findById(pid);
@@ -172,6 +173,7 @@ export const createParticipant = async (req, res) => {
                     });
                 }
             }
+            // Validate số lượng
             const sizeCheck = await validateTeamSize(tournamentItemId, playerIds.length);
             if (!sizeCheck.valid) {
                 await session.abortTransaction();
@@ -179,22 +181,26 @@ export const createParticipant = async (req, res) => {
             }
             finalLineup = playerIds.map(pid => ({ Player: pid }));
         } else {
-            if (await isPlayerRegistered(tournamentItemId, userId)) {
+            // Không có lineup, tạo lineup chỉ có captain
+            if (await isPlayerRegistered(tournamentItemId, playerId)) {
                 await session.abortTransaction();
                 return res.status(409).json({ success: false, message: 'You are already registered in this tournament' });
             }
-            finalLineup = [{ Player: userPlayer._id }];
+            finalLineup = [{ Player: playerId }];
         }
 
+        // Xử lý invitees (nếu có)
         if (invitees && Array.isArray(invitees)) {
             invitedPlayerIds = invitees;
         }
 
+        // Tên đội bắt buộc
         if (!name || !name.trim()) {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'Team name is required' });
         }
 
+        // Tạo participant
         const participant = new Participant({
             type: 'team',
             tournamentItemId,
@@ -204,21 +210,32 @@ export const createParticipant = async (req, res) => {
         });
         await participant.save({ session });
 
-        for (const inviteeId of invitedPlayerIds) {
-            const inviteePlayer = await Player.findOne({ userId: inviteeId, status: 'active' }).session(session);
+        // Tạo invitations cho từng invitee (lưu User._id vì Invitation.receiverId là User)
+        for (const inviteeUserId of invitedPlayerIds) {
+            // Kiểm tra invitee có player profile active không
+            const inviteePlayer = await Player.findOne({ userId: inviteeUserId, status: 'active' }).session(session);
             if (!inviteePlayer) continue;
-            if (participant.lineup.some(item => item.Player && item.Player.toString() === inviteeId.toString())) continue;
-            if (await isPlayerRegistered(tournamentItemId, inviteeId)) continue;
+            const inviteePlayerId = inviteePlayer._id;
+
+            // Nếu đã có trong lineup thì bỏ qua
+            if (participant.lineup.some(item => item.Player && item.Player.toString() === inviteePlayerId.toString())) {
+                continue;
+            }
+            // Kiểm tra invitee đã đăng ký giải đấu chưa
+            if (await isPlayerRegistered(tournamentItemId, inviteePlayerId)) {
+                continue;
+            }
+            // Kiểm tra đã có invitation pending chưa
             const existingInvite = await Invitation.findOne({
                 participantId: participant._id,
-                receiverId: inviteeId,
+                receiverId: inviteeUserId,
                 status: 'pending'
             }).session(session);
             if (existingInvite) continue;
 
             const invitation = new Invitation({
-                senderId: userId,
-                receiverId: inviteeId,
+                senderId: userId, // User._id
+                receiverId: inviteeUserId, // User._id
                 participantId: participant._id,
                 message: `You are invited to join team ${participant.name}`
             });
@@ -246,7 +263,7 @@ export const getParticipantsByTournament = async (req, res) => {
     try {
         const { tournamentItemId } = req.params;
         const participants = await Participant.find({ tournamentItemId })
-            .populate('lineup.Player', 'name email avatar');
+            .populate('lineup.Player', 'name gender birthDate skill');
         return res.status(200).json({ success: true, data: participants });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -257,7 +274,7 @@ export const getParticipant = async (req, res) => {
     try {
         const { id } = req.params;
         const participant = await Participant.findById(id)
-            .populate('lineup.Player', 'name email avatar');
+            .populate('lineup.Player', 'name gender birthDate skill');
         if (!participant) {
             return res.status(404).json({ success: false, message: 'Participant not found' });
         }
@@ -269,10 +286,14 @@ export const getParticipant = async (req, res) => {
 
 export const getMyParticipants = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
         const participants = await Participant.find({
-            'lineup.Player': userId
-        }).populate('lineup.Player', 'name email avatar')
+            'lineup.Player': playerId
+        }).populate('lineup.Player', 'name gender birthDate skill')
             .populate('tournamentItemId', 'name sportType');
         return res.status(200).json({ success: true, data: participants });
     } catch (error) {
@@ -289,6 +310,12 @@ export const updateParticipant = async (req, res) => {
         const { id } = req.params;
         const { name, logo, lineup } = req.body;
         const userId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
 
         const participant = await Participant.findById(id).session(session);
         if (!participant) {
@@ -296,7 +323,7 @@ export const updateParticipant = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Participant not found' });
         }
 
-        const perm = await checkParticipantPermission(participant, userId);
+        const perm = await checkParticipantPermission(participant, userId, playerId);
         if (!perm.allowed) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: perm.message });
@@ -324,7 +351,7 @@ export const updateParticipant = async (req, res) => {
                     return res.status(400).json({ success: false, message: 'Team must have at least 1 player' });
                 }
                 const playerIds = lineup.map(item => item.Player);
-                if (!playerIds.some(id => id.toString() === userId.toString())) {
+                if (!playerIds.some(id => id.toString() === playerId.toString())) {
                     await session.abortTransaction();
                     return res.status(403).json({ success: false, message: 'You cannot remove yourself from the team' });
                 }
@@ -373,6 +400,12 @@ export const deleteParticipant = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
 
         const participant = await Participant.findById(id).session(session);
         if (!participant) {
@@ -380,7 +413,7 @@ export const deleteParticipant = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Participant not found' });
         }
 
-        const perm = await checkParticipantPermission(participant, userId);
+        const perm = await checkParticipantPermission(participant, userId, playerId);
         if (!perm.allowed) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: perm.message });
@@ -418,6 +451,12 @@ export const sendParticipantInvitation = async (req, res) => {
         const { participantId } = req.params;
         const { receiverId, message } = req.body;
         const senderId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
 
         const participant = await Participant.findById(participantId).session(session);
         if (!participant) {
@@ -429,29 +468,33 @@ export const sendParticipantInvitation = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Only team participants can have invitations' });
         }
 
-        // Kiểm tra quyền gửi lời mời: thành viên của participant hoặc admin/owner
-        const perm = await checkParticipantPermission(participant, senderId);
+        const perm = await checkParticipantPermission(participant, senderId, playerId);
         if (!perm.allowed) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: perm.message });
         }
 
+        // Tìm Player của người nhận (dùng userId)
         const receiverPlayer = await Player.findOne({ userId: receiverId, status: 'active' }).session(session);
         if (!receiverPlayer) {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'Receiver does not have an active player profile' });
         }
+        const receiverPlayerId = receiverPlayer._id;
 
-        if (participant.lineup.some(item => item.Player && item.Player.toString() === receiverId.toString())) {
+        // Kiểm tra đã có trong team chưa
+        if (participant.lineup.some(item => item.Player && item.Player.toString() === receiverPlayerId.toString())) {
             await session.abortTransaction();
             return res.status(409).json({ success: false, message: 'Player is already in the team' });
         }
 
-        if (await isPlayerRegistered(participant.tournamentItemId, receiverId)) {
+        // Kiểm tra đã đăng ký giải đấu chưa
+        if (await isPlayerRegistered(participant.tournamentItemId, receiverPlayerId)) {
             await session.abortTransaction();
             return res.status(409).json({ success: false, message: 'Player is already registered in this tournament' });
         }
 
+        // Kiểm tra đã có invitation pending chưa
         const existingInvite = await Invitation.findOne({
             participantId: participant._id,
             receiverId: receiverId,
@@ -486,6 +529,12 @@ export const acceptParticipantInvitation = async (req, res) => {
     try {
         const { invitationId } = req.params;
         const userId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
 
         const invitation = await Invitation.findById(invitationId).session(session);
         if (!invitation || invitation.status !== 'pending') {
@@ -503,23 +552,26 @@ export const acceptParticipantInvitation = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Participant no longer exists' });
         }
 
-        if (participant.lineup.some(item => item.Player && item.Player.toString() === userId.toString())) {
+        // Kiểm tra đã có trong team chưa
+        if (participant.lineup.some(item => item.Player && item.Player.toString() === playerId.toString())) {
             await session.abortTransaction();
             return res.status(409).json({ success: false, message: 'You are already in this team' });
         }
 
-        if (await isPlayerRegistered(participant.tournamentItemId, userId)) {
+        // Kiểm tra đã đăng ký giải đấu chưa
+        if (await isPlayerRegistered(participant.tournamentItemId, playerId)) {
             await session.abortTransaction();
             return res.status(409).json({ success: false, message: 'You are already registered in this tournament' });
         }
 
+        // Kiểm tra số lượng thành viên
         const sizeCheck = await validateTeamSize(participant.tournamentItemId, participant.lineup.length + 1);
         if (!sizeCheck.valid) {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: sizeCheck.message });
         }
 
-        participant.lineup.push({ Player: userId });
+        participant.lineup.push({ Player: playerId });
         await participant.save({ session });
 
         invitation.status = 'accepted';
@@ -599,12 +651,17 @@ export const getParticipantInvitations = async (req, res) => {
     try {
         const { participantId } = req.params;
         const userId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
 
         const participant = await Participant.findById(participantId);
         if (!participant) {
             return res.status(404).json({ success: false, message: 'Participant not found' });
         }
-        const perm = await checkParticipantPermission(participant, userId);
+        const perm = await checkParticipantPermission(participant, userId, playerId);
         if (!perm.allowed) {
             return res.status(403).json({ success: false, message: perm.message });
         }
@@ -638,6 +695,12 @@ export const removeMemberFromParticipant = async (req, res) => {
     try {
         const { participantId, memberId } = req.params;
         const userId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
 
         const participant = await Participant.findById(participantId).session(session);
         if (!participant) {
@@ -649,17 +712,18 @@ export const removeMemberFromParticipant = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Only team participants can have members removed' });
         }
 
-        const perm = await checkParticipantPermission(participant, userId);
+        const perm = await checkParticipantPermission(participant, userId, playerId);
         if (!perm.allowed) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: perm.message });
         }
 
-        if (memberId.toString() === userId.toString()) {
+        if (memberId.toString() === playerId.toString()) {
             await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'You cannot remove yourself. Use leaveTeam or delete participant' });
         }
 
+        // Kiểm tra thành viên cần xóa có tồn tại trong lineup không (dùng Player._id)
         const memberIndex = participant.lineup.findIndex(item => item.Player && item.Player.toString() === memberId.toString());
         if (memberIndex === -1) {
             await session.abortTransaction();
@@ -669,11 +733,16 @@ export const removeMemberFromParticipant = async (req, res) => {
         participant.lineup.splice(memberIndex, 1);
         await participant.save({ session });
 
-        await Invitation.updateMany(
-            { participantId, receiverId: memberId, status: 'pending' },
-            { status: 'rejected' },
-            { session }
-        );
+        // Từ chối các invitation pending của member đó với participant này
+        // memberId là Player._id, cần tìm User._id của player đó
+        const memberPlayer = await Player.findById(memberId).session(session);
+        if (memberPlayer) {
+            await Invitation.updateMany(
+                { participantId, receiverId: memberPlayer.userId, status: 'pending' },
+                { status: 'rejected' },
+                { session }
+            );
+        }
 
         await session.commitTransaction();
         return res.status(200).json({ success: true, message: 'Member removed successfully' });
@@ -691,6 +760,12 @@ export const leaveParticipant = async (req, res) => {
     try {
         const { participantId } = req.params;
         const userId = req.user._id;
+        const playerProfile = req.profile;
+        if (!playerProfile) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
+        }
+        const playerId = playerProfile._id;
 
         const participant = await Participant.findById(participantId).session(session);
         if (!participant) {
@@ -702,7 +777,7 @@ export const leaveParticipant = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Only team participants allow leaving' });
         }
 
-        const memberIndex = participant.lineup.findIndex(item => item.Player && item.Player.toString() === userId.toString());
+        const memberIndex = participant.lineup.findIndex(item => item.Player && item.Player.toString() === playerId.toString());
         if (memberIndex === -1) {
             await session.abortTransaction();
             return res.status(404).json({ success: false, message: 'You are not a member of this team' });
