@@ -64,7 +64,9 @@ app.use('/api/news', newsRoutes);
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
-
+app.get('/', (req, res) => {
+    res.send('Hệ thống Quản lý Giải đấu đang hoạt động bình thường');
+});
 // Kết nối DB và khởi động server
 connectDB().then(async () => {
     try {
