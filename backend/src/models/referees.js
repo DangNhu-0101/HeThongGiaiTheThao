@@ -5,9 +5,10 @@ const refereeSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        unique: true
+        default: null
     },
+  
+
     phoneNumber: { type: String, default: '' },
     name: { type: String, required: true },
     birthDate: { type: Date },

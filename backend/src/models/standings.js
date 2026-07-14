@@ -50,7 +50,7 @@ const standingSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Index để đảm bảo mỗi tournamentItem chỉ có 1 standing cho mỗi đội/người
-standingSchema.index({ tournamentItemId: 1, teamOrPlayerId: 1 }, { unique: true });
+standingSchema.index({ tournamentItemId: 1, stageId: 1, groupId: 1, teamOrPlayerId: 1 }, { unique: true });
 
 const Standing = mongoose.model('Standing',standingSchema);
 export default Standing;

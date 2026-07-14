@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import RuleService from '../services/ruleService.js';
+import RuleService from '../services/RuleService.js';
 import CategoryRuleService from '../services/categoryRuleSevice.js';
 
 // lấy tất cả luật system
@@ -61,27 +61,25 @@ export const getFlattenRules = async (req, res) => {
 
 
 export const createCategoryRule = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
     try {
         const { categoryTemplateId, editedRules, sportType, tournamentItemId } = req.body;
+        
         if (!categoryTemplateId || !sportType) {
             throw new Error('Missing required fields: categoryTemplateId, sportType');
         }
+
         const categoryRule = await CategoryRuleService.createFromTemplate(
             categoryTemplateId,
             editedRules,
             sportType,
-            tournamentItemId || null, // thêm tham số
-            session
+            tournamentItemId || null,
+            null
         );
-        await session.commitTransaction();
+
         res.status(201).json({ success: true, data: categoryRule });
     } catch (error) {
-        await session.abortTransaction();
+        console.error('CREATE RULE ERROR:', error);
         res.status(500).json({ success: false, message: error.message });
-    } finally {
-        session.endSession();
     }
 };
 

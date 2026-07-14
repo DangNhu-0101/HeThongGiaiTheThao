@@ -63,6 +63,31 @@ export const getAllSingleSportTournaments = async (req, res) => {
     }
 };
 
+export const getOpenRegistrationTournamentItems = async (req, res) => {
+    try {
+        const now = new Date();
+        const filter = {
+            status: { $nin: ['completed', 'cancelled'] },
+            'timeLine.registrationStart': { $lte: now },
+            'timeLine.registrationEnd': { $gte: now }
+        };
+
+        const items = await TournamentItem.find(filter)
+            .populate('organization', 'name logo email')
+            .populate('tournamentId', 'name')
+            .populate({
+                path: 'categoryRule',
+                populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
+            })
+            .sort({ 'timeLine.registrationEnd': 1, createdAt: -1 })
+            .lean();
+
+        res.json({ data: items });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const getSingleSportTournamentsByOrganization = async (req, res) => {
     try {
         const currentUser = req.user._id;
@@ -132,6 +157,7 @@ export const getTournamentById = async (req, res) => {
             });
         if (!tournament) return res.status(404).json({ message: "Không tìm thấy hội thao" });
         if (tournament.status === 'cancelled') {
+            if (!req.user?._id) return res.status(403).json({ message: 'Tournament is cancelled' });
             const perm = await checkPermission(req.user._id, tournament.organization);
             if (!perm.allowed) return res.status(403).json({ message: perm.message });
         }
@@ -151,6 +177,7 @@ export const getSingleTournamentById = async (req, res) => {
             });
         if (!item) return res.status(404).json({ message: "Không tìm thấy giải đấu" });
         if (item.status === 'cancelled') {
+            if (!req.user?._id) return res.status(403).json({ message: 'Tournament is cancelled' });
             const perm = await checkPermission(req.user._id, item.organization);
             if (!perm.allowed) return res.status(403).json({ message: perm.message });
         }
@@ -179,13 +206,19 @@ export const createSingleSportTournament = async (req, res) => {
         // Kiểm tra quyền
         const perm = await checkPermission(userId, userId);
         if (!perm.allowed) return res.status(403).json({ message: perm.message });
-        if (!perm.user.roles.some(r => r.name === 'org' || r.name === 'admin')) {
+        if (!perm.user.roles.some(r => ['org', 'organization', 'admin'].includes(r.name))) {
             return res.status(403).json({ message: 'Bạn cần có role org hoặc admin để tạo giải' });
         }
 
         // Validate timeline
         const timelineResult = buildTimeline(data);
         if (!timelineResult.success) {
+            console.warn('CREATE SINGLE TIMELINE INVALID:', timelineResult.errors, {
+                registrationStart: data.registrationStart,
+                registrationEnd: data.registrationEnd,
+                tournamentStart: data.tournamentStart,
+                tournamentEnd: data.tournamentEnd
+            });
             return res.status(400).json({ message: timelineResult.errors.join('; ') });
         }
         data.timeline = timelineResult.data;
@@ -203,12 +236,18 @@ export const createMultiSportTournament = async (req, res) => {
         const data = req.body;
         const perm = await checkPermission(userId, userId);
         if (!perm.allowed) return res.status(403).json({ message: perm.message });
-        if (!perm.user.roles.some(r => r.name === 'org' || r.name === 'admin')) {
+        if (!perm.user.roles.some(r => ['org', 'organization', 'admin'].includes(r.name))) {
             return res.status(403).json({ message: 'Bạn cần có role org hoặc admin để tạo hội thao' });
         }
 
         const timelineResult = buildTimeline(data);
         if (!timelineResult.success) {
+            console.warn('CREATE MULTI TIMELINE INVALID:', timelineResult.errors, {
+                registrationStart: data.registrationStart,
+                registrationEnd: data.registrationEnd,
+                tournamentStart: data.tournamentStart,
+                tournamentEnd: data.tournamentEnd
+            });
             return res.status(400).json({ message: timelineResult.errors.join('; ') });
         }
         data.timeline = timelineResult.data;

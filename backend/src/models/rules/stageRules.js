@@ -59,7 +59,14 @@ const StageRuleSchema = new mongoose.Schema({
         type:String,
         enum:['pending', 'actived', 'completed'],
         default:'pending'
-    }
+    },
+    standingsStatus: {
+        type: String,
+        enum: ['draft', 'published'],
+        default: 'draft'
+    },
+    standingsPublishedAt: { type: Date, default: null },
+    standingsPublishedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 },
 {timestamps:true});
 

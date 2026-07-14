@@ -3,16 +3,19 @@ import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import CategoryTemplate from '../models/rules/categoryTemplate.js';
-import StageTemplate from '../models/rules/stageTemplate.js';
-import TournamentTemplate from '../models/rules/tournamentTemplate.js';
+import { fileURLToPath } from 'url';
+import CategoryTemplate from '../models/rules/ruleTemplate/categoryTemplate.js';
+import StageTemplate from '../models/rules/ruleTemplate/stageTemplate.js';
+import TournamentTemplate from '../models/rules/ruleTemplate/tournamentTemplate.js';
 
 dotenv.config();
-const CONFIG_DIR = path.resolve('config');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CONFIG_DIR = path.resolve(__dirname, '../config');
 
 async function seedSport(sportDir) {
     const categoriesPath = path.join(sportDir, 'categories.json');
-    const stagesPath = path.join(sportDir, 'stages.json');
+    const stagesPath = path.join(sportDir, 'stage.json');
     if (!fs.existsSync(categoriesPath) || !fs.existsSync(stagesPath)) return;
 
     // Categories
@@ -27,7 +30,9 @@ async function seedSport(sportDir) {
             doc = new CategoryTemplate({ sportType, ...cat });
         } else {
             Object.assign(doc, cat);
+            doc.sportType = sportType;
         }
+        doc.status = 'actived';
         await doc.save();
         categoryMap.set(cat.code, doc._id);
     }
@@ -43,16 +48,19 @@ async function seedSport(sportDir) {
             doc = new StageTemplate({ sportType, ...stage });
         } else {
             Object.assign(doc, stage);
+            doc.sportType = sportType;
         }
+        doc.status = 'actived';
         await doc.save();
         stageMap.set(stage.name, doc._id);
     }
 
     // Templates
-    const files = fs.readdirSync(sportDir).filter(f => f.endsWith('.json') && f !== 'categories.json' && f !== 'stages.json');
+    const files = fs.readdirSync(sportDir).filter(f => !['categories.json', 'stage.json'].includes(f) && f.endsWith('.json'));
     for (const file of files) {
         const tpl = JSON.parse(fs.readFileSync(path.join(sportDir, file), 'utf-8'));
         if (tpl.sportType !== sportType) continue;
+        if (!Array.isArray(tpl.categoryCodes) || !Array.isArray(tpl.stageNames)) continue;
         const categoryIds = tpl.categoryCodes.map(code => categoryMap.get(code)).filter(id => id);
         const stageIds = tpl.stageNames.map(name => stageMap.get(name)).filter(id => id);
         let doc = await TournamentTemplate.findOne({ templateName: tpl.templateName, sportType });
@@ -71,6 +79,7 @@ async function seedSport(sportDir) {
             doc.categories = categoryIds;
             doc.stages = stageIds;
         }
+        doc.status = 'actived';
         await doc.save();
         console.log(`✅ Template ${tpl.templateName} for ${sportType}`);
     }

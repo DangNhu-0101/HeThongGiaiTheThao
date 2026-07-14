@@ -5,7 +5,7 @@ import TournamentTemplate from '../models/rules/ruleTemplate/tournamentTemplate.
 class RuleService {
 
     static async getAllTemplates(filter = {}) {
-        let query = { status: 'active' };
+        let query = { status: 'actived' };
         if (filter.sportType) query.sportType = filter.sportType;
         const templates = await TournamentTemplate.find(query)
             .populate('categories')
@@ -24,7 +24,7 @@ class RuleService {
     }
 
     static async getCategoriesBySport(sportType) {
-        const categories = await CategoryTemplate.find({ sportType, status: 'active' }).lean();
+        const categories = await CategoryTemplate.find({ sportType, status: 'actived' }).lean();
         return categories;
     }
 
@@ -53,7 +53,7 @@ class RuleService {
     }
 
     static async getStagesBySport(sportType) {
-        const stages = await StageTemplate.find({ sportType, status: 'active' }).lean();
+        const stages = await StageTemplate.find({ sportType, status: 'actived' }).lean();
         return stages;
     }
 }

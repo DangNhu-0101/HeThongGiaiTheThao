@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 
 import { connectDB } from './libs/db.js';
 import initRoles from './scripts/initialRole.js';
+import { startMatchStatusScheduler } from './services/matchStatusScheduler.js';
 
 // Import routes (không có 's' ở cuối)
 import authRoutes from './routes/authRoute.js';
@@ -17,10 +18,13 @@ import stageRoutes from './routes/stageRoute.js';
 import ruleRoutes from './routes/ruleRoute.js';
 import sponsorRoutes from './routes/sponsorRoute.js';
 import courtRoutes from './routes/courtRoute.js';
+import tournamentRefereeRoutes from './routes/tournamentRefereeRoute.js';
 import participantRoutes from './routes/teamRoute.js';
 import matchRoutes from './routes/matchRoute.js';
 import userRoutes from './routes/userRoute.js';
 import adminRoutes from './routes/adminRoute.js';
+import newsRoutes from './routes/newsRoute.js';
+import uploadRoutes from './routes/uploadRoute.js';
 
 dotenv.config();
 
@@ -31,24 +35,30 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-app.use(express.json());
-app.use(cookieParser());
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
-    credentials: true
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true,
+    exposedHeaders: ['x-access-token']
 }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(cookieParser());
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/uploads', uploadRoutes);
 app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/stages', stageRoutes);
 app.use('/api/rules', ruleRoutes);
 app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/courts', courtRoutes);
+app.use('/api/tournament-referees', tournamentRefereeRoutes);
 app.use('/api/participants', participantRoutes);
 app.use('/api/matches', matchRoutes);
+app.use('/api/news', newsRoutes);
 
 // Route health check
 app.get('/api/health', (req, res) => {
@@ -72,6 +82,8 @@ connectDB().then(async () => {
     app.listen(PORT, () => {
         console.log(`🚀 Server started on port: ${PORT}`);
         console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log('=== SERVER FILE LOADED ===');
+        startMatchStatusScheduler();
     });
 }).catch((error) => {
     console.error("❌ Kết nối Database thất bại:", error);

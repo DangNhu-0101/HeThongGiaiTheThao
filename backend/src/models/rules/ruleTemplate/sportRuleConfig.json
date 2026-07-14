@@ -1,0 +1,372 @@
+[
+  {
+    "_id": "sport_rule_football_v1",
+    "sportType": "Football",
+    "configType": "sportRule",
+    "label": "Luật thi đấu - Bóng đá",
+    "version": 1,
+    "fields": [
+      {
+        "fieldName": "sportRule.playersPerTeam",
+        "label": "Số cầu thủ mỗi đội",
+        "inputType": "select",
+        "options": [
+          { "value": 5, "label": "5 người" },
+          { "value": 7, "label": "7 người" },
+          { "value": 9, "label": "9 người" },
+          { "value": 11, "label": "11 người" }
+        ],
+        "defaultValue": 7
+      },
+      {
+        "fieldName": "sportRule.substitutionType",
+        "label": "Hình thức thay người",
+        "inputType": "select",
+        "options": [
+          { "value": "LIMITED", "label": "Giới hạn số lần thay" },
+          { "value": "ROLLING", "label": "Thay người tự do" }
+        ],
+        "defaultValue": "LIMITED"
+      },
+      {
+        "fieldName": "sportRule.hasVAR",
+        "label": "Có sử dụng VAR không?",
+        "inputType": "switch",
+        "options": [
+          { "value": true, "label": "Có" },
+          { "value": false, "label": "Không" }
+        ],
+        "defaultValue": false
+      },
+      {
+        "fieldName": "scoring.winPoints",
+        "label": "Điểm khi thắng",
+        "inputType": "select",
+        "options": [
+          { "value": 3, "label": "3 điểm" }
+        ],
+        "defaultValue": 3
+      },
+      {
+        "fieldName": "scoring.drawPoints",
+        "label": "Điểm khi hòa",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 điểm" },
+          { "value": 0, "label": "0 điểm" }
+        ],
+        "defaultValue": 1
+      },
+      {
+        "fieldName": "scoring.lossPoints",
+        "label": "Điểm khi thua",
+        "inputType": "select",
+        "options": [
+          { "value": 0, "label": "0 điểm" }
+        ],
+        "defaultValue": 0
+      },
+      {
+        "fieldName": "scoring.walkover.pointsAwarded",
+        "label": "Điểm khi thắng walkover",
+        "inputType": "number",
+        "defaultValue": 3
+      },
+      {
+        "fieldName": "scoring.walkover.defaultScoreFor",
+        "label": "Tỷ số mặc định đội thắng",
+        "inputType": "number",
+        "defaultValue": 3
+      },
+      {
+        "fieldName": "scoring.walkover.defaultScoreAgainst",
+        "label": "Tỷ số mặc định đội thua",
+        "inputType": "number",
+        "defaultValue": 0
+      },
+      {
+        "fieldName": "timeManagement.periods",
+        "label": "Số hiệp",
+        "inputType": "select",
+        "options": [
+          { "value": 2, "label": "2 hiệp" },
+          { "value": 3, "label": "3 hiệp" },
+          { "value": 4, "label": "4 hiệp" }
+        ],
+        "defaultValue": 2
+      },
+      {
+        "fieldName": "timeManagement.durationPerPeriod",
+        "label": "Thời lượng mỗi hiệp",
+        "inputType": "select",
+        "options": [
+          { "value": 15, "label": "15 phút" },
+          { "value": 20, "label": "20 phút" },
+          { "value": 25, "label": "25 phút" },
+          { "value": 30, "label": "30 phút" },
+          { "value": 40, "label": "40 phút" },
+          { "value": 45, "label": "45 phút" }
+        ],
+        "defaultValue": 20
+      },
+      {
+        "fieldName": "timeManagement.halfTimeBreak",
+        "label": "Thời gian nghỉ giữa hiệp",
+        "inputType": "select",
+        "options": [
+          { "value": 5, "label": "5 phút" },
+          { "value": 10, "label": "10 phút" },
+          { "value": 15, "label": "15 phút" }
+        ],
+        "defaultValue": 10
+      },
+      {
+        "fieldName": "timeManagement.allowTimeouts",
+        "label": "Có cho hội ý không?",
+        "inputType": "switch",
+        "options": [
+          { "value": true, "label": "Có" },
+          { "value": false, "label": "Không" }
+        ],
+        "defaultValue": false
+      },
+      {
+        "fieldName": "timeManagement.timeoutsPerPeriod",
+        "label": "Số lần hội ý mỗi hiệp",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 lần" },
+          { "value": 2, "label": "2 lần" }
+        ],
+        "defaultValue": 1,
+        "visibleWhen": {
+          "fieldName": "timeManagement.allowTimeouts",
+          "value": true
+        }
+      },
+      {
+        "fieldName": "timeManagement.changeSideAt",
+        "label": "Thời điểm đổi sân",
+        "inputType": "select",
+        "options": [
+          { "value": "HALF_TIME", "label": "Đổi sân khi hết hiệp chính" },
+          { "value": "EXTRA_TIME_HALF", "label": "Đổi sân khi hết nửa hiệp phụ" }
+        ],
+        "defaultValue": "HALF_TIME"
+      }
+    ],
+    "defaultValues": {
+      "sportRule": {
+        "playersPerTeam": 7,
+        "substitutionType": "LIMITED",
+        "hasVAR": false
+      },
+      "scoring": {
+        "winPoints": 3,
+        "drawPoints": 1,
+        "lossPoints": 0,
+        "walkover": {
+          "pointsAwarded": 3,
+          "defaultScoreFor": 3,
+          "defaultScoreAgainst": 0
+        }
+      },
+      "timeManagement": {
+        "periods": 2,
+        "durationPerPeriod": 20,
+        "halfTimeBreak": 10,
+        "allowTimeouts": false,
+        "timeoutsPerPeriod": 1,
+        "changeSideAt": "HALF_TIME"
+      }
+    }
+  },
+  {
+    "_id": "sport_rule_pickleball_v1",
+    "sportType": "Pickleball",
+    "configType": "sportRule",
+    "label": "Luật thi đấu - Pickleball",
+    "version": 1,
+    "fields": [
+      {
+        "fieldName": "sportRule.playersPerTeam",
+        "label": "Số người mỗi đội",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "Đơn" },
+          { "value": 2, "label": "Đôi" }
+        ],
+        "defaultValue": 2
+      },
+      {
+        "fieldName": "sportRule.substitutionType",
+        "label": "Hình thức thay người",
+        "inputType": "select",
+        "options": [
+          { "value": "NONE", "label": "Không được thay người" },
+          { "value": "MEDICAL_ONLY", "label": "Chỉ thay người khi chấn thương" }
+        ],
+        "defaultValue": "NONE"
+      },
+      {
+        "fieldName": "sportRule.hasVAR",
+        "label": "Có sử dụng VAR không?",
+        "inputType": "switch",
+        "options": [
+          { "value": false, "label": "Không" }
+        ],
+        "defaultValue": false
+      },
+      {
+        "fieldName": "scoring.winPoints",
+        "label": "Điểm khi thắng",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 điểm" },
+          { "value": 2, "label": "2 điểm" },
+          { "value": 3, "label": "3 điểm" }
+        ],
+        "defaultValue": 1
+      },
+      {
+        "fieldName": "scoring.drawPoints",
+        "label": "Điểm khi hòa",
+        "inputType": "select",
+        "options": [
+          { "value": 0, "label": "0 điểm" }
+        ],
+        "defaultValue": 0
+      },
+      {
+        "fieldName": "scoring.lossPoints",
+        "label": "Điểm khi thua",
+        "inputType": "select",
+        "options": [
+          { "value": 0, "label": "0 điểm" }
+        ],
+        "defaultValue": 0
+      },
+      {
+        "fieldName": "scoring.walkover.pointsAwarded",
+        "label": "Điểm khi thắng walkover",
+        "inputType": "number",
+        "defaultValue": 1
+      },
+      {
+        "fieldName": "scoring.walkover.defaultScoreFor",
+        "label": "Điểm mặc định đội thắng",
+        "inputType": "number",
+        "defaultValue": 11
+      },
+      {
+        "fieldName": "scoring.walkover.defaultScoreAgainst",
+        "label": "Điểm mặc định đội thua",
+        "inputType": "number",
+        "defaultValue": 0
+      },
+      {
+        "fieldName": "scoring.setsCalculation.method",
+        "label": "Cách tính kết quả set",
+        "inputType": "select",
+        "options": [
+          { "value": "BY_SET_WINS", "label": "Dựa trên số set đã thắng" },
+          { "value": "BY_TOTAL_POINTS", "label": "Dựa trên tổng điểm các set" }
+        ],
+        "defaultValue": "BY_SET_WINS"
+      },
+      {
+        "fieldName": "scoring.setsCalculation.numberOfSets",
+        "label": "Số set thi đấu",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 set" },
+          { "value": 3, "label": "3 set" },
+          { "value": 5, "label": "5 set" }
+        ],
+        "defaultValue": 3
+      },
+      {
+        "fieldName": "scoring.setsCalculation.targetScore",
+        "label": "Điểm mục tiêu mỗi set",
+        "inputType": "select",
+        "options": [
+          { "value": 11, "label": "11 điểm" },
+          { "value": 15, "label": "15 điểm" },
+          { "value": 21, "label": "21 điểm" },
+          { "value": 25, "label": "25 điểm" }
+        ],
+        "defaultValue": 11
+      },
+      {
+        "fieldName": "scoring.setsCalculation.winByGap",
+        "label": "Cách biệt điểm để thắng",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "Cách biệt 1 điểm" },
+          { "value": 2, "label": "Cách biệt 2 điểm" }
+        ],
+        "defaultValue": 2
+      },
+      {
+        "fieldName": "scoring.setsCalculation.changeSideAtPoint",
+        "label": "Đổi sân khi đạt điểm",
+        "inputType": "select",
+        "options": [
+          { "value": 6, "label": "6 điểm" },
+          { "value": 8, "label": "8 điểm" },
+          { "value": 11, "label": "11 điểm" },
+          { "value": 15, "label": "15 điểm" }
+        ],
+        "defaultValue": 6
+      },
+      {
+        "fieldName": "timeManagement.allowTimeouts",
+        "label": "Có cho hội ý không?",
+        "inputType": "switch",
+        "options": [
+          { "value": true, "label": "Có" }
+        ],
+        "defaultValue": true
+      },
+      {
+        "fieldName": "timeManagement.timeoutsPerPeriod",
+        "label": "Số lần hội ý mỗi set/trận",
+        "inputType": "select",
+        "options": [
+          { "value": 2, "label": "2 lần" }
+        ],
+        "defaultValue": 2
+      }
+    ],
+    "defaultValues": {
+      "sportRule": {
+        "playersPerTeam": 2,
+        "substitutionType": "NONE",
+        "hasVAR": false
+      },
+      "scoring": {
+        "winPoints": 1,
+        "drawPoints": 0,
+        "lossPoints": 0,
+        "walkover": {
+          "pointsAwarded": 1,
+          "defaultScoreFor": 11,
+          "defaultScoreAgainst": 0
+        },
+        "setsCalculation": {
+          "method": "BY_SET_WINS",
+          "numberOfSets": 3,
+          "targetScore": 11,
+          "winByGap": 2,
+          "changeSideAtPoint": 6
+        }
+      },
+      "timeManagement": {
+        "allowTimeouts": true,
+        "timeoutsPerPeriod": 2
+      }
+    }
+  }
+]
+
+

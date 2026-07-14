@@ -5,6 +5,7 @@ import {
     getSponsorById,
     createSponsor,
     updateSponsor,
+    deleteSponsor,
     deactivateSponsor,
     activateSponsor
 } from '../controllers/sponsorController.js';
@@ -17,11 +18,12 @@ router.get('/tournament-item/:tournamentItemId', protectedRoute(), getSponsorsBy
 router.get('/:id', protectedRoute(), getSponsorById);
 
 // ========== CREATE ==========
-router.post('/', protectedRoute('admin', 'org', { profile: true }), createSponsor);
+router.post('/', protectedRoute('admin', 'org', 'organization', { profile: true }), createSponsor);
 
 // ========== UPDATE ==========
-router.put('/:id', protectedRoute('admin', 'org', { profile: true }), updateSponsor);
-router.patch('/:id/deactivate', protectedRoute('admin', 'org', { profile: true }), deactivateSponsor);
-router.patch('/:id/activate', protectedRoute('admin', 'org', { profile: true }), activateSponsor);
+router.put('/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), updateSponsor);
+router.patch('/:id/deactivate', protectedRoute('admin', 'org', 'organization', { profile: true }), deactivateSponsor);
+router.patch('/:id/activate', protectedRoute('admin', 'org', 'organization', { profile: true }), activateSponsor);
+router.delete('/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), deleteSponsor);
 
 export default router;

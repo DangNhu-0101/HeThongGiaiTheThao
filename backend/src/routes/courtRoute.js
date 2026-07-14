@@ -17,13 +17,13 @@ router.get('/tournament-item/:tournamentItemId', protectedRoute(), getCourtsByTo
 router.get('/:courtId', protectedRoute(), getCourtById);
 
 // ========== CREATE ==========
-router.post('/', protectedRoute('admin', 'org', { profile: true }), addCourt);
+router.post('/', protectedRoute('admin', 'org', 'organization', { profile: true }), addCourt);
 
 // ========== UPDATE ==========
-router.put('/:courtId', protectedRoute('admin', 'org', { profile: true }), updateCourt);
-router.patch('/:courtId/status', protectedRoute('admin', 'org', { profile: true }), updateCourtStatus);
+router.put('/:courtId', protectedRoute('admin', 'org', 'organization', { profile: true }), updateCourt);
+router.patch('/:courtId/status', protectedRoute('admin', 'org', 'organization', { profile: true }), updateCourtStatus);
 
 // ========== DELETE ==========
-router.delete('/:courtId', protectedRoute('admin', 'org', { profile: true }), deleteCourt);
+router.delete('/:courtId', protectedRoute('admin', 'org', 'organization', { profile: true }), deleteCourt);
 
 export default router;

@@ -1,4 +1,4 @@
-// controllers/userController.js
+﻿// controllers/userController.js
 import bcrypt from 'bcrypt';
 import User from '../models/users.js';
 import Role from '../models/roles.js';
@@ -6,42 +6,135 @@ import Organization from '../models/orgs.js';
 import Referee from '../models/referees.js';
 import Player from '../models/players.js';
 
+const ROLE_GRANT_CONFIG = {
+    player: {
+        roleName: 'player',
+        displayName: 'Cầu thủ',
+        permissions: ['view_tournament', 'join_team'],
+        validStatuses: ['actived', 'active', 'approved']
+    },
+    organization: {
+        roleName: 'organization',
+        displayName: 'Ban tổ chức',
+        permissions: ['create_tournament', 'manage_tournament'],
+        validStatuses: ['actived', 'active', 'approved']
+    },
+    referee: {
+        roleName: 'referee',
+        displayName: 'Trọng tài',
+        permissions: ['view_tournament', 'enter_match_result'],
+        validStatuses: ['actived', 'active', 'approved']
+    }
+};
+
+const ensureRole = async (roleName) => {
+    const config = Object.values(ROLE_GRANT_CONFIG).find(item => item.roleName === roleName);
+    if (!config) throw new Error(`Không hỗ trợ role ${roleName}`);
+
+    return Role.findOneAndUpdate(
+        { name: roleName },
+        {
+            name: roleName,
+            displayName: config.displayName,
+            permissions: config.permissions,
+            isDefault: false
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+};
+
+const addRoleToUserIfMissing = async (user, roleName) => {
+    const role = await ensureRole(roleName);
+    if (!user.roles.some(existingRole => {
+        const roleId = existingRole?._id || existingRole;
+        const currentName = existingRole?.name;
+        return roleId?.toString() === role._id.toString() || currentName === roleName;
+    })) {
+        user.roles.push(role._id);
+        return true;
+    }
+    return false;
+};
+
+const syncApprovedProfileRoles = async (user, profilesByType = {}) => {
+    if (!user) return user;
+
+    let changed = false;
+    for (const [type, profile] of Object.entries(profilesByType)) {
+        const config = ROLE_GRANT_CONFIG[type];
+        if (!config || !profile || !config.validStatuses.includes(profile.status)) continue;
+        changed = await addRoleToUserIfMissing(user, config.roleName) || changed;
+    }
+
+    if (changed) {
+        await user.save();
+        return User.findById(user._id).select('-hashedPassword').populate('roles', 'name displayName permissions');
+    }
+
+    return user;
+};
+
 // ==================== USER SELF ====================
 export const authMe = async (req, res) => {
+    const [playerProfile, organizationProfile, refereeProfile] = await Promise.all([
+        Player.findOne({ userId: req.user._id }).lean(),
+        Organization.findOne({ ownerId: req.user._id }).lean(),
+        Referee.findOne({ userId: req.user._id }).lean()
+    ]);
+    const user = await syncApprovedProfileRoles(req.user, {
+        player: playerProfile,
+        organization: organizationProfile,
+        referee: refereeProfile
+    });
+
     return res.status(200).json({
         success: true,
         message: "Lấy thông tin Auth thành công",
-        user: req.user
+        user
     });
 };
 
 export const getProfile = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id)
+        let user = await User.findById(req.user._id)
             .select('-hashedPassword')
             .populate('roles', 'name');
         if (!user) {
             return res.status(404).json({ success: false, message: "Không tìm thấy người dùng" });
         }
 
-        // Lấy profile tương ứng nếu có
-        let profile = null;
-        const roleNames = user.roles.map(r => r.name);
-        if (roleNames.includes('player')) {
-            profile = await Player.findOne({ userId: user._id });
-        } else if (roleNames.includes('org')) {
-            profile = await Organization.findOne({ ownerId: user._id });
-        } else if (roleNames.includes('referee')) {
-            profile = await Referee.findOne({ userId: user._id });
-        }
+        const [playerProfile, organizationProfile, refereeProfile] = await Promise.all([
+            Player.findOne({ userId: user._id }).lean(),
+            Organization.findOne({ ownerId: user._id }).lean(),
+            Referee.findOne({ userId: user._id }).lean()
+        ]);
+
+        user = await syncApprovedProfileRoles(user, {
+            player: playerProfile,
+            organization: organizationProfile,
+            referee: refereeProfile
+        });
+
+        const profiles = [];
+        if (playerProfile) profiles.push({ ...playerProfile, type: 'player' });
+        if (organizationProfile) profiles.push({ ...organizationProfile, type: 'organization' });
+        if (refereeProfile) profiles.push({ ...refereeProfile, type: 'referee' });
 
         const userData = user.toObject();
         delete userData.hashedPassword;
+
         return res.status(200).json({
             success: true,
             data: {
                 ...userData,
-                profile: profile || null
+                profile: playerProfile || organizationProfile || refereeProfile || null,
+                playerProfile: playerProfile || null,
+                player: playerProfile || null,
+                organizationProfile: organizationProfile || null,
+                organization: organizationProfile || null,
+                refereeProfile: refereeProfile || null,
+                referee: refereeProfile || null,
+                profiles
             }
         });
     } catch (error) {
@@ -49,7 +142,6 @@ export const getProfile = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
-
 export const editProfile = async (req, res) => {
     try {
         const { username, avatar, email, phoneNumber } = req.body;
@@ -284,6 +376,24 @@ export const getPendingRequests = async (req, res) => {
     }
 };
 
+const grantApprovedRoleToUser = async ({ userId, roleName, adminId }) => {
+    const user = await User.findById(userId);
+    if (!user) return null;
+
+    await addRoleToUserIfMissing(user, roleName);
+
+    user.roleRequestStatus = 'approved';
+    user.roleReviewedAt = new Date();
+    user.roleReviewedBy = adminId;
+    user.requestedRole = null;
+    user.requestedProfile = null;
+    await user.save();
+
+    return User.findById(user._id)
+        .select('-hashedPassword')
+        .populate('roles', 'name displayName permissions');
+};
+
 export const approveOrganization = async (req, res) => {
     try {
         const { id } = req.params;
@@ -303,25 +413,17 @@ export const approveOrganization = async (req, res) => {
         org.verifiedBy = adminId;
         await org.save();
 
-        // Gán role org cho user
-        const user = await User.findById(org.ownerId);
-        if (user) {
-            const orgRole = await Role.findOne({ name: 'org' });
-            if (orgRole && !user.roles.some(r => r.toString() === orgRole._id.toString())) {
-                user.roles.push(orgRole._id);
-            }
-            user.roleRequestStatus = 'approved';
-            user.roleReviewedAt = new Date();
-            user.roleReviewedBy = adminId;
-            user.requestedRole = null;
-            user.requestedProfile = null;
-            await user.save();
-        }
+        const user = await grantApprovedRoleToUser({
+            userId: org.ownerId,
+            roleName: 'organization',
+            adminId
+        });
 
         return res.status(200).json({
             success: true,
             message: "Duyệt tổ chức thành công",
-            data: org
+            data: org,
+            user
         });
     } catch (error) {
         console.error("Lỗi approveOrganization:", error);
@@ -347,24 +449,17 @@ export const approveReferee = async (req, res) => {
         referee.verifiedBy = adminId;
         await referee.save();
 
-        const user = await User.findById(referee.userId);
-        if (user) {
-            const refRole = await Role.findOne({ name: 'referee' });
-            if (refRole && !user.roles.some(r => r.toString() === refRole._id.toString())) {
-                user.roles.push(refRole._id);
-            }
-            user.roleRequestStatus = 'approved';
-            user.roleReviewedAt = new Date();
-            user.roleReviewedBy = adminId;
-            user.requestedRole = null;
-            user.requestedProfile = null;
-            await user.save();
-        }
+        const user = await grantApprovedRoleToUser({
+            userId: referee.userId,
+            roleName: 'referee',
+            adminId
+        });
 
         return res.status(200).json({
             success: true,
             message: "Duyệt trọng tài thành công",
-            data: referee
+            data: referee,
+            user
         });
     } catch (error) {
         console.error("Lỗi approveReferee:", error);
@@ -454,7 +549,7 @@ export const getUserDetail = async (req, res) => {
         const roleNames = user.roles.map(r => r.name);
         if (roleNames.includes('player')) {
             profile = await Player.findOne({ userId: user._id });
-        } else if (roleNames.includes('org')) {
+        } else if (roleNames.includes('org') || roleNames.includes('organization')) {
             profile = await Organization.findOne({ ownerId: user._id });
         } else if (roleNames.includes('referee')) {
             profile = await Referee.findOne({ userId: user._id });
@@ -654,6 +749,7 @@ export const createPlayerProfile = async (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, message: "Không tìm thấy tài khoản" });
         }
+        const skill = req.body.skill || 2.5; // default skill
 
         // Kiểm tra đã có profile player chưa
         const existingPlayer = await Player.findOne({ userId });
@@ -670,9 +766,10 @@ export const createPlayerProfile = async (req, res) => {
             name: name.trim(),
             birthDate: new Date(birthDate),
             gender,
+            skill: skill,
             sports: sports || [],
-            status: 'active',
-            verifiedAt: new Date(),
+            status: 'actived',
+            verifiedAt: new Date(), 
             verifiedBy: null
         });
         await newPlayer.save();
@@ -694,3 +791,4 @@ export const createPlayerProfile = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
+

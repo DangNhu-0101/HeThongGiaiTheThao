@@ -4,7 +4,10 @@
     "version": "1.0",
     "language": "vi",
     "categoryCodes": [
+        "S_OPEN",
         "MS",
+        "WS",
+        "D_OPEN",
         "MD",
         "WD",
         "XD"

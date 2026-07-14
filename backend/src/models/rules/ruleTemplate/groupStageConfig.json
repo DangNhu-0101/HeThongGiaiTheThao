@@ -1,0 +1,288 @@
+[
+  {
+    "_id": "group_stage_football_v1",
+    "sportType": "Football",
+    "configType": "groupStage",
+    "label": "Cấu hình vòng bảng - Bóng đá",
+    "version": 2,
+    "fields": [
+      {
+        "fieldName": "groupStage.numberOfGroups",
+        "label": "Số bảng đấu",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 bảng" },
+          { "value": 2, "label": "2 bảng" },
+          { "value": 4, "label": "4 bảng" },
+          { "value": 6, "label": "6 bảng" },
+          { "value": 8, "label": "8 bảng" },
+          { "value": 12, "label": "12 bảng" }
+        ],
+        "defaultValue": 4
+      },
+      {
+        "fieldName": "groupStage.teamsPerGroup",
+        "label": "Số đội mỗi bảng",
+        "inputType": "select",
+        "options": [
+          { "value": 3, "label": "3 đội" },
+          { "value": 4, "label": "4 đội" },
+          { "value": 5, "label": "5 đội" },
+          { "value": 6, "label": "6 đội" }
+        ],
+        "defaultValue": 4
+      },
+      {
+        "fieldName": "groupStage.format",
+        "label": "Thể thức vòng bảng",
+        "inputType": "select",
+        "options": [
+          { "value": "ROUND_ROBIN", "label": "Đấu vòng tròn" },
+          { "value": "DOUBLE_ROUND_ROBIN", "label": "Đấu vòng tròn 2 lượt" },
+          { "value": "SWISS_SYSTEM", "label": "Hệ Thụy Sĩ" }
+        ],
+        "defaultValue": "ROUND_ROBIN"
+      },
+      {
+        "fieldName": "groupStage.legs",
+        "label": "Số lượt đấu",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 lượt" },
+          { "value": 2, "label": "2 lượt" }
+        ],
+        "defaultValue": 1
+      },
+      {
+        "fieldName": "groupStage.tiebreakers",
+        "label": "Tiêu chí xếp hạng khi bằng điểm",
+        "inputType": "multiSelect",
+        "options": [
+          { "value": "points", "label": "Điểm số" },
+          { "value": "headToHeadPoints", "label": "Điểm đối đầu" },
+          { "value": "goalDifference", "label": "Hiệu số bàn thắng tổng" },
+          { "value": "goalsFor", "label": "Tổng số bàn thắng" },
+          { "value": "fairPlay", "label": "Điểm Fair-play" },
+          { "value": "randomToss", "label": "Bốc thăm ngẫu nhìên" }
+        ],
+        "defaultValue": [
+          "points",
+          "headToHeadPoints",
+          "goalDifference",
+          "goalsFor",
+          "fairPlay",
+          "randomToss"
+        ]
+      },
+      {
+        "fieldName": "groupStage.hasWildcard",
+        "label": "Có xét vé vớt không?",
+        "inputType": "switch",
+        "options": [
+          { "value": true, "label": "Có" },
+          { "value": false, "label": "Không" }
+        ],
+        "defaultValue": true
+      },
+      {
+        "fieldName": "groupStage.wildcardSourceRank",
+        "label": "Lấy vé vớt từ hạng nào?",
+        "inputType": "select",
+        "options": [
+          { "value": 2, "label": "Hạng 2" },
+          { "value": 3, "label": "Hạng 3" },
+          { "value": 4, "label": "Hạng 4" }
+        ],
+        "defaultValue": 3,
+        "visibleWhen": {
+          "fieldName": "groupStage.hasWildcard",
+          "value": true
+        }
+      },
+      {
+        "fieldName": "groupStage.advancingRanks",
+        "label": "Các hạng được đi tiếp",
+        "inputType": "multiSelect",
+        "options": [
+          { "value": 1, "label": "Hạng 1" },
+          { "value": 2, "label": "Hạng 2" },
+          { "value": 3, "label": "Hạng 3" },
+          { "value": 4, "label": "Hạng 4" }
+        ],
+        "defaultValue": [1, 2]
+      },
+      {
+        "fieldName": "groupStage.advancementSource",
+        "label": "Nguồn xét đội đi tiếp",
+        "inputType": "select",
+        "options": [
+          { "value": "GROUP_RANK", "label": "Thứ hạng chính thức trong bảng" },
+          { "value": "WILDCARD_RANK", "label": "Thứ hạng xét vé vớt" }
+        ],
+        "defaultValue": "GROUP_RANK"
+      }
+    ],
+    "defaultValues": {
+      "groupStage": {
+        "numberOfGroups": 4,
+        "teamsPerGroup": 4,
+        "format": "ROUND_ROBIN",
+        "legs": 1,
+        "tiebreakers": [
+          "points",
+          "headToHeadPoints",
+          "goalDifference",
+          "goalsFor",
+          "fairPlay",
+          "randomToss"
+        ],
+        "hasWildcard": true,
+        "wildcardSourceRank": 3,
+        "advancingRanks": [1, 2],
+        "advancementSource": "GROUP_RANK"
+      }
+    }
+  },
+  {
+    "_id": "group_stage_pickleball_v1",
+    "sportType": "Pickleball",
+    "configType": "groupStage",
+    "label": "Cấu hình vòng bảng - Pickleball",
+    "version": 2,
+    "fields": [
+      {
+        "fieldName": "groupStage.numberOfGroups",
+        "label": "Số bảng đấu",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 bảng" },
+          { "value": 2, "label": "2 bảng" },
+          { "value": 4, "label": "4 bảng" },
+          { "value": 8, "label": "8 bảng" },
+          { "value": 16, "label": "16 bảng" }
+        ],
+        "defaultValue": 4
+      },
+      {
+        "fieldName": "groupStage.teamsPerGroup",
+        "label": "Số đội mỗi bảng",
+        "inputType": "select",
+        "options": [
+          { "value": 3, "label": "3 đội" },
+          { "value": 4, "label": "4 đội" },
+          { "value": 5, "label": "5 đội" },
+          { "value": 6, "label": "6 đội" },
+          { "value": 7, "label": "7 đội" },
+          { "value": 8, "label": "8 đội" }
+        ],
+        "defaultValue": 4
+      },
+      {
+        "fieldName": "groupStage.format",
+        "label": "Thể thức vòng bảng",
+        "inputType": "select",
+        "options": [
+          { "value": "ROUND_ROBIN", "label": "Đấu vòng tròn" },
+          { "value": "POOL_PLAY", "label": "Đấu chia Pool" }
+        ],
+        "defaultValue": "ROUND_ROBIN"
+      },
+      {
+        "fieldName": "groupStage.legs",
+        "label": "Số lượt đấu",
+        "inputType": "select",
+        "options": [
+          { "value": 1, "label": "1 lượt" },
+          { "value": 2, "label": "2 lượt" }
+        ],
+        "defaultValue": 1
+      },
+      {
+        "fieldName": "groupStage.tiebreakers",
+        "label": "Tiêu chí xếp hạng khi bằng điểm",
+        "inputType": "multiSelect",
+        "options": [
+          { "value": "matchWins", "label": "Số trận thắng" },
+          { "value": "headToHead", "label": "Đối đầu trực tiếp" },
+          { "value": "pointDifferential", "label": "Hiệu số điểm" },
+          { "value": "setDifference", "label": "Hiệu số set" },
+          { "value": "randomToss", "label": "Bốc thăm" }
+        ],
+        "defaultValue": [
+          "matchWins",
+          "headToHead",
+          "pointDifferential",
+          "setDifference",
+          "randomToss"
+        ]
+      },
+      {
+        "fieldName": "groupStage.hasWildcard",
+        "label": "Có xét vé vớt không?",
+        "inputType": "switch",
+        "options": [
+          { "value": true, "label": "Có" },
+          { "value": false, "label": "Không" }
+        ],
+        "defaultValue": true
+      },
+      {
+        "fieldName": "groupStage.wildcardSourceRank",
+        "label": "Lấy vé vớt từ hạng nào?",
+        "inputType": "select",
+        "options": [
+          { "value": 2, "label": "Hạng 2" },
+          { "value": 3, "label": "Hạng 3" }
+        ],
+        "defaultValue": 3,
+        "visibleWhen": {
+          "fieldName": "groupStage.hasWildcard",
+          "value": true
+        }
+      },
+      {
+        "fieldName": "groupStage.advancingRanks",
+        "label": "Các hạng được đi tiếp",
+        "inputType": "multiSelect",
+        "options": [
+          { "value": 1, "label": "Hạng 1" },
+          { "value": 2, "label": "Hạng 2" },
+          { "value": 3, "label": "Hạng 3" },
+          { "value": 4, "label": "Hạng 4" }
+        ],
+        "defaultValue": [1, 2]
+      },
+      {
+        "fieldName": "groupStage.advancementSource",
+        "label": "Nguồn xét đội đi tiếp",
+        "inputType": "select",
+        "options": [
+          { "value": "GROUP_RANK", "label": "Thứ hạng chính thức trong bảng" },
+          { "value": "WILDCARD_RANK", "label": "Thứ hạng xét vé vớt" }
+        ],
+        "defaultValue": "GROUP_RANK"
+      }
+    ],
+    "defaultValues": {
+      "groupStage": {
+        "numberOfGroups": 4,
+        "teamsPerGroup": 4,
+        "format": "ROUND_ROBIN",
+        "legs": 1,
+        "tiebreakers": [
+          "matchWins",
+          "headToHead",
+          "pointDifferential",
+          "setDifference",
+          "randomToss"
+        ],
+        "hasWildcard": true,
+        "wildcardSourceRank": 3,
+        "advancingRanks": [1, 2],
+        "advancementSource": "GROUP_RANK"
+      }
+    }
+  }
+]
+
+

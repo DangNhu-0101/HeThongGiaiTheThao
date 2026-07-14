@@ -35,6 +35,10 @@ const tournamentItemSchema = new mongoose.Schema({
         description: { type: String, default: '' }
     },
     sponsors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Sponsor' }],
+    sponsorshipConfig: {
+        contact: { type: String, default: '' },
+        tiers: { type: mongoose.Schema.Types.Mixed, default: [] }
+    },
     status: {
         type: String,
         enum: ['upcoming', 'actived', 'playing', 'completed', 'cancelled'],
@@ -44,7 +48,27 @@ const tournamentItemSchema = new mongoose.Schema({
     sportType: { type: String, default: '' },
     registeredTeams: { type: Number, default: 0 },
     maxTeams: { type: Number, default: 0 },
-    format: { type: String, default: '' }
+    format: { type: String, default: '' },
+    competitionFormat: {
+        selectedType: {
+            type: String,
+            enum: ['preset', 'custom', 'none'],
+            default: 'none'
+        },
+        presetId: { type: String, default: '' },
+        presetSource: {
+            type: String,
+            enum: ['json', 'categoryRule', 'categoryTemplate', ''],
+            default: ''
+        },
+        name: { type: String, default: '' },
+        sportType: { type: String, default: '' },
+        description: { type: String, default: '' },
+        stageCount: { type: Number, default: 0 },
+        config: { type: mongoose.Schema.Types.Mixed, default: null },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        updatedAt: { type: Date, default: null }
+    }
 }, { timestamps: true });
 
 const TournamentItem = mongoose.model('TournamentItem', tournamentItemSchema);

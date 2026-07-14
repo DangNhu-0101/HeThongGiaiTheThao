@@ -1,7 +1,10 @@
 // utils/tournamentHelper.js
+import mongoose from 'mongoose';
 import User from '../models/users.js';
 import TournamentItem from '../models/tournamentItem.js';
+import Tournament from '../models/tournaments.js';
 import CategoryRule from '../models/rules/categories.js';
+import Organization from '../models/orgs.js';
 
 // ==================== PERMISSION ====================
 
@@ -12,12 +15,21 @@ import CategoryRule from '../models/rules/categories.js';
  * @returns {Object} { allowed, message, user, isAdmin, isOwner }
  */
 export const checkPermission = async (userId, ownerId) => {
+    if (!userId) {
+        return { allowed: false, message: 'User not found', user: null, isAdmin: false, isOwner: false };
+    }
     const user = await User.findById(userId).populate('roles');
     if (!user) {
         return { allowed: false, message: 'User not found', user: null, isAdmin: false, isOwner: false };
     }
-    const isAdmin = user.roles.some(r => r.name === 'admin');
-    const isOwner = ownerId && ownerId.toString() === userId.toString();
+    const roles = Array.isArray(user.roles) ? user.roles : [];
+    const isAdmin = roles.some(r => r.name === 'admin');
+    const ownerValue = ownerId?._id || ownerId;
+    let isOwner = ownerValue && ownerValue.toString() === userId.toString();
+    if (!isOwner && ownerValue && mongoose.Types.ObjectId.isValid(ownerValue)) {
+        const orgProfile = await Organization.findById(ownerValue).select('ownerId').lean();
+        isOwner = Boolean(orgProfile?.ownerId && orgProfile.ownerId.toString() === userId.toString());
+    }
     if (!isAdmin && !isOwner) {
         return { allowed: false, message: 'You do not have permission to perform this action', user, isAdmin, isOwner };
     }
@@ -31,12 +43,25 @@ export const checkPermission = async (userId, ownerId) => {
  * @returns {Object} { allowed, message, item, user, isAdmin, isOwner }
  */
 export const checkTournamentItemPermission = async (tournamentItemId, userId) => {
+    if (!tournamentItemId || !mongoose.Types.ObjectId.isValid(tournamentItemId)) {
+        return { allowed: false, message: 'Invalid tournament item id', item: null, user: null, isAdmin: false, isOwner: false };
+    }
     const item = await TournamentItem.findById(tournamentItemId);
     if (!item) {
         return { allowed: false, message: 'Tournament item not found', item: null, user: null, isAdmin: false, isOwner: false };
     }
-    const perm = await checkPermission(userId, item.organization);
-    return { ...perm, item };
+    const directPerm = await checkPermission(userId, item.organization);
+    if (directPerm.allowed) return { ...directPerm, item };
+
+    if (item.tournamentId && mongoose.Types.ObjectId.isValid(item.tournamentId)) {
+        const parentTournament = await Tournament.findById(item.tournamentId).select('organization').lean();
+        if (parentTournament?.organization) {
+            const parentPerm = await checkPermission(userId, parentTournament.organization);
+            if (parentPerm.allowed) return { ...parentPerm, item };
+        }
+    }
+
+    return { ...directPerm, item };
 };
 
 /**
@@ -78,7 +103,7 @@ export const releaseCategoryRule = async (categoryRuleId, session = null) => {
 };
 
 /**
- * Giải phóng nhiều categoryRule
+ * Giải phóng nhìều categoryRule
  * @param {string[]} categoryRuleIds
  * @param {Object} session
  */
@@ -102,6 +127,7 @@ export const releaseCategoryRules = async (categoryRuleIds, session = null) => {
 export const validateTimeline = (registrationStart, registrationEnd, tournamentStart, tournamentEnd) => {
     const errors = [];
     const now = new Date();
+    const allowedClockSkewMs = 5 * 60 * 1000;
     const regStart = new Date(registrationStart);
     const regEnd = new Date(registrationEnd);
     const tourStart = new Date(tournamentStart);
@@ -119,7 +145,7 @@ export const validateTimeline = (registrationStart, registrationEnd, tournamentS
     if (tourStart >= tourEnd) {
         errors.push('Tournament start must be before tournament end');
     }
-    if (regStart < now) {
+    if (regStart.getTime() + allowedClockSkewMs < now.getTime()) {
         errors.push('Registration start must be in the future');
     }
     if (errors.length) {

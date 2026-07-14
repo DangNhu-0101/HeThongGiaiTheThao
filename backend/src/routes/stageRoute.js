@@ -7,19 +7,25 @@ import {
     getStageById,
     updateStage,
     deleteStage,
-    completeStage
+    completeStage,
+    getTournamentCompetitionFormat,
+    saveTournamentCompetitionFormat,
+    publishStageStandings
 } from '../controllers/stageController.js';
 
 const router = express.Router();
 
 // ========== PUBLIC ==========
-router.get('/tournament-item/:tournamentItemId', protectedRoute(), getStagesByTournamentItem);
-router.get('/:id', protectedRoute(), getStageById);
+router.get('/format/:tournamentItemId', getTournamentCompetitionFormat);
+router.get('/tournament-item/:tournamentItemId', getStagesByTournamentItem);
+router.get('/:id', getStageById);
 
 // ========== PROTECTED ==========
-router.post('/', protectedRoute('admin', 'org', { profile: true }), createStage);
-router.put('/:id', protectedRoute('admin', 'org', { profile: true }), updateStage);
-router.delete('/:id', protectedRoute('admin', 'org', { profile: true }), deleteStage);
-router.patch('/:id/complete', protectedRoute('admin', 'org', { profile: true }), completeStage);
+router.put('/format/:tournamentItemId', protectedRoute(), saveTournamentCompetitionFormat);
+router.post('/', protectedRoute('admin', 'org', 'organization', { profile: true }), createStage);
+router.put('/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), updateStage);
+router.delete('/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), deleteStage);
+router.patch('/:id/complete', protectedRoute('admin', 'org', 'organization', { profile: true }), completeStage);
+router.patch('/:id/standings/publish', protectedRoute('admin', 'org', 'organization', { profile: true }), publishStageStandings);
 
 export default router;

@@ -1,0 +1,194 @@
+[
+  {
+    "_id": "knockout_football_v1",
+    "sportType": "Football",
+    "configType": "knockout",
+    "label": "Cấu hình loại trực tiếp - Bóng đá",
+    "version": 2,
+    "fields": [
+      {
+        "fieldName": "knockout.participantCount",
+        "label": "Số đội tham gia vòng loại trực tiếp",
+        "inputType": "select",
+        "options": [
+          { "value": 4, "label": "4 đội" },
+          { "value": 8, "label": "8 đội" },
+          { "value": 16, "label": "16 đội" },
+          { "value": 32, "label": "32 đội" },
+          { "value": 64, "label": "64 đội" }
+        ],
+        "defaultValue": 16
+      },
+      {
+        "fieldName": "knockout.startRound",
+        "label": "Vòng bắt đầu",
+        "inputType": "select",
+        "options": [
+          { "value": "ROUND_OF_64", "label": "Vòng 64 đội" },
+          { "value": "ROUND_OF_32", "label": "Vòng 32 đội" },
+          { "value": "ROUND_OF_16", "label": "Vòng 16 đội" },
+          { "value": "QUARTER_FINAL", "label": "Tứ kết" },
+          { "value": "SEMI_FINAL", "label": "Bán kết" },
+          { "value": "FINAL", "label": "Chung kết" }
+        ],
+        "defaultValue": "ROUND_OF_16"
+      },
+      {
+        "fieldName": "knockout.bracketFormat",
+        "label": "Thể thức nhánh đấu",
+        "inputType": "select",
+        "options": [
+          { "value": "SINGLE_ELIMINATION", "label": "Loại trực tiếp" },
+          { "value": "TWO_LEGGED_TIE", "label": "Đấu 2 lượt đi/về" },
+          { "value": "DOUBLE_ELIMINATION", "label": "Nhánh thắng - thua" }
+        ],
+        "defaultValue": "SINGLE_ELIMINATION"
+      },
+      {
+        "fieldName": "knockout.seeding",
+        "label": "Cách xếp nhánh",
+        "inputType": "select",
+        "options": [
+          { "value": "CROSS_OVER", "label": "Xếp chéo nhánh" },
+          { "value": "SNAKE", "label": "Sê-ri rắn" },
+          { "value": "MANUAL", "label": "Bốc thăm thủ công" }
+        ],
+        "defaultValue": "CROSS_OVER"
+      },
+      {
+        "fieldName": "knockout.drawResolution",
+        "label": "Cách phân định khi hòa",
+        "inputType": "select",
+        "options": [
+          { "value": "EXTRA_TIME_FULL", "label": "Đá hiệp phụ" },
+          { "value": "GOLDEN_GOAL", "label": "Bàn thắng vàng" },
+          { "value": "PENALTY_SHOOTOUT", "label": "Đá luân lưu" }
+        ],
+        "defaultValue": "PENALTY_SHOOTOUT"
+      },
+      {
+        "fieldName": "knockout.hasBronzeMatch",
+        "label": "Có trận tranh hạng ba không?",
+        "inputType": "switch",
+        "options": [
+          { "value": true, "label": "Có" },
+          { "value": false, "label": "Không" }
+        ],
+        "defaultValue": true
+      },
+      {
+        "fieldName": "knockout.advancementSource",
+        "label": "Nguồn đội đi tiếp",
+        "inputType": "select",
+        "options": [
+          { "value": "MATCH_WINNER", "label": "Đội thắng trận trước" },
+          { "value": "MATCH_LOSER", "label": "Đội thua trận trước" },
+          { "value": "LUCKY_LOSER", "label": "Đội thua xuất sắc nhất" }
+        ],
+        "defaultValue": "MATCH_WINNER"
+      }
+    ],
+    "defaultValues": {
+      "knockout": {
+        "participantCount": 16,
+        "startRound": "ROUND_OF_16",
+        "bracketFormat": "SINGLE_ELIMINATION",
+        "seeding": "CROSS_OVER",
+        "drawResolution": "PENALTY_SHOOTOUT",
+        "hasBronzeMatch": true,
+        "advancementSource": "MATCH_WINNER"
+      }
+    }
+  },
+  {
+    "_id": "knockout_pickleball_v1",
+    "sportType": "Pickleball",
+    "configType": "knockout",
+    "label": "Cấu hình loại trực tiếp - Pickleball",
+    "version": 2,
+    "fields": [
+      {
+        "fieldName": "knockout.participantCount",
+        "label": "Số đội tham gia vòng loại trực tiếp",
+        "inputType": "select",
+        "options": [
+          { "value": 4, "label": "4 đội" },
+          { "value": 8, "label": "8 đội" },
+          { "value": 16, "label": "16 đội" },
+          { "value": 32, "label": "32 đội" },
+          { "value": 64, "label": "64 đội" },
+          { "value": 128, "label": "128 đội" }
+        ],
+        "defaultValue": 16
+      },
+      {
+        "fieldName": "knockout.startRound",
+        "label": "Vòng bắt đầu",
+        "inputType": "select",
+        "options": [
+          { "value": "ROUND_OF_64", "label": "Vòng 64" },
+          { "value": "ROUND_OF_32", "label": "Vòng 32" },
+          { "value": "ROUND_OF_16", "label": "Vòng 16" },
+          { "value": "QUARTER_FINAL", "label": "Tứ kết" },
+          { "value": "SEMI_FINAL", "label": "Bán kết" },
+          { "value": "FINAL", "label": "Chung kết" }
+        ],
+        "defaultValue": "ROUND_OF_16"
+      },
+      {
+        "fieldName": "knockout.bracketFormat",
+        "label": "Thể thức nhánh đấu",
+        "inputType": "select",
+        "options": [
+          { "value": "SINGLE_ELIMINATION", "label": "Loại trực tiếp" },
+          { "value": "DOUBLE_ELIMINATION", "label": "Nhánh thắng - thua" },
+          { "value": "COMPASS_DRAW", "label": "Nhánh La bàn" }
+        ],
+        "defaultValue": "SINGLE_ELIMINATION"
+      },
+      {
+        "fieldName": "knockout.seeding",
+        "label": "Cách xếp nhánh",
+        "inputType": "select",
+        "options": [
+          { "value": "CROSS_OVER", "label": "Xếp chéo" },
+          { "value": "MANUAL", "label": "Bốc thăm thủ công" }
+        ],
+        "defaultValue": "CROSS_OVER"
+      },
+      {
+        "fieldName": "knockout.hasBronzeMatch",
+        "label": "Có trận tranh hạng ba không?",
+        "inputType": "switch",
+        "options": [
+          { "value": true, "label": "Có" },
+          { "value": false, "label": "Không" }
+        ],
+        "defaultValue": true
+      },
+      {
+        "fieldName": "knockout.advancementSource",
+        "label": "Nguồn đội đi tiếp",
+        "inputType": "select",
+        "options": [
+          { "value": "MATCH_WINNER", "label": "Đội thắng trận trước" },
+          { "value": "MATCH_LOSER", "label": "Đội thua trận trước" },
+          { "value": "LUCKY_LOSER", "label": "Đội thua xuất sắc nhất" }
+        ],
+        "defaultValue": "MATCH_WINNER"
+      }
+    ],
+    "defaultValues": {
+      "knockout": {
+        "participantCount": 16,
+        "startRound": "ROUND_OF_16",
+        "bracketFormat": "SINGLE_ELIMINATION",
+        "seeding": "CROSS_OVER",
+        "hasBronzeMatch": true,
+        "advancementSource": "MATCH_WINNER"
+      }
+    }
+  }
+]
+
+

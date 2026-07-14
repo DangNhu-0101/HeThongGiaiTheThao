@@ -1,4 +1,5 @@
-// routes/ruleRoutes.js
+console.log('=== RULE ROUTE FILE LOADED ===');
+
 import express from 'express';
 import {
     getTemplates,
@@ -17,17 +18,25 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // ==================== TEMPLATE ROUTES ====================
-router.get('/templates', protectedRoute(), getTemplates);
-router.get('/templates/:id', protectedRoute(), getTemplateById);
-router.get('/categories', protectedRoute(), getCategories);
-router.get('/categories/:id', protectedRoute(), getCategoryById);
-router.get('/categories/:categoryId/flatten', protectedRoute(), getFlattenRules);
+router.get('/templates', getTemplates);
+router.get('/templates/:id', getTemplateById);
+router.get('/categories', getCategories);
+router.get('/categories/:id', getCategoryById);
+router.get('/categories/:categoryId/flatten', getFlattenRules);
 
 // ==================== CATEGORY RULE ROUTES ====================
 router.get('/category-rules', protectedRoute(), getAllCategoryRules);
 router.get('/category-rules/:id', protectedRoute(), getCategoryRuleById);
-router.post('/category-rules', protectedRoute('admin', 'org', { profile: true }), createCategoryRule);
-router.put('/category-rules/:id', protectedRoute('admin', 'org', { profile: true }), updateCategoryRule);
-router.delete('/category-rules/:id', protectedRoute('admin', 'org', { profile: true }), deleteCategoryRule);
+// Trong ruleRoute.js, tạm thời thêm middleware log
+router.post('/category-rules',
+    (req, res, next) => { 
+        console.log('=== POST /category-rules HIT ===');
+        next(); 
+    },
+    protectedRoute('admin', 'org', 'organization', { profile: true }),
+    createCategoryRule
+);
+router.put('/category-rules/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), updateCategoryRule);
+router.delete('/category-rules/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), deleteCategoryRule);
 
 export default router;

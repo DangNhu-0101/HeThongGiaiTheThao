@@ -8,24 +8,26 @@ import { releaseCategoryRules, buildTimeline, isValidStatusTransition } from '..
 class TournamentService {
     // === CREATE SINGLE ===
     static async createSingleTournament(userId, data) {
-        const session = await mongoose.startSession();
-        session.startTransaction();
         try {
             const {
                 name, description, categoryRuleId,
                 location, banner, logo, prizes, galaConfig, paymentQR,
-                sportType, maxTeams, format, feeEntry
+                sportType, maxTeams, format, feeEntry, sponsorshipConfig
             } = data;
 
             if (!categoryRuleId) throw new Error('Thiếu categoryRuleId');
 
             // Lấy categoryRule
-            const categoryRule = await CategoryRule.findById(categoryRuleId).session(session);
+            const categoryRule = await CategoryRule.findById(categoryRuleId);
             if (!categoryRule) throw new Error('CategoryRule không tồn tại');
             if (categoryRule.tournamentItemId) throw new Error('CategoryRule đã được sử dụng cho giải khác');
 
             // Tạo timeline
-            const timeline = buildTimeline(data);
+            const timelineResult = buildTimeline(data);
+            if (!timelineResult.success) {
+                throw new Error(timelineResult.errors.join('; '));
+            }
+            const timeline = timelineResult.data;
 
             // Tạo TournamentItem
             const item = new TournamentItem({
@@ -47,36 +49,31 @@ class TournamentService {
                 },
                 galaConfig: galaConfig || { hasGala: false },
                 sponsors: [],
+                sponsorshipConfig: sponsorshipConfig || { contact: '', tiers: [] },
                 status: 'upcoming',
                 sportType: sportType || categoryRule.sportType || '',
                 maxTeams: maxTeams || 0,
                 format: format || '',
                 registeredTeams: 0
             });
-            await item.save({ session });
+            await item.save();
 
             // Cập nhật categoryRule
             categoryRule.tournamentItemId = item._id;
-            await categoryRule.save({ session });
+            await categoryRule.save();
 
-            await session.commitTransaction();
             return item;
         } catch (error) {
-            await session.abortTransaction();
             throw error;
-        } finally {
-            session.endSession();
         }
     }
 
     // === CREATE MULTI ===
     static async createMultiTournament(userId, data) {
-        const session = await mongoose.startSession();
-        session.startTransaction();
         try {
             const {
                 name, description, categoryRuleIds,
-                location, banner, logo, prizes, galaConfig, paymentQR
+                location, banner, logo, prizes, galaConfig, paymentQR, sportRules = [], sponsorshipConfig
             } = data;
 
             if (!categoryRuleIds || !Array.isArray(categoryRuleIds) || categoryRuleIds.length === 0) {
@@ -84,12 +81,22 @@ class TournamentService {
             }
 
             // Kiểm tra categoryRules
-            const categoryRules = await CategoryRule.find({ _id: { $in: categoryRuleIds } }).session(session);
+            const categoryRules = await CategoryRule.find({ _id: { $in: categoryRuleIds } });
             if (categoryRules.length !== categoryRuleIds.length) throw new Error('Một số categoryRule không tồn tại');
             const used = categoryRules.some(cr => cr.tournamentItemId);
             if (used) throw new Error('Một số categoryRule đã được sử dụng');
 
-            const timeline = buildTimeline(data);
+            const ruleByCategoryRuleId = new Map(
+                sportRules
+                    .filter(rule => rule?.categoryRuleId)
+                    .map(rule => [rule.categoryRuleId.toString(), rule])
+            );
+
+            const timelineResult = buildTimeline(data);
+            if (!timelineResult.success) {
+                throw new Error(timelineResult.errors.join('; '));
+            }
+            const timeline = timelineResult.data;
 
             // Tạo Tournament
             const tournament = new Tournament({
@@ -109,51 +116,59 @@ class TournamentService {
                 status: 'upcoming',
                 tournamnetItem: []
             });
-            await tournament.save({ session });
+            await tournament.save();
 
             // Tạo TournamentItem cho mỗi categoryRule
             const itemIds = [];
             for (const categoryRule of categoryRules) {
+                const itemConfig = ruleByCategoryRuleId.get(categoryRule._id.toString()) || {};
+                const itemTimelineResult = itemConfig.registrationStart
+                    ? buildTimeline(itemConfig)
+                    : { success: true, data: timeline };
+                if (!itemTimelineResult.success) {
+                    throw new Error(itemTimelineResult.errors.join('; '));
+                }
+                const itemBanner = Array.isArray(itemConfig.itemBanners)
+                    ? itemConfig.itemBanners[0]
+                    : itemConfig.operations?.banner?.[0];
                 const item = new TournamentItem({
                     tournamentId: tournament._id,
                     organization: userId,
                     categoryRule: categoryRule._id,
-                    name: categoryRule.name,
-                    banner: banner || '',
-                    logo: logo || '',
-                    timeLine: timeline,
-                    feeEntry: 0,
-                    paymentQR: paymentQR || '',
-                    prizes: prizes || '',
+                    name: itemConfig.itemName || categoryRule.name,
+                    description: itemConfig.itemDescription || '',
+                    banner: itemBanner || banner || '',
+                    logo: itemConfig.itemLogo || itemConfig.operations?.logo || logo || '',
+                    timeLine: itemTimelineResult.data,
+                    feeEntry: itemConfig.feePerAthlete || 0,
+                    paymentQR: itemConfig.operations?.paymentQR || paymentQR || '',
+                    prizes: itemConfig.prizes || prizes || '',
                     location: {
                         city: location?.city || '',
                         district: location?.district || '',
-                        detail: location?.detail || ''
+                        detail: itemConfig.location || location?.detail || ''
                     },
                     galaConfig: galaConfig || { hasGala: false },
                     sponsors: [],
+                    sponsorshipConfig: itemConfig.sponsorshipConfig || itemConfig.operations?.sponsorshipConfig || sponsorshipConfig || { contact: '', tiers: [] },
                     status: 'upcoming',
-                    sportType: categoryRule.sportType || '',
-                    maxTeams: 0,
-                    format: '',
+                    sportType: itemConfig.sport || categoryRule.sportType || '',
+                    maxTeams: itemConfig.maxTeams || 0,
+                    format: itemConfig.categoryName || '',
                     registeredTeams: 0
                 });
-                await item.save({ session });
+                await item.save();
                 itemIds.push(item._id);
                 categoryRule.tournamentItemId = item._id;
-                await categoryRule.save({ session });
+                await categoryRule.save();
             }
 
             tournament.tournamnetItem = itemIds;
-            await tournament.save({ session });
+            await tournament.save();
 
-            await session.commitTransaction();
             return tournament;
         } catch (error) {
-            await session.abortTransaction();
             throw error;
-        } finally {
-            session.endSession();
         }
     }
 

@@ -1,4 +1,4 @@
-// controllers/sponsorController.js
+﻿// controllers/sponsorController.js
 import mongoose from "mongoose";
 import Sponsor from "../models/sponsors.js";
 import { checkTournamentItemPermission } from "../utils/tournamentHelper.js";
@@ -110,11 +110,10 @@ export const createSponsor = async (req, res) => {
         }
 
         // Kiểm tra sponsorType hợp lệ
-        const validSponsorTypes = ['Diamond', 'Gold', 'Silver', 'Bronze', 'Other'];
-        if (sponsorType && !validSponsorTypes.includes(sponsorType)) {
+        if (sponsorType !== undefined && !String(sponsorType).trim()) {
             return res.status(400).json({
                 success: false,
-                message: `sponsorType không hợp lệ. Cho phép: ${validSponsorTypes.join(', ')}`
+                message: "sponsorType không được để trống"
             });
         }
 
@@ -128,7 +127,7 @@ export const createSponsor = async (req, res) => {
         }
 
         // Kiểm tra status hợp lệ
-        const validStatus = ['actived', 'inactived'];
+        const validStatus = ['actived', 'inactive'];
         if (status && !validStatus.includes(status)) {
             return res.status(400).json({
                 success: false,
@@ -149,11 +148,11 @@ export const createSponsor = async (req, res) => {
             logo: logo || "",
             website: website || "",
             tournamentItemId,
-            sponsorType: sponsorType || "Gold",
+            sponsorType: sponsorType?.trim() || "Gold",
             sponsorshipType: sponsorshipType || "Money",
             amount,
             contactPerson: contactPerson || { name: "", phone: "", email: "" },
-            status: status || "active"
+            status: status || "actived"
         });
 
         return res.status(201).json({
@@ -203,14 +202,14 @@ export const updateSponsor = async (req, res) => {
         });
 
         // Validate lại các trường khi update
-        if (req.body.sponsorType) {
-            const validSponsorTypes = ['Diamond', 'Gold', 'Silver', 'Bronze', 'Other'];
-            if (!validSponsorTypes.includes(req.body.sponsorType)) {
+        if (req.body.sponsorType !== undefined) {
+            if (!String(req.body.sponsorType).trim()) {
                 return res.status(400).json({
                     success: false,
-                    message: `sponsorType không hợp lệ. Cho phép: ${validSponsorTypes.join(', ')}`
+                    message: "sponsorType không được để trống"
                 });
             }
+            sponsor.sponsorType = String(req.body.sponsorType).trim();
         }
         if (req.body.sponsorshipType) {
             const validSponsorshipTypes = ['Money', 'Goods', 'Services'];
@@ -222,7 +221,7 @@ export const updateSponsor = async (req, res) => {
             }
         }
         if (req.body.status) {
-            const validStatus = ['active', 'inactive'];
+            const validStatus = ['actived', 'inactive'];
             if (!validStatus.includes(req.body.status)) {
                 return res.status(400).json({
                     success: false,
@@ -296,7 +295,7 @@ export const activateSponsor = async (req, res) => {
             return res.status(403).json({ success: false, message: "Bạn không có quyền" });
         }
 
-        sponsor.status = "active";
+        sponsor.status = "actived";
         await sponsor.save();
         return res.status(200).json({
             success: true,

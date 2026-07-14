@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/scripts/createRuleSystem.js",
-    "template": "node src/scripts/configFileExcel.js"
+    "seed:sports": "node src/scripts/initialRuleSport.js",
+    "template": "node src/scripts/configFileExcel.js",
+    "initialAdmin": "node src/scripts/initialAdmin.js"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +18,7 @@
   "dependencies": {
     "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
@@ -25,6 +28,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.3",
     "multer": "^2.1.1",
+    "nodemailer": "^9.0.3",
     "path": "^0.12.7"
   },
   "devDependencies": {
