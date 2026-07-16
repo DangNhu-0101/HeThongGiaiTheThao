@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { IStage } from '@/types/rules';
 
-interface Props { stage: IStage; onUpdate: (id: string, f: keyof IStage, v: any) => void; }
+interface Props { stage: IStage; onUpdate: (id: string, f: keyof IStage, v: IStage[keyof IStage]) => void; }
 
 export const MatchPanel = ({ stage, onUpdate }: Props) => {
   const [open, setOpen] = useState(false);

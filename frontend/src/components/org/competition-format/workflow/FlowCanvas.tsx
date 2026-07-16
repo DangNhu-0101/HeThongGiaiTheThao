@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { ChevronsDown, ChevronsUp, LocateFixed, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mapStagesToFlow } from "./FlowMapper";
@@ -71,8 +71,8 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
     const available = (items: FlowEntrant[]) => items.filter((item) => !assignedLabels.has(item.label));
     return [
       { title: "Key thứ hạng bảng", items: available(rankingKeys) },
-      { title: "Winner Match", items: available(winnerKeys) },
-      { title: "Loser Match", items: available(loserKeys) },
+      { title: "Key thắng trận", items: available(winnerKeys) },
+      { title: "Key thua trận", items: available(loserKeys) },
       { title: "Lucky Team", items: available(luckyKeys) },
     ].filter((group) => group.items.length > 0);
   }, [assignedLabels, graph.edges, graph.nodes, stages]);
@@ -81,7 +81,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
     [focusedBranchId, graph.nodes],
   );
 
-  const fitView = () => {
+  const fitView = useCallback(() => {
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
     const scale = clamp(Math.min((rect.width - 48) / graph.width, (rect.height - 48) / graph.height), 0.35, 1.15);
@@ -90,7 +90,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
       x: Math.max(24, (rect.width - graph.width * scale) / 2),
       y: Math.max(24, (rect.height - graph.height * scale) / 2),
     });
-  };
+  }, [graph.height, graph.width]);
 
   const clearSeedInStage = (stage: CompetitionStageConfig, payload: AssignedSlotDrag) => ({
     ...stage,
@@ -142,7 +142,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
     if (didInitialFitRef.current) return;
     didInitialFitRef.current = true;
     fitView();
-  }, [graph.width, graph.height]);
+  }, [fitView, graph.width, graph.height]);
 
   const activeNodeIds = useMemo(() => {
     const active = new Set<string>();
@@ -512,7 +512,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
         <div>
           <h2 className="text-sm font-black uppercase text-foreground">Bracket Flow Canvas</h2>
           <p className="max-w-3xl text-xs leading-5 text-muted-foreground">
-            Kéo key từ panel vào slot trận. Key đã dùng sẽ ẩn khỏi list; thay key khác thì key cũ quay lại. Winner kế thừa bằng mã trận M1, M2; loser dùng L1, L2 khi có nhánh thua.
+            Kéo key từ panel vào slot trận. Key đã dùng sẽ ẩn khỏi list; thay key khác thì key cũ quay lại. Đội thắng dùng mã trận M1, M2; đội thua dùng L1, L2 khi có nhánh thua.
           </p>
         </div>
         <div className="flex items-center gap-2">

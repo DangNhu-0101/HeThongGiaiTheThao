@@ -48,8 +48,25 @@ const createAdmin = async () => {
         }).populate("roles", "name");
 
         if (existingAdmin) {
+            const hasAdminRole = existingAdmin.roles.some((role) => role?.name === "admin");
+            const update = {
+                $set: {
+                    username: existingAdmin.username || adminUsername,
+                    email: existingAdmin.email || adminEmail,
+                    phoneNumber: existingAdmin.phoneNumber || adminPhone,
+                    status: "actived"
+                },
+                $addToSet: { roles: adminRole._id }
+            };
+
+            await User.updateOne({ _id: existingAdmin._id }, update);
+
             const roleNames = existingAdmin.roles.map((role) => role.name).join(", ");
-            console.log(`Admin already exists: ${existingAdmin.email} (${roleNames || "no roles"})`);
+            console.log(
+                hasAdminRole
+                    ? `Admin already exists: ${existingAdmin.email} (${roleNames || "no roles"})`
+                    : `Admin repaired: ${existingAdmin.email} (added role admin)`
+            );
             return;
         }
 

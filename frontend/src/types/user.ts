@@ -40,6 +40,13 @@ export interface ApiUser {
   email?: string;
   phoneNumber?: string;
   avatar?: string;
+  fullName?: string;
+  birthDate?: string;
+  gender?: "male" | "female" | "other" | "";
+  address?: string;
+  bio?: string;
+  isDefaultGenerated?: boolean;
+  mustChangePassword?: boolean;
   status?: UserStatus;
   role?: ApiRoleValue | ApiRoleValue[];
   roles?: ApiRoleValue[];
@@ -75,6 +82,13 @@ export interface User {
   email: string;
   phoneNumber: string;
   avatar: string;
+  fullName?: string;
+  birthDate?: string;
+  gender?: "male" | "female" | "other" | "";
+  address?: string;
+  bio?: string;
+  isDefaultGenerated?: boolean;
+  mustChangePassword?: boolean;
   status: UserStatus;
   roles: UserRole[];
   roleIds: string[];

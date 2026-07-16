@@ -8,10 +8,15 @@ import StageRule from '../models/rules/stageRules.js';
 import Bracket from '../models/rules/brackets.js';
 import Group from '../models/groups.js';
 import Match from '../models/matches.js';
+import MatchResult from '../models/matchResults.js';
+import Participant from '../models/participants.js';
+import Standing from '../models/standings.js';
+import TournamentTemplate from '../models/rules/ruleTemplate/tournamentTemplate.js';
 import { checkTournamentItemPermission } from '../utils/tournamentHelper.js';
+import { syncMatchesFromCompetitionConfig } from './matchController.js';
 
 const normalizeSelectedType = (value) => {
-    if (value === 'preset' || value === 'custom') return value;
+    if (value === 'preset' || value === 'template' || value === 'custom') return value;
     return 'custom';
 };
 
@@ -19,6 +24,294 @@ const canUseFormatFallback = (req) => {
     const roles = Array.isArray(req.userRoles) ? req.userRoles : [];
     return roles.some((role) => ['admin', 'org', 'organization'].includes(role));
 };
+
+const sameSportType = (left, right) => String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
+
+const isPowerOfTwo = (value) => value > 0 && (value & (value - 1)) === 0;
+
+const normalizeId = (value) => String(value?._id || value || '');
+
+export const getApprovedEligibleTeamsCount = async (tournamentItemId, session = null) => {
+    const query = Participant.find({
+        tournamentItemId,
+        type: 'team',
+        registrationStatus: 'approved',
+    }).select('_id name slug registrationStatus lineup skill seed rank ranking createdAt').populate('lineup.Player', 'name skill status').lean();
+    if (session) query.session(session);
+    const participants = await query;
+    const unique = new Map();
+    participants.forEach((participant) => {
+        const id = normalizeId(participant._id);
+        if (!id || unique.has(id)) return;
+        const name = String(participant.name || '').trim();
+        const lineup = Array.isArray(participant.lineup) ? participant.lineup : [];
+        const hasRequiredInfo = Boolean(name) && lineup.some((entry) => entry?.Player);
+        if (!hasRequiredInfo) return;
+        unique.set(id, participant);
+    });
+    return {
+        totalTeams: unique.size,
+        teamIds: [...unique.keys()],
+        teams: [...unique.values()],
+    };
+};
+
+const groupNameForIndex = (index) => `Bảng ${String.fromCharCode(65 + index)}`;
+
+const normalizeTemplateGroups = (branch, approvedTeamsCount) => {
+    const existingGroups = Array.isArray(branch.groups) ? branch.groups : [];
+    const configuredTeamsPerGroup = Number(branch.teamsPerGroup || branch.teamsPerGroupCount || existingGroups[0]?.numberOfTeams || 0);
+    if (!configuredTeamsPerGroup || configuredTeamsPerGroup < 1) {
+        const error = new Error(`Nhánh ${branch.name || branch.id || 'vòng bảng'} thiếu số đội mỗi bảng`);
+        error.statusCode = 400;
+        throw error;
+    }
+    const groupCount = Math.max(1, Math.ceil(approvedTeamsCount / configuredTeamsPerGroup));
+    return Array.from({ length: groupCount }, (_, index) => {
+        const remaining = Math.max(0, approvedTeamsCount - index * configuredTeamsPerGroup);
+        const capacity = Math.min(configuredTeamsPerGroup, remaining || configuredTeamsPerGroup);
+        const source = existingGroups[index] || {};
+        return {
+            ...source,
+            id: source.id || `${branch.id || 'group'}-g-${index + 1}`,
+            name: source.name || groupNameForIndex(index),
+            numberOfTeams: Number(source.numberOfTeams || capacity || configuredTeamsPerGroup),
+        };
+    });
+};
+
+const normalizeFormatWithEligibleTeams = (competitionFormat, eligibleTeams) => {
+    const config = competitionFormat.config || {};
+    const stages = Array.isArray(config.stages) ? config.stages : [];
+    let previousStage = null;
+    stages.forEach((stage, stageIndex) => {
+        stage.id = stage.id || `stage-${stageIndex + 1}`;
+        stage.order = Number(stage.order || stageIndex + 1);
+        stage.sourceType = stageIndex === 0 ? 'REGISTRATION' : 'PREVIOUS_STAGE';
+        stage.sourceStageIds = stageIndex === 0 ? [] : [previousStage?.id].filter(Boolean);
+        stage.input = stage.input && typeof stage.input === 'object' ? stage.input : {};
+        if (stageIndex === 0) {
+            stage.input.teams = eligibleTeams.totalTeams;
+            stage.input.sourceStageId = '';
+        } else {
+            stage.input.sourceStageId = previousStage?.id || '';
+        }
+        stage.brackets = Array.isArray(stage.brackets) ? stage.brackets : [];
+
+        stage.brackets.forEach((branch) => {
+            branch.id = branch.id || `${stage.id}-main`;
+            if (branch.type === 'group') {
+                branch.totalTeamsIn = stageIndex === 0 ? eligibleTeams.totalTeams : Number(branch.totalTeamsIn || stage.input.teams || 0);
+                branch.groups = normalizeTemplateGroups(branch, branch.totalTeamsIn);
+                branch.groupIds = branch.groups.map((group) => group.id);
+                stage.input.groups = branch.groups.length;
+                stage.input.teamsPerGroup = Number(branch.groups[0]?.numberOfTeams || stage.input.teamsPerGroup || 0);
+            } else if (branch.type === 'knockout') {
+                const totalTeamsIn = Number(branch.totalTeamsIn || stage.input.teams || (stageIndex === 0 ? eligibleTeams.totalTeams : 0));
+                if (stageIndex === 0 && !isPowerOfTwo(totalTeamsIn)) {
+                    const error = new Error(`Số đội hợp lệ hiện tại (${totalTeamsIn}) không phù hợp với thể thức loại trực tiếp không hỗ trợ bye`);
+                    error.statusCode = 400;
+                    throw error;
+                }
+                branch.totalTeamsIn = totalTeamsIn;
+                if (stageIndex === 0) stage.input.teams = totalTeamsIn;
+            }
+        });
+        previousStage = stage;
+    });
+    config.stages = stages;
+    config.stageCount = stages.length;
+    competitionFormat.stageCount = stages.length;
+    competitionFormat.config = config;
+    return competitionFormat;
+};
+
+const validateCompetitionTemplateSource = async (competitionFormat, item) => {
+    if (!['preset', 'template'].includes(competitionFormat.selectedType) || competitionFormat.presetSource !== 'competition-template') return;
+    if (!mongoose.Types.ObjectId.isValid(competitionFormat.presetId)) {
+        const error = new Error('Mã thể thức mẫu không hợp lệ');
+        error.statusCode = 400;
+        throw error;
+    }
+    const template = await TournamentTemplate.findOne({
+        _id: competitionFormat.presetId,
+        status: 'actived',
+        isActive: { $ne: false },
+    }).lean();
+    if (!template) {
+        const error = new Error('Không tìm thấy thể thức mẫu đang hoạt động');
+        error.statusCode = 404;
+        throw error;
+    }
+    const tournamentSport = item.sportType || competitionFormat.sportType;
+    if (tournamentSport && !sameSportType(template.sportType, tournamentSport)) {
+        const error = new Error('Thể thức mẫu không phù hợp với môn thi đấu của giải');
+        error.statusCode = 400;
+        throw error;
+    }
+};
+
+const defaultMatchIdsForBranch = (stage, branch) => {
+    if (branch.type !== 'knockout') return [];
+    const totalTeamsIn = Math.max(2, Number(branch.totalTeamsIn) || 2);
+    const slotCount = totalTeamsIn % 2 === 0 ? totalTeamsIn : totalTeamsIn + 1;
+    const deleted = new Set(Array.isArray(branch.flowDeletedMatchIds) ? branch.flowDeletedMatchIds : []);
+    return Array.from({ length: Math.max(1, Math.ceil(slotCount / 2)) }, (_, index) => `${stage.id}:${branch.id}:m-${index + 1}`)
+        .filter((id) => !deleted.has(id));
+};
+
+const validateNoCycle = (nodes, edges) => {
+    const graph = new Map(nodes.map((node) => [node, []]));
+    edges.forEach((edge) => {
+        if (!graph.has(edge.source)) graph.set(edge.source, []);
+        graph.get(edge.source).push(edge.target);
+    });
+    const visiting = new Set();
+    const visited = new Set();
+    const visit = (node) => {
+        if (visiting.has(node)) return false;
+        if (visited.has(node)) return true;
+        visiting.add(node);
+        for (const next of graph.get(node) || []) {
+            if (!visit(next)) return false;
+        }
+        visiting.delete(node);
+        visited.add(node);
+        return true;
+    };
+    return nodes.every(visit);
+};
+
+const validateCompetitionFormatConfig = (config = {}) => {
+    const stages = Array.isArray(config.stages) ? config.stages : [];
+    if (!stages.length) {
+        const error = new Error('Cấu hình thể thức cần ít nhất một stage');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const allMatchIds = new Set();
+    const allMatchCodes = new Set();
+    const allEdges = [];
+
+    stages.forEach((stage, stageIndex) => {
+        if (!stage.id) {
+            const error = new Error(`Stage ${stageIndex + 1} thiếu mã nội bộ`);
+            error.statusCode = 400;
+            throw error;
+        }
+        const brackets = Array.isArray(stage.brackets) ? stage.brackets : [];
+        if (!brackets.length) {
+            const error = new Error(`Stage ${stage.name || stage.id} cần ít nhất một nhánh`);
+            error.statusCode = 400;
+            throw error;
+        }
+
+        brackets.forEach((branch) => {
+            if (branch.type === 'group') {
+                const groups = Array.isArray(branch.groups) ? branch.groups : [];
+                const capacity = groups.reduce((sum, group) => sum + Number(group.numberOfTeams || 0), 0);
+                if (capacity < Number(branch.totalTeamsIn || 0)) {
+                    const error = new Error(`Sức chứa bảng của ${branch.name || branch.id} nhỏ hơn số đội đầu vào`);
+                    error.statusCode = 400;
+                    throw error;
+                }
+                return;
+            }
+
+            const defaultIds = defaultMatchIdsForBranch(stage, branch);
+            defaultIds.forEach((id, index) => {
+                if (allMatchIds.has(id)) {
+                    const error = new Error(`Trùng mã trận ${id}`);
+                    error.statusCode = 400;
+                    throw error;
+                }
+                allMatchIds.add(id);
+                allMatchCodes.add(`M${allMatchCodes.size + 1 || index + 1}`);
+            });
+
+            (Array.isArray(branch.flowStandaloneMatches) ? branch.flowStandaloneMatches : []).forEach((match) => {
+                const matchId = String(match.id || '');
+                if (!matchId) {
+                    const error = new Error(`Nhánh ${branch.name || branch.id} có trận thiếu key`);
+                    error.statusCode = 400;
+                    throw error;
+                }
+                if (allMatchIds.has(matchId)) {
+                    const error = new Error(`Trùng key trận ${matchId}`);
+                    error.statusCode = 400;
+                    throw error;
+                }
+                const code = String(match.matchCode || '').trim();
+                if (code && allMatchCodes.has(code)) {
+                    const error = new Error(`Trùng mã hiển thị trận ${code}`);
+                    error.statusCode = 400;
+                    throw error;
+                }
+                allMatchIds.add(matchId);
+                if (code) allMatchCodes.add(code);
+                const seedSlots = Array.isArray(match.seedSlots) ? match.seedSlots : [];
+                if (seedSlots.length < 2) {
+                    const error = new Error(`Trận ${code || matchId} thiếu đầu vào bắt buộc`);
+                    error.statusCode = 400;
+                    throw error;
+                }
+            });
+
+            (Array.isArray(branch.flowConnections) ? branch.flowConnections : []).forEach((connection) => {
+                allEdges.push({
+                    source: String(connection.source || ''),
+                    target: String(connection.target || ''),
+                    id: String(connection.id || ''),
+                });
+            });
+        });
+    });
+
+    allEdges.forEach((edge) => {
+        if (!allMatchIds.has(edge.source) || !allMatchIds.has(edge.target)) {
+            const error = new Error(`Match flow tham chiếu key không tồn tại: ${edge.source} -> ${edge.target}`);
+            error.statusCode = 400;
+            throw error;
+        }
+        if (edge.source === edge.target) {
+            const error = new Error(`Match flow tự tham chiếu tại ${edge.source}`);
+            error.statusCode = 400;
+            throw error;
+        }
+    });
+
+    if (!validateNoCycle([...allMatchIds], allEdges)) {
+        const error = new Error('Match flow có vòng lặp, không thể lưu');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const outgoing = new Map();
+    const incoming = new Map();
+    allEdges.forEach((edge) => {
+        outgoing.set(edge.source, (outgoing.get(edge.source) || 0) + 1);
+        incoming.set(edge.target, (incoming.get(edge.target) || 0) + 1);
+    });
+    if ([...outgoing.values()].some((count) => count > 2) || [...incoming.values()].some((count) => count > 2)) {
+        const error = new Error('Match flow có quá nhiều liên kết vào/ra một trận');
+        error.statusCode = 400;
+        throw error;
+    }
+};
+
+const stableFormatShape = (config = {}) => JSON.stringify({
+    stageCount: config.stageCount,
+    stages: (Array.isArray(config.stages) ? config.stages : []).map((stage) => ({
+        id: stage.id,
+        name: stage.name,
+        input: stage.input,
+        brackets: stage.brackets,
+        scoring: stage.scoring,
+        rankingCriteria: stage.rankingCriteria,
+        luckyCriteria: stage.luckyCriteria,
+    })),
+});
 
 const buildCompetitionFormatPayload = (body, userId) => {
     const config = body.config && typeof body.config === 'object'
@@ -68,8 +361,8 @@ const buildCompetitionFormatPayload = (body, userId) => {
 
     return {
         selectedType,
-        presetId: selectedType === 'preset' ? String(body.presetId || body.categoryTemplateId || body.categoryRuleId || config.id || '') : '',
-        presetSource: selectedType === 'preset' ? String(body.presetSource || body.sourceKind || 'json') : '',
+        presetId: ['preset', 'template'].includes(selectedType) ? String(body.presetId || body.templateId || body.categoryTemplateId || body.categoryRuleId || config.id || '') : '',
+        presetSource: ['preset', 'template'].includes(selectedType) ? String(body.presetSource || body.sourceKind || 'json') : '',
         name: String(body.name || config.name || ''),
         sportType: String(body.sportType || config.sportType || ''),
         description: String(body.description || config.description || ''),
@@ -100,15 +393,153 @@ export const getTournamentCompetitionFormat = async (req, res) => {
     }
 };
 
+export const getEligibleTeamsForTournament = async (req, res) => {
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const tournamentItemId = req.params.tournamentItemId || req.params.id;
+        const { allowed, item, message } = await checkTournamentItemPermission(tournamentItemId, userId);
+        if (!item) return res.status(404).json({ success: false, message });
+        if (!allowed && !canUseFormatFallback(req)) return res.status(403).json({ success: false, message });
+        const eligible = await getApprovedEligibleTeamsCount(tournamentItemId);
+        return res.json({
+            success: true,
+            data: {
+                totalTeams: eligible.totalTeams,
+                teamIds: eligible.teamIds,
+            },
+        });
+    } catch (error) {
+        console.error('Get eligible teams failed:', error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const withTournamentItemParam = (req) => {
+    if (!req.params.tournamentItemId && req.params.id) req.params.tournamentItemId = req.params.id;
+    return req;
+};
+
+export const getTournamentCompetitionFormatAlias = async (req, res) => getTournamentCompetitionFormat(withTournamentItemParam(req), res);
+
+export const saveTournamentCompetitionFormatAlias = async (req, res) => saveTournamentCompetitionFormat(withTournamentItemParam(req), res);
+
+export const validateTournamentCompetitionFormat = async (req, res) => {
+    try {
+        const tournamentItemId = req.params.tournamentItemId || req.params.id;
+        const eligibleTeams = await getApprovedEligibleTeamsCount(tournamentItemId);
+        let competitionFormat = buildCompetitionFormatPayload({ ...req.body, tournamentItemId }, req.user?._id || req.user?.id);
+        competitionFormat = normalizeFormatWithEligibleTeams(competitionFormat, eligibleTeams);
+        validateCompetitionFormatConfig(competitionFormat.config);
+        return res.json({
+            success: true,
+            data: {
+                valid: true,
+                format: competitionFormat,
+                eligibleTeams: {
+                    totalTeams: eligibleTeams.totalTeams,
+                    teamIds: eligibleTeams.teamIds,
+                },
+                validationWarnings: [],
+            },
+        });
+    } catch (error) {
+        return res.status(error.statusCode || 400).json({ success: false, message: error.message });
+    }
+};
+
+const templateConfigFromRecord = (template) => {
+    const direct = template?.templateConfig?.config || template?.templateConfig || {};
+    if (Array.isArray(direct?.stages)) return direct;
+    return null;
+};
+
+export const applyTournamentTemplateFormat = async (req, res) => {
+    try {
+        const { templateId } = req.body || {};
+        if (!mongoose.Types.ObjectId.isValid(templateId)) {
+            return res.status(400).json({ success: false, message: 'Mã thể thức mẫu không hợp lệ' });
+        }
+        const template = await TournamentTemplate.findOne({
+            _id: templateId,
+            status: 'actived',
+            isActive: { $ne: false },
+        }).lean();
+        if (!template) return res.status(404).json({ success: false, message: 'Không tìm thấy thể thức mẫu đang hoạt động' });
+        const config = req.body?.config && Array.isArray(req.body.config.stages)
+            ? req.body.config
+            : templateConfigFromRecord(template);
+        if (!config || !Array.isArray(config.stages) || !config.stages.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thể thức mẫu chưa có cấu hình stage/bracket/match flow đầy đủ để lưu vào giải',
+            });
+        }
+        req.body = {
+            ...req.body,
+            selectedType: 'template',
+            presetId: String(template._id),
+            presetSource: 'competition-template',
+            name: template.name || template.templateName || config.name,
+            sportType: template.sportType || config.sportType,
+            description: template.description || config.description,
+            config: {
+                ...config,
+                id: config.id || String(template._id),
+                tournamentItemId: req.params.id || req.params.tournamentItemId,
+                name: template.name || template.templateName || config.name,
+                sportType: template.sportType || config.sportType,
+                description: template.description || config.description,
+                selectedType: 'template',
+                status: config.status || 'actived',
+            },
+        };
+        return saveTournamentCompetitionFormatAlias(req, res);
+    } catch (error) {
+        console.error('Apply tournament template format failed:', error);
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    }
+};
+
+export const generateTournamentCompetitionFormat = async (req, res) => saveTournamentCompetitionFormatAlias(req, res);
+
 export const saveTournamentCompetitionFormat = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const userId = req.user?._id || req.user?.id;
         const { tournamentItemId } = req.params;
         const { allowed, item, message } = await checkTournamentItemPermission(tournamentItemId, userId);
-        if (!item) return res.status(404).json({ success: false, message });
-        if (!allowed && !canUseFormatFallback(req)) return res.status(403).json({ success: false, message });
+        if (!item) {
+            await session.abortTransaction();
+            return res.status(404).json({ success: false, message });
+        }
+        if (!allowed && !canUseFormatFallback(req)) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message });
+        }
 
-        const competitionFormat = buildCompetitionFormatPayload({ ...req.body, tournamentItemId }, userId);
+        const eligibleTeams = await getApprovedEligibleTeamsCount(tournamentItemId, session);
+        let competitionFormat = buildCompetitionFormatPayload({ ...req.body, tournamentItemId }, userId);
+        competitionFormat = normalizeFormatWithEligibleTeams(competitionFormat, eligibleTeams);
+        await validateCompetitionTemplateSource(competitionFormat, item);
+        validateCompetitionFormatConfig(competitionFormat.config);
+
+        const oldConfig = item.competitionFormat?.config || null;
+        const shapeChanged = oldConfig && stableFormatShape(oldConfig) !== stableFormatShape(competitionFormat.config);
+        if (shapeChanged) {
+            const [matchCount, resultCount] = await Promise.all([
+                Match.countDocuments({ tournamentItemId }).session(session),
+                MatchResult.countDocuments({ tournamentItemId }).session(session),
+            ]);
+            if (matchCount > 0 || resultCount > 0) {
+                await session.abortTransaction();
+                return res.status(409).json({
+                    success: false,
+                    message: 'Thể thức đã phát sinh trận hoặc kết quả. Hãy reset đúng quy trình trước khi ghi đè cấu trúc.',
+                });
+            }
+        }
+
         const updated = await TournamentItem.findByIdAndUpdate(
             tournamentItemId,
             {
@@ -117,17 +548,744 @@ export const saveTournamentCompetitionFormat = async (req, res) => {
                     format: competitionFormat.selectedType === 'custom' ? 'custom' : competitionFormat.name,
                 },
             },
-            { new: true, runValidators: true }
+            { new: true, runValidators: true, session }
         ).lean();
 
+        const syncResult = await syncMatchesFromCompetitionConfig(tournamentItemId, userId, session, { force: false });
+        if (!syncResult.ok) {
+            await session.abortTransaction();
+            return res.status(syncResult.status || 400).json({ success: false, message: syncResult.message });
+        }
+
+        await session.commitTransaction();
         return res.json({
             success: true,
             message: 'Competition format saved',
-            data: updated.competitionFormat,
+            data: {
+                format: updated.competitionFormat,
+                eligibleTeams: {
+                    totalTeams: eligibleTeams.totalTeams,
+                    teamIds: eligibleTeams.teamIds,
+                },
+                sync: syncResult,
+            },
         });
     } catch (error) {
+        await session.abortTransaction();
         console.error('Save tournament competition format failed:', error);
-        return res.status(500).json({ success: false, message: error.message });
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
+const participantSkill = (participant) => {
+    if (Number.isFinite(Number(participant.skill))) return Number(participant.skill);
+    const players = Array.isArray(participant.lineup)
+        ? participant.lineup.map((item) => item.Player).filter(Boolean)
+        : [];
+    const skills = players.map((player) => Number(player.skill || 0)).filter((value) => value > 0);
+    if (!skills.length) return 0;
+    return skills.reduce((sum, value) => sum + value, 0) / skills.length;
+};
+
+const sortParticipantsForCriterion = (participants, criterion, order = 'balanced') => {
+    const items = [...participants];
+    if (criterion === 'random') {
+        return items.sort((a, b) => String(a._id).localeCompare(String(b._id)));
+    }
+    if (criterion === 'skill' || criterion === 'balanced') {
+        const sorted = items.sort((a, b) => participantSkill(b) - participantSkill(a));
+        if (order === 'asc') return sorted.reverse();
+        return sorted;
+    }
+    if (criterion === 'seed' || criterion === 'ranking') {
+        const sorted = items.sort((a, b) => {
+            const seedA = Number(a.seed || a.rank || a.ranking || 999999);
+            const seedB = Number(b.seed || b.rank || b.ranking || 999999);
+            if (seedA !== seedB) return seedA - seedB;
+            return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
+        });
+        return order === 'desc' ? sorted.reverse() : sorted;
+    }
+    return items.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'vi'));
+};
+
+const balancedOrderForGroups = (teams, groupCount) => {
+    const groups = Array.from({ length: Math.max(1, groupCount) }, () => []);
+    teams.forEach((team, index) => {
+        const round = Math.floor(index / groups.length);
+        const offset = index % groups.length;
+        const groupIndex = round % 2 === 0 ? offset : groups.length - 1 - offset;
+        groups[groupIndex].push(team);
+    });
+    const output = [];
+    const maxRows = Math.max(...groups.map((group) => group.length), 0);
+    for (let row = 0; row < maxRows; row += 1) {
+        for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+            if (groups[groupIndex][row]) output.push(groups[groupIndex][row]);
+        }
+    }
+    return output;
+};
+
+export const previewStageSeeding = async (req, res) => {
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const { tournamentItemId } = req.params;
+        const { stage, criterion = 'random', order = 'balanced' } = req.body || {};
+        const { allowed, item, message } = await checkTournamentItemPermission(tournamentItemId, userId);
+        if (!item) return res.status(404).json({ success: false, message });
+        if (!allowed && !canUseFormatFallback(req)) return res.status(403).json({ success: false, message });
+        if (!stage || !Array.isArray(stage.brackets)) {
+            return res.status(400).json({ success: false, message: 'Thiếu cấu hình stage để xếp đội' });
+        }
+
+        const participants = await Participant.find({
+            tournamentItemId,
+            type: 'team',
+            registrationStatus: { $nin: ['rejected', 'suspended'] },
+        }).populate('lineup.Player', 'skill name').lean();
+        let teams = sortParticipantsForCriterion(participants, criterion, order);
+        if (!teams.length) return res.status(400).json({ success: false, message: 'Chưa có đội đủ điều kiện để xếp' });
+
+        const assignments = [];
+        let teamIndex = 0;
+        for (const branch of stage.brackets) {
+            if (branch.type === 'group') {
+                const groups = Array.isArray(branch.groups) && branch.groups.length ? branch.groups : [{ name: branch.name, numberOfTeams: branch.totalTeamsIn || teams.length }];
+                if (order === 'balanced' || criterion === 'balanced' || criterion === 'skill') {
+                    teams = balancedOrderForGroups(teams, groups.length);
+                }
+                const maxRounds = Math.max(...groups.map((group) => Number(group.numberOfTeams || 0)), 0);
+                for (let slotIndex = 0; slotIndex < maxRounds; slotIndex += 1) {
+                    for (const [groupIndex, group] of groups.entries()) {
+                        if (slotIndex >= Number(group.numberOfTeams || 0) || teamIndex >= teams.length) continue;
+                        const team = teams[teamIndex++];
+                        const slotId = `${stage.id}:${branch.id}:group-${groupIndex + 1}:slot-${slotIndex + 1}`;
+                        assignments.push({
+                            slotId,
+                            stageId: stage.id,
+                            branchId: branch.id,
+                            groupName: group.name,
+                            slotLabel: `Seed ${slotIndex + 1}`,
+                            participantId: String(team._id),
+                            participantName: team.name,
+                            participantLogo: team.logo || String(team.name || 'Đ').slice(0, 2).toUpperCase(),
+                            sourceType: 'PARTICIPANT',
+                        });
+                    }
+                }
+            } else {
+                const slots = Array.isArray(branch.flowSlots) && branch.flowSlots.length
+                    ? branch.flowSlots
+                    : Array.from({ length: Math.max(2, Number(branch.totalTeamsIn || teams.length)) }, (_, index) => ({ id: `${branch.id}-slot-${index + 1}`, label: `Seed ${index + 1}` }));
+                for (const [slotIndex, slot] of slots.entries()) {
+                    if (teamIndex >= teams.length) break;
+                    if (String(slot.label || '').toLowerCase().includes('bye')) continue;
+                    const team = teams[teamIndex++];
+                    const nodeId = `${stage.id}:${branch.id}:m-${Math.floor(slotIndex / 2) + 1}`;
+                    assignments.push({
+                        slotId: `${nodeId}:seed-${slotIndex}`,
+                        stageId: stage.id,
+                        branchId: branch.id,
+                        nodeId,
+                        slotLabel: slot.label || `Seed ${slotIndex + 1}`,
+                        participantId: String(team._id),
+                        participantName: team.name,
+                        participantLogo: team.logo || String(team.name || 'Đ').slice(0, 2).toUpperCase(),
+                        sourceType: 'PARTICIPANT',
+                    });
+                }
+            }
+        }
+
+        return res.json({
+            success: true,
+            data: {
+                criterion,
+                totalTeams: teams.length,
+                assignedTeams: assignments.length,
+                notes: assignments.length < teams.length ? ['Một số đội chưa được xếp vì số slot không đủ.'] : [],
+                assignments,
+            },
+        });
+    } catch (error) {
+        console.error('Preview stage seeding failed:', error);
+        return res.status(500).json({ success: false, message: error.message || 'Không thể xếp đội tự động' });
+    }
+};
+
+const sortedTeamsBySkill = (teams) => teams
+    .map((team) => {
+        const skillScore = participantSkill(team);
+        return {
+            raw: team,
+            teamId: normalizeId(team._id),
+            teamName: team.name,
+            skillScore,
+            seedValue: Number(team.seed || team.rank || team.ranking || 999999),
+            registeredAt: team.createdAt ? new Date(team.createdAt).getTime() : 0,
+            usedDefaultSkill: skillScore === 0,
+        };
+    })
+    .sort((a, b) => {
+        if (b.skillScore !== a.skillScore) return b.skillScore - a.skillScore;
+        if (a.seedValue !== b.seedValue) return a.seedValue - b.seedValue;
+        if (a.registeredAt !== b.registeredAt) return a.registeredAt - b.registeredAt;
+        return String(a.teamName || '').localeCompare(String(b.teamName || ''), 'vi');
+    })
+    .map((team, index) => ({ ...team, seed: index + 1 }));
+
+const bracketSeedOrder = (teams, strategy) => {
+    const sorted = [...teams];
+    if (strategy === 'CLOSE_SKILL') return sorted;
+    if (strategy === 'STRONG_VS_WEAK') {
+        const output = [];
+        let left = 0;
+        let right = sorted.length - 1;
+        while (left < right) {
+            output.push(sorted[left], sorted[right]);
+            left += 1;
+            right -= 1;
+        }
+        if (left === right) output.push(sorted[left]);
+        return output;
+    }
+    const pairings = [];
+    const n = sorted.length;
+    for (let index = 0; index < Math.floor(n / 2); index += 1) {
+        pairings.push(sorted[index], sorted[n - index - 1]);
+    }
+    return pairings;
+};
+
+const buildPlacementPreview = (format, stageId, teams, strategy = 'SNAKE_BALANCE') => {
+    const stage = (format?.config?.stages || []).find((item) => item.id === stageId) || format?.config?.stages?.[0];
+    if (!stage) {
+        const error = new Error('Không tìm thấy stage để xếp đội');
+        error.statusCode = 400;
+        throw error;
+    }
+    const sortedTeams = sortedTeamsBySkill(teams);
+    const warnings = sortedTeams.filter((team) => team.usedDefaultSkill).map((team) => `${team.teamName} chưa có dữ liệu skill, dùng điểm mặc định thấp nhất.`);
+    const placements = [];
+    const groupBranch = (stage.brackets || []).find((branch) => branch.type === 'group');
+    if (groupBranch) {
+        const groups = Array.isArray(groupBranch.groups) ? groupBranch.groups : [];
+        const buckets = groups.map((group) => ({ group, teams: [], totalSkill: 0 }));
+        sortedTeams.forEach((team, index) => {
+            const bucketIndex = strategy === 'CLOSE_SKILL'
+                ? Math.floor(index / Math.max(1, Math.ceil(sortedTeams.length / Math.max(1, buckets.length))))
+                : (() => {
+                    const round = Math.floor(index / Math.max(1, buckets.length));
+                    const offset = index % Math.max(1, buckets.length);
+                    return round % 2 === 0 ? offset : buckets.length - 1 - offset;
+                })();
+            const bucket = buckets[Math.min(bucketIndex, Math.max(0, buckets.length - 1))];
+            if (!bucket) return;
+            const capacity = Number(bucket.group.numberOfTeams || 0);
+            if (bucket.teams.length >= capacity) {
+                warnings.push(`${bucket.group.name} đã đủ sức chứa, ${team.teamName} chưa được xếp.`);
+                return;
+            }
+            bucket.teams.push(team);
+            bucket.totalSkill += team.skillScore;
+            placements.push({
+                teamId: team.teamId,
+                teamName: team.teamName,
+                skillScore: team.skillScore,
+                seed: team.seed,
+                groupId: bucket.group.id,
+                groupName: bucket.group.name,
+                matchId: null,
+                slotId: `${stage.id}:${groupBranch.id}:group-${bucketIndex + 1}:slot-${bucket.teams.length}`,
+            });
+        });
+    } else {
+        const knockoutBranch = (stage.brackets || []).find((branch) => branch.type === 'knockout');
+        if (!knockoutBranch) {
+            const error = new Error('Stage chưa có bảng hoặc nhánh knockout để xếp đội');
+            error.statusCode = 400;
+            throw error;
+        }
+        const slots = Array.isArray(knockoutBranch.flowSlots) && knockoutBranch.flowSlots.length
+            ? knockoutBranch.flowSlots
+            : Array.from({ length: Number(knockoutBranch.totalTeamsIn || sortedTeams.length) }, (_, index) => ({ id: `${knockoutBranch.id}-slot-${index + 1}` }));
+        bracketSeedOrder(sortedTeams, strategy).forEach((team, index) => {
+            const slot = slots[index];
+            if (!slot) {
+                warnings.push(`${team.teamName} chưa có slot knockout phù hợp.`);
+                return;
+            }
+            placements.push({
+                teamId: team.teamId,
+                teamName: team.teamName,
+                skillScore: team.skillScore,
+                seed: team.seed,
+                groupId: null,
+                matchId: `${stage.id}:${knockoutBranch.id}:m-${Math.floor(index / 2) + 1}`,
+                slotId: slot.id || `${knockoutBranch.id}-slot-${index + 1}`,
+            });
+        });
+    }
+    return {
+        stage,
+        placements,
+        warnings,
+        summary: {
+            totalTeams: sortedTeams.length,
+            placedTeams: placements.length,
+            unplacedTeams: Math.max(0, sortedTeams.length - placements.length),
+        },
+    };
+};
+
+export const previewTeamPlacement = async (req, res) => {
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const tournamentItemId = req.params.tournamentItemId || req.params.id;
+        const { allowed, item, message } = await checkTournamentItemPermission(tournamentItemId, userId);
+        if (!item) return res.status(404).json({ success: false, message });
+        if (!allowed && !canUseFormatFallback(req)) return res.status(403).json({ success: false, message });
+        const eligible = await getApprovedEligibleTeamsCount(tournamentItemId);
+        const preview = buildPlacementPreview(item.competitionFormat, req.body?.stageId, eligible.teams, req.body?.strategy);
+        return res.json({ success: true, data: preview });
+    } catch (error) {
+        console.error('Preview team placement failed:', error);
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    }
+};
+
+export const confirmTeamPlacement = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const tournamentItemId = req.params.tournamentItemId || req.params.id;
+        const { allowed, item, message } = await checkTournamentItemPermission(tournamentItemId, userId);
+        if (!item) {
+            await session.abortTransaction();
+            return res.status(404).json({ success: false, message });
+        }
+        if (!allowed && !canUseFormatFallback(req)) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message });
+        }
+        const [lockedMatches, resultCount] = await Promise.all([
+            Match.countDocuments({
+                tournamentItemId,
+                $or: [{ scheduleStatus: 'published' }, { status: { $ne: 'pending' } }],
+            }).session(session),
+            MatchResult.countDocuments({ tournamentItemId }).session(session),
+        ]);
+        if (lockedMatches > 0 || resultCount > 0) {
+            await session.abortTransaction();
+            return res.status(409).json({ success: false, message: 'Giải đã có lịch công bố hoặc kết quả, không thể xếp lại đội trực tiếp.' });
+        }
+        const dbItem = await TournamentItem.findById(tournamentItemId).session(session);
+        const eligible = await getApprovedEligibleTeamsCount(tournamentItemId, session);
+        const preview = buildPlacementPreview(dbItem.competitionFormat, req.body?.stageId, eligible.teams, req.body?.strategy);
+        const config = dbItem.competitionFormat?.config || {};
+        const stages = Array.isArray(config.stages) ? config.stages : [];
+        const stage = stages.find((entry) => entry.id === preview.stage.id);
+        if (!stage) throw new Error('Không tìm thấy stage để lưu xếp đội');
+        stage.seedAssignments = preview.placements.map((placement) => ({
+            slotId: placement.slotId,
+            stageId: stage.id,
+            groupId: placement.groupId || '',
+            groupName: placement.groupName || '',
+            nodeId: placement.matchId || '',
+            participantId: placement.teamId,
+            participantName: placement.teamName,
+            sourceType: 'PARTICIPANT',
+            seed: placement.seed,
+            skillScore: placement.skillScore,
+        }));
+        stage.placementMethod = 'SKILL';
+        stage.placementStrategy = req.body?.strategy || 'SNAKE_BALANCE';
+        stage.placedAt = new Date();
+        stage.placedBy = userId;
+        dbItem.markModified('competitionFormat');
+        await dbItem.save({ session });
+        await session.commitTransaction();
+        return res.json({ success: true, data: preview });
+    } catch (error) {
+        await session.abortTransaction();
+        console.error('Confirm team placement failed:', error);
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
+const normalizeWildcardCriterion = (value) => {
+    const text = String(value?.type || value || '').trim();
+    const map = {
+        POINTS: 'points',
+        POINT_DIFFERENCE: 'pointDiff',
+        POINTS_PER_MATCH: 'pointsPerMatch',
+        POINT_DIFFERENCE_PER_MATCH: 'pointDiffPerMatch',
+        WINS: 'wins',
+        WIN_RATE: 'winRate',
+        POINTS_FOR: 'pointsFor',
+        POINTS_AGAINST: 'pointsAgainst',
+        HEAD_TO_HEAD: 'headToHead',
+        SKILL: 'skill',
+        SEED: 'seed',
+        DRAW: 'draw',
+        goalsFor: 'pointsFor',
+        goalsAgainst: 'pointsAgainst',
+        goalDifference: 'pointDiff',
+    };
+    return map[text] || text;
+};
+
+const criteriaForWildcardStage = (stage) => {
+    const structured = Array.isArray(stage?.wildcard?.criteria) ? stage.wildcard.criteria : [];
+    const source = structured.length
+        ? structured
+        : (Array.isArray(stage?.luckyCriteria) ? stage.luckyCriteria : ['points', 'pointDiff', 'draw']);
+    return source
+        .map((criterion, index) => ({
+            type: normalizeWildcardCriterion(criterion),
+            priority: Number(criterion?.priority || index + 1),
+        }))
+        .filter((criterion) => criterion.type)
+        .sort((a, b) => a.priority - b.priority);
+};
+
+const drawSeedForTeam = (teamId, targetStageId, persisted = {}) => {
+    const existing = Number(persisted?.[teamId]);
+    if (Number.isFinite(existing) && existing > 0) return existing;
+    const key = `${targetStageId}:${teamId}`;
+    let hash = 0;
+    for (let index = 0; index < key.length; index += 1) hash = ((hash << 5) - hash) + key.charCodeAt(index);
+    return Math.abs(hash) + 1;
+};
+
+const emptyWildcardStats = (teamId) => ({
+    teamId,
+    teamName: '',
+    played: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    pointsFor: 0,
+    pointsAgainst: 0,
+    pointDiff: 0,
+    points: 0,
+    pointsPerMatch: 0,
+    pointDiffPerMatch: 0,
+    winRate: 0,
+    skill: 0,
+    seed: 999999,
+    stageIds: [],
+    stageNames: [],
+    reasons: [],
+});
+
+const compareHeadToHead = async (left, right, sourceStageRules, session = null) => {
+    const stageIds = sourceStageRules.map((stageRule) => stageRule._id);
+    const query = Match.find({
+        stageId: { $in: stageIds },
+        participants: { $all: [left.teamId, right.teamId] },
+        status: 'completed',
+    }).select('_id winnerParticipantId participants').lean();
+    if (session) query.session(session);
+    const matches = await query;
+    if (!matches.length) return 0;
+    let leftWins = 0;
+    let rightWins = 0;
+    matches.forEach((match) => {
+        const winnerId = normalizeId(match.winnerParticipantId);
+        if (winnerId === left.teamId) leftWins += 1;
+        if (winnerId === right.teamId) rightWins += 1;
+    });
+    if (leftWins !== rightWins) return rightWins - leftWins;
+    return 0;
+};
+
+const buildWildcardContext = async (tournamentItemId, targetStageId, userId, session = null) => {
+    const perm = await checkTournamentItemPermission(tournamentItemId, userId);
+    if (!perm.item) {
+        const error = new Error(perm.message || 'Không tìm thấy giải đấu');
+        error.statusCode = 404;
+        throw error;
+    }
+    if (!perm.allowed && !canUseFormatFallback({ userRoles: [] })) {
+        const error = new Error(perm.message || 'Không có quyền thao tác giải đấu');
+        error.statusCode = 403;
+        throw error;
+    }
+    const item = session
+        ? await TournamentItem.findById(tournamentItemId).session(session)
+        : perm.item;
+    const config = item?.competitionFormat?.config || {};
+    const stages = Array.isArray(config.stages) ? config.stages : [];
+    const targetStage = stages.find((stage) => stage.id === targetStageId)
+        || stages.find((stage) => stage.wildcard?.enabled)
+        || stages[0];
+    if (!targetStage) {
+        const error = new Error('Không tìm thấy stage nhận vé vớt');
+        error.statusCode = 400;
+        throw error;
+    }
+    const sourceStages = stages
+        .filter((stage) => Number(stage.order || 0) < Number(targetStage.order || 0))
+        .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+    const sourceOrders = sourceStages.map((stage) => Number(stage.order)).filter(Boolean);
+    const sourceStageRules = sourceOrders.length
+        ? await StageRule.find({ tournamentItemId, number: { $in: sourceOrders } }).sort({ number: 1 }).session(session).lean()
+        : [];
+    const targetStageRule = await StageRule.findOne({ tournamentItemId, number: Number(targetStage.order || 0) }).session(session).lean();
+    return { item, config, stages, targetStage, sourceStages, sourceStageRules, targetStageRule };
+};
+
+const officialTeamIdsForStage = async (tournamentItemId, targetStage, targetStageRule, session = null) => {
+    const ids = new Set();
+    (Array.isArray(targetStage.seedAssignments) ? targetStage.seedAssignments : []).forEach((assignment) => {
+        if (assignment.participantId) ids.add(String(assignment.participantId));
+    });
+    if (targetStageRule?._id) {
+        const query = Match.find({ tournamentItemId, stageId: targetStageRule._id }).select('participants').lean();
+        if (session) query.session(session);
+        const matches = await query;
+        matches.forEach((match) => (match.participants || []).forEach((participantId) => ids.add(normalizeId(participantId))));
+    }
+    return ids;
+};
+
+const sourceStagesReady = async (tournamentItemId, sourceStageRules, session = null) => {
+    if (!sourceStageRules.length) return { ready: false, pending: ['Chưa có stage nguồn để tính vé vớt.'] };
+    const stageIds = sourceStageRules.map((stageRule) => stageRule._id);
+    const matchQuery = Match.find({ tournamentItemId, stageId: { $in: stageIds } }).select('_id status').lean();
+    if (session) matchQuery.session(session);
+    const matches = await matchQuery;
+    if (!matches.length) return { ready: false, pending: ['Stage nguồn chưa có trận đấu.'] };
+    const completedIds = matches.filter((match) => match.status === 'completed').map((match) => match._id);
+    const resultQuery = MatchResult.countDocuments({ matchId: { $in: completedIds }, status: 'confirmed' });
+    if (session) resultQuery.session(session);
+    const confirmedCount = await resultQuery;
+    const pending = [];
+    if (completedIds.length !== matches.length) pending.push('Còn trận trong stage nguồn chưa hoàn thành.');
+    if (confirmedCount !== completedIds.length) pending.push('Còn kết quả chưa được xác nhận.');
+    return { ready: pending.length === 0, pending };
+};
+
+const aggregateWildcardCandidates = async ({ tournamentItemId, targetStage, sourceStages, sourceStageRules, targetStageRule, config }, session = null) => {
+    const officialIds = await officialTeamIdsForStage(tournamentItemId, targetStage, targetStageRule, session);
+    const stageRuleById = new Map(sourceStageRules.map((stageRule) => [normalizeId(stageRule._id), stageRule]));
+    const sourceStageRuleIds = sourceStageRules.map((stageRule) => stageRule._id);
+    const standingQuery = Standing.find({
+        tournamentItemId,
+        stageId: { $in: sourceStageRuleIds },
+    }).populate('teamOrPlayerId', 'name logo skill seed rank ranking lineup').lean();
+    if (session) standingQuery.session(session);
+    const standings = await standingQuery;
+    const rows = new Map();
+    standings.forEach((standing) => {
+        const teamId = normalizeId(standing.teamOrPlayerId);
+        if (!teamId || officialIds.has(teamId)) return;
+        const played = Number(standing.played || 0);
+        if (played <= 0) return;
+        const row = rows.get(teamId) || emptyWildcardStats(teamId);
+        const participant = standing.teamOrPlayerId || {};
+        row.teamName = row.teamName || participant.name || 'Đội thi đấu';
+        row.played += played;
+        row.wins += Number(standing.wins || 0);
+        row.draws += Number(standing.draws || 0);
+        row.losses += Number(standing.losses || 0);
+        row.pointsFor += Number(standing.goalsFor || standing.pointsFor || 0);
+        row.pointsAgainst += Number(standing.goalsAgainst || standing.pointsAgainst || 0);
+        row.pointDiff += Number(standing.goalDifference || 0);
+        row.points += Number(standing.points || 0);
+        row.skill = Math.max(row.skill, participantSkill(participant));
+        row.seed = Math.min(row.seed, Number(participant.seed || participant.rank || participant.ranking || 999999));
+        const stageRule = stageRuleById.get(normalizeId(standing.stageId));
+        if (stageRule && !row.stageIds.includes(normalizeId(stageRule._id))) {
+            row.stageIds.push(normalizeId(stageRule._id));
+            row.stageNames.push(stageRule.name || `Stage ${stageRule.number}`);
+        }
+        rows.set(teamId, row);
+    });
+    const drawStore = config?.wildcardDraws?.[targetStage.id] || {};
+    const criteria = criteriaForWildcardStage(targetStage);
+    const candidates = [...rows.values()].map((row) => ({
+        ...row,
+        pointsPerMatch: row.played ? row.points / row.played : 0,
+        pointDiffPerMatch: row.played ? row.pointDiff / row.played : 0,
+        winRate: row.played ? row.wins / row.played : 0,
+        drawRank: drawSeedForTeam(row.teamId, targetStage.id, drawStore),
+    }));
+    for (const criterion of criteria) {
+        if (criterion.type === 'headToHead') continue;
+        candidates.forEach((candidate) => {
+            if (criterion.type === 'draw') candidate.reasons.push(`Bốc thăm: ${candidate.drawRank}`);
+        });
+    }
+    candidates.sort((a, b) => {
+        for (const criterion of criteria) {
+            const type = criterion.type;
+            if (type === 'pointsAgainst' || type === 'seed' || type === 'draw') {
+                const left = type === 'draw' ? a.drawRank : Number(a[type] || 999999);
+                const right = type === 'draw' ? b.drawRank : Number(b[type] || 999999);
+                if (left !== right) return left - right;
+            } else if (type !== 'headToHead') {
+                const left = Number(a[type] || 0);
+                const right = Number(b[type] || 0);
+                if (left !== right) return right - left;
+            }
+        }
+        return String(a.teamName || '').localeCompare(String(b.teamName || ''), 'vi');
+    });
+    const headToHeadIndex = criteria.findIndex((criterion) => criterion.type === 'headToHead');
+    if (headToHeadIndex >= 0) {
+        for (let index = 0; index < candidates.length - 1; index += 1) {
+            const current = candidates[index];
+            const next = candidates[index + 1];
+            const tiedBeforeHeadToHead = criteria.slice(0, headToHeadIndex).every((criterion) => {
+                const type = criterion.type;
+                return Number(current[type] || 0) === Number(next[type] || 0);
+            });
+            if (!tiedBeforeHeadToHead) continue;
+            const compare = await compareHeadToHead(current, next, sourceStageRules, session);
+            if (compare > 0) {
+                candidates[index] = next;
+                candidates[index + 1] = current;
+            }
+        }
+    }
+    return { candidates, officialTeamIds: [...officialIds], sourceStages, criteria };
+};
+
+const wildcardPreviewPayload = async (tournamentItemId, targetStageId, userId, session = null) => {
+    const context = await buildWildcardContext(tournamentItemId, targetStageId, userId, session);
+    const readiness = await sourceStagesReady(tournamentItemId, context.sourceStageRules, session);
+    const aggregate = await aggregateWildcardCandidates(context, session);
+    const slots = Number(context.targetStage?.wildcard?.slots || context.targetStage?.wildcard?.selection?.slots || 0);
+    const selected = aggregate.candidates.slice(0, Math.max(0, slots)).map((candidate, index) => ({
+        key: `Lucky${index + 1}`,
+        ...candidate,
+        rank: index + 1,
+    }));
+    return {
+        targetStageId: context.targetStage.id,
+        targetStageName: context.targetStage.name,
+        sourceStageIds: context.sourceStages.map((stage) => stage.id),
+        sourceStageNames: context.sourceStages.map((stage) => stage.name),
+        readyToResolve: readiness.ready,
+        pendingReasons: readiness.pending,
+        criteria: aggregate.criteria,
+        officialTeamIds: aggregate.officialTeamIds,
+        candidates: aggregate.candidates.map((candidate, index) => ({ ...candidate, rank: index + 1 })),
+        selected,
+        summary: {
+            slots,
+            totalCandidates: aggregate.candidates.length,
+            selectedTeams: selected.length,
+        },
+    };
+};
+
+export const getWildcardCandidates = async (req, res) => {
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const tournamentItemId = req.params.tournamentItemId || req.params.id;
+        const data = await wildcardPreviewPayload(tournamentItemId, req.query.stageId || req.body?.stageId, userId);
+        return res.json({ success: true, data });
+    } catch (error) {
+        console.error('Get wildcard candidates failed:', error);
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    }
+};
+
+export const previewWildcard = async (req, res) => {
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const tournamentItemId = req.params.tournamentItemId || req.params.id;
+        const data = await wildcardPreviewPayload(tournamentItemId, req.body?.stageId, userId);
+        return res.json({ success: true, data });
+    } catch (error) {
+        console.error('Preview wildcard failed:', error);
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    }
+};
+
+export const confirmWildcard = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const tournamentItemId = req.params.tournamentItemId || req.params.id;
+        const preview = await wildcardPreviewPayload(tournamentItemId, req.body?.stageId, userId, session);
+        if (!preview.readyToResolve) {
+            await session.abortTransaction();
+            return res.status(409).json({ success: false, message: 'Chưa đủ điều kiện resolve vé vớt.', data: preview });
+        }
+        const context = await buildWildcardContext(tournamentItemId, preview.targetStageId, userId, session);
+        if (context.targetStageRule?._id) {
+            const locked = await Match.countDocuments({
+                tournamentItemId,
+                stageId: context.targetStageRule._id,
+                $or: [{ scheduleStatus: 'published' }, { status: { $ne: 'pending' } }],
+            }).session(session);
+            if (locked > 0) {
+                await session.abortTransaction();
+                return res.status(409).json({ success: false, message: 'Stage đích đã công bố lịch hoặc đã thi đấu. Hãy xử lý vé vớt thủ công.' });
+            }
+        }
+        const item = await TournamentItem.findById(tournamentItemId).session(session);
+        const config = item.competitionFormat?.config || {};
+        const targetStage = (config.stages || []).find((stage) => stage.id === preview.targetStageId);
+        if (!targetStage) throw new Error('Không tìm thấy stage đích khi lưu vé vớt');
+        const drawRanks = Object.fromEntries(preview.candidates.map((candidate) => [candidate.teamId, candidate.drawRank]));
+        config.wildcardDraws = {
+            ...(config.wildcardDraws || {}),
+            [targetStage.id]: {
+                ...drawRanks,
+                performedAt: new Date(),
+                performedBy: userId,
+            },
+        };
+        config.wildcardResults = {
+            ...(config.wildcardResults || {}),
+            [targetStage.id]: {
+                targetStageId: targetStage.id,
+                sourceStageIds: preview.sourceStageIds,
+                criteria: preview.criteria,
+                selected: preview.selected.map((item) => ({
+                    key: item.key,
+                    participantId: item.teamId,
+                    participantName: item.teamName,
+                    rank: item.rank,
+                })),
+                confirmedAt: new Date(),
+                confirmedBy: userId,
+            },
+        };
+        targetStage.wildcard = {
+            ...(targetStage.wildcard || {}),
+            enabled: true,
+            slots: preview.summary.slots,
+            sourceStageIds: preview.sourceStageIds,
+            criteria: preview.criteria,
+            resolvedSlots: preview.selected.map((item) => ({
+                key: item.key,
+                participantId: item.teamId,
+                resolutionStatus: 'RESOLVED',
+            })),
+        };
+        item.markModified('competitionFormat');
+        await item.save({ session });
+        await session.commitTransaction();
+        return res.json({ success: true, data: preview });
+    } catch (error) {
+        await session.abortTransaction();
+        console.error('Confirm wildcard failed:', error);
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    } finally {
+        session.endSession();
     }
 };
 

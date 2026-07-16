@@ -14,84 +14,91 @@ const asRecord = (value: unknown): Record<string, unknown> => {
   return {};
 };
 
-const mapStageToFormat = (stageValue: unknown, index: number): CompetitionFormat => {
-  const stage = asRecord(stageValue);
-  const formatConfig = asRecord(stage.formatConfig);
-  const config = asRecord(stage.config);
-  const defaultValues = asRecord(config.defaultValues);
-  const groupStage = asRecord(defaultValues.groupStage);
-  const knockout = asRecord(defaultValues.knockout);
-  const participantCount = Number(knockout.participantCount || 0);
-  const numberOfGroups = Number(groupStage.numberOfGroups || 0);
-  const teamsPerGroup = Number(groupStage.teamsPerGroup || 0);
+const readFlag = (value: unknown) => Boolean(value);
 
+const mapTemplateToFormat = (value: unknown, index: number): CompetitionFormat => {
+  const template = asRecord(value);
   return {
-    id: String(stage._id || stage.id || `format-${index}`),
-    name: String(stage.name || formatConfig.name || "Thể thức thi dau"),
-    type: String(formatConfig.type || stage.type || stage.format || "FORMAT"),
-    minTeams: Number(formatConfig.minTeams) || participantCount || Math.max(2, numberOfGroups * 2) || 2,
-    maxTeams: Number(formatConfig.maxTeams) || participantCount || numberOfGroups * teamsPerGroup || 32,
-    description: String(formatConfig.description || stage.description || stage.format || stage.advanceCriteria || "Cấu hình thể thức thi dau"),
+    id: String(template.id || template._id || `template-${index}`),
+    name: String(template.name || template.templateName || "Thể thức thi đấu"),
+    type: String(template.stageType || "template"),
+    minTeams: Number(asRecord(template.defaultSettings).minTeams || 2),
+    maxTeams: Number(asRecord(template.defaultSettings).maxTeams || 64),
+    description: String(template.description || "Cấu hình thể thức mẫu"),
     isDefault: index === 0,
+    stageCount: Number(template.stageCount || 1),
+    hasGroups: readFlag(template.hasGroups),
+    hasKnockout: readFlag(template.hasKnockout),
+    hasDoubleElimination: readFlag(template.hasDoubleElimination),
   };
 };
 
-const getBackendConfigData = async (): Promise<{ stats: SportStat[]; sports: SportRecord[]; usage: ChartData[]; formats: ChartData[] }> => {
-  const [templatesResponse, categoryRulesResponse] = await Promise.all([
-    api.get<ApiList<Record<string, unknown>>>("/rules/templates"),
-    api.get<ApiList<Record<string, unknown>>>("/rules/category-rules"),
-  ]);
-
-  const templates = asArray(templatesResponse.data);
-  const categoryRules = asArray(categoryRulesResponse.data);
-  const sportNames = new Set([...templates, ...categoryRules].map((item) => String(item.sportType || item.name || "Khac")));
-
-  const sports: SportRecord[] = Array.from(sportNames).map((sportName, index) => {
-    const sportTemplates = templates.filter((item) => String(item.sportType || item.name || "Khac") === sportName);
-    const sportRules = categoryRules.filter((item) => String(item.sportType || "Khac") === sportName);
-    const formats = [
-      ...sportTemplates.flatMap((template) => asArray(asRecord(template).stages as ApiList).map(mapStageToFormat)),
-      ...sportRules.filter((rule) => rule.source === "custom").map(mapStageToFormat),
-    ];
-
+const mapSport = (value: unknown, index: number): SportRecord => {
+  const sport = asRecord(value);
+  const templates = asArray(sport.templates as ApiList);
+  const categories = asArray(sport.categories as ApiList).map((category) => {
+    const item = asRecord(category);
     return {
-      id: `backend-rule-${index + 1}`,
-      name: sportName,
-      icon: "",
-      status: "Hoat dong",
-      tournamentsCount: 0,
-      formatsCount: formats.length || sportTemplates.length,
-      rulesCount: sportRules.length,
-      orgsCount: 0,
-      formats,
+      code: String(item.code || ""),
+      name: String(item.name || ""),
+      playerSlotsPerTeam: asRecord(item.playerSlotsPerTeam),
+      status: String(item.status || "actived"),
+    };
+  });
+  const stages = asArray(sport.stages as ApiList).map((stage) => {
+    const item = asRecord(stage);
+    return {
+      name: String(item.name || ""),
+      type: String(item.type || ""),
+      format: String(item.format || ""),
+      scoring: String(item.scoring || ""),
+      advanceCriteria: String(item.advanceCriteria || ""),
     };
   });
 
   return {
+    id: String(sport.name || sport.displayName || `sport-${index}`),
+    name: String(sport.displayName || sport.name || "Môn thể thao"),
+    englishName: String(sport.englishName || ""),
+    slug: String(sport.slug || ""),
+    imageUrl: String(sport.imageUrl || ""),
+    icon: "",
+    status: sport.status === "actived" ? "Hoạt động" : "Vô hiệu hóa",
+    tournamentsCount: Number(sport.tournamentsCount || 0),
+    formatsCount: Number(sport.formatsCount || templates.length),
+    rulesCount: Number(sport.rulesCount || categories.length),
+    orgsCount: 0,
+    categories,
+    stages,
+    updatedAt: String(sport.updatedAt || ""),
+    formats: templates.map(mapTemplateToFormat),
+  };
+};
+
+const getBackendConfigData = async (): Promise<{ stats: SportStat[]; sports: SportRecord[]; usage: ChartData[]; formats: ChartData[] }> => {
+  const response = await api.get<ApiList<Record<string, unknown>>>("/rules/sports", { params: { includeInactive: true } });
+  const sports = asArray(response.data).map(mapSport);
+
+  return {
     stats: [
-      { id: "sports", label: "Mon the thao", value: sports.length, trend: "Đang hoạt động", iconType: "sports", color: "text-blue-600" },
-      { id: "formats", label: "Mau thể thức", value: sports.reduce((total, sport) => total + sport.formatsCount, 0), trend: "Đã cấu hình", iconType: "formats", color: "text-amber-600" },
-      { id: "rules", label: "Bo luat", value: categoryRules.length, trend: "Đang áp dụng", iconType: "rules", color: "text-green-600" },
+      { id: "sports", label: "Môn thể thao", value: sports.length, trend: "Từ database", iconType: "sports", color: "text-blue-600" },
+      { id: "formats", label: "Mẫu thể thức", value: sports.reduce((total, sport) => total + sport.formatsCount, 0), trend: "Đã import", iconType: "formats", color: "text-amber-600" },
+      { id: "rules", label: "Hạng mục", value: sports.reduce((total, sport) => total + sport.rulesCount, 0), trend: "Đang áp dụng", iconType: "rules", color: "text-green-600" },
     ],
     sports,
-    usage: sports.map((sport) => ({ name: sport.name, value: sport.rulesCount })),
+    usage: sports.map((sport) => ({ name: sport.name, value: sport.tournamentsCount })),
     formats: sports.map((sport) => ({ name: sport.name, value: sport.formatsCount })),
   };
 };
 
 export const adminSportsConfigService = {
   async getConfigData(): Promise<{ stats: SportStat[]; sports: SportRecord[]; usage: ChartData[]; formats: ChartData[] }> {
-    try {
-      return await getBackendConfigData();
-    } catch (error) {
-      console.error("Không thể tai cấu hình mon the thao", error);
-      return {
-        stats: [],
-        sports: [],
-        usage: [],
-        formats: [],
-      };
-    }
+    return getBackendConfigData();
+  },
+
+  async setSportActive(sportName: string, active: boolean) {
+    const encoded = encodeURIComponent(sportName);
+    await api.patch(`/rules/sports/${encoded}/status`, { active });
   },
 
   async createFormat(sportName: string, formData: FormatConfigState) {

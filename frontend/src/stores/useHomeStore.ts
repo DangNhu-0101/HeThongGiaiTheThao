@@ -4,10 +4,16 @@ import { getApiErrorMessage } from "@/libs/axios";
 import { homeService } from "@/services/homeService";
 
 const emptyStats = {
+  totalTournaments: 0,
+  openRegistrationTournaments: 0,
   ongoingTournaments: 0,
   totalTeams: 0,
   totalSports: 0,
   totalAthletesOrRegistrations: 0,
+  totalMatches: 0,
+  upcomingMatches: 0,
+  completedMatches: 0,
+  collectedAmount: 0,
 };
 
 export const useHomeStore = create<HomeState>((set) => ({

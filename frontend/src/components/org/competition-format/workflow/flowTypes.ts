@@ -84,6 +84,7 @@ export interface BranchEditorProps {
 export interface StageEditorProps {
   stage: CompetitionStageConfig;
   allStages: CompetitionStageConfig[];
+  tournamentItemId?: string;
   focusedBranchId?: string;
   onFocusBranch: (branchId: string) => void;
   onChange: (stage: CompetitionStageConfig) => void;

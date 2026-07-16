@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "check:encoding": "node ../scripts/checkEncoding.js",
+    "prebuild": "npm run check:encoding",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -12,7 +14,10 @@
   "dependencies": {
     "@base-ui/react": "^1.5.0",
     "@fontsource-variable/noto-sans": "^5.2.10",
+    "@fontsource-variable/nunito": "^5.2.7",
     "@fontsource-variable/playfair-display": "^5.2.8",
+    "@fontsource/oswald": "^5.2.8",
+    "@fontsource/play": "^5.2.8",
     "@hookform/resolvers": "^5.2.2",
     "@tailwindcss/vite": "^4.3.0",
     "@tiptap/extension-image": "^3.27.1",

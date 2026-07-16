@@ -29,12 +29,14 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
   const [refereeSearch, setRefereeSearch] = useState("");
 
   useEffect(() => {
-    setDate(toInputDate(match.date));
-    setTime((match.time || "").slice(0, 5));
-    setVenue(match.venue || "");
-    setOrder(match.order || 1);
-    setRefereeIds(match.refereeIds || []);
-    setRefereeSearch("");
+    queueMicrotask(() => {
+      setDate(toInputDate(match.date));
+      setTime((match.time || "").slice(0, 5));
+      setVenue(match.venue || "");
+      setOrder(match.order || 1);
+      setRefereeIds(match.refereeIds || []);
+      setRefereeSearch("");
+    });
   }, [match.id, match.date, match.time, match.venue, match.order, match.refereeIds]);
 
   const selectedReferees = referees.filter((referee) => refereeIds.includes(referee.id));
@@ -159,7 +161,7 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
               })}
               {filteredReferees.length === 0 && (
                 <div className="rounded-md border border-dashed border-border px-3 py-4 text-center text-[10px] font-bold text-muted-foreground">
-                  Không có trọng tài phu hop
+                  Không có trọng tài phù hợp
                 </div>
               )}
             </div>
@@ -180,7 +182,7 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
 
       <div className="flex gap-2">
         <Button disabled={saving} onClick={save} className="flex-1 bg-primary hover:bg-primary-hover text-white text-xs h-9 shadow-md disabled:cursor-not-allowed disabled:opacity-70">
-          <Save className="w-3.5 h-3.5 mr-1.5" /> {saving ? "Đang lưu..." : "Lưu phan cong"}
+          <Save className="w-3.5 h-3.5 mr-1.5" /> {saving ? "Đang lưu..." : "Lưu phân công"}
         </Button>
         <Button variant="outline" className="w-9 h-9 p-0 border-border text-muted-foreground hover:text-foreground" onClick={() => {
           setDate(toInputDate(match.date));

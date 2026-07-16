@@ -70,7 +70,9 @@ const GroupStageSetup = ({ tournamentItemId, venues, onGenerate }: Props) => {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
+    queueMicrotask(() => {
+      if (mounted) setLoading(true);
+    });
     Promise.all([
       competitionFormatService.getTournamentFormat(tournamentItemId),
       fetchPlanningTeams(tournamentItemId),

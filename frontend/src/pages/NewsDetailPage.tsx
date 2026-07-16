@@ -63,19 +63,20 @@ const NewsDetailPage = () => {
           </section>
         ) : (
           <>
-            <section className="relative isolate overflow-hidden bg-header text-white">
+            <section className="relative isolate overflow-hidden bg-[#d9efff] text-primary-dark">
               <NewsImage src={item.coverImage} alt={item.title} className="absolute inset-0 -z-20 h-full w-full object-cover" />
-              <div className="absolute inset-0 -z-10 bg-[linear-gradient(105deg,rgba(7,27,46,0.88)_0%,rgba(11,39,66,0.78)_52%,rgba(11,39,66,0.58)_100%)]" />
-              <div className="page-shell flex min-h-[calc(100dvh-4.75rem)] flex-col justify-center py-16 md:min-h-[42rem] lg:py-20">
-                <Link to="/news" className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold uppercase text-white ring-1 ring-white/15">
+              <div className="absolute inset-0 -z-10 bg-[#47B0FF]/30" />
+              <div className="absolute inset-0 -z-10 bg-white/34" />
+              <div className="page-shell flex min-h-[25rem] flex-col justify-center py-14 sm:min-h-[29rem] md:min-h-[33rem] lg:py-20">
+                <Link to="/news" className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-primary-dark/10 px-3 py-1.5 text-xs font-bold uppercase text-primary-dark ring-1 ring-primary-dark/15">
                   <ArrowLeft className="size-3.5" /> Tin tức
                 </Link>
                 <div className="max-w-4xl">
                   <span className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1 text-xs font-bold uppercase text-white">
                     <Newspaper className="size-3.5" /> {item.topic || item.category || "Tin tức"}
                   </span>
-                  <h1 className="mt-5 text-[clamp(2.5rem,5.6vw,4.25rem)] font-extrabold leading-[1.08]">{item.title}</h1>
-                  <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-white/76">
+                  <h1 className="mt-5 font-heading text-[clamp(2.25rem,5.6vw,4.25rem)] font-bold leading-[1.08] text-primary-dark">{item.title}</h1>
+                  <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary-dark/76">
                     <CalendarDays className="size-4" /> {formatNewsDate(item.publishedAt || item.createdAt)}
                   </div>
                 </div>

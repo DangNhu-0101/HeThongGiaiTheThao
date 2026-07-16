@@ -1,4 +1,4 @@
-import TournamentItem from '../models/tournamentItem.js';
+﻿import TournamentItem from '../models/tournamentItem.js';
 import StageRule from '../models/rules/stageRules.js';
 
 const asNumber = (value, fallback = 0) => {
@@ -66,8 +66,8 @@ export const validateMatchScores = ({ match, winnerParticipantId, participantSco
   if (!winnerParticipantId || !participantIds.includes(String(winnerParticipantId))) {
     return {
       ok: false,
-      title: 'Đội thắng khong hop le',
-      message: 'Đội thắng phai la mot trong hai doi cua trận đấu hien tai.',
+      title: 'Đội thắng không hợp lệ',
+      message: 'Đội thắng phải là một trong hai đội của trận đấu hiện tại.',
     };
   }
 
@@ -89,14 +89,14 @@ export const validateMatchScores = ({ match, winnerParticipantId, participantSco
     return {
       ok: false,
       title: 'Diem so chua hop le',
-      message: 'Theo thể thức hien tai, trận đấu khong cho phep hoa. Vui lòng nhap doi thạng hop le.',
+      message: 'Theo thể thức hiện tại, trận đấu không cho phép hòa. Vui lòng nhập đội thắng hợp lệ.',
     };
   }
   if (targetScore > 0 && highScore < targetScore) {
     return {
       ok: false,
       title: 'Diem so chua hop le',
-      message: `Theo thể thức hien tai, doi thạng phai dat toi thieu ${targetScore} điểm.`,
+      message: `Theo thể thức hiện tại, đội thắng phải đạt tối thiểu ${targetScore} điểm.`,
     };
   }
   if (winBy > 0 && diff < winBy) {
@@ -105,7 +105,7 @@ export const validateMatchScores = ({ match, winnerParticipantId, participantSco
       return {
         ok: false,
         title: 'Diem so chua hop le',
-        message: `Theo thể thức hien tai, doi thạng phai hon doi thua it nhất ${winBy} điểm.`,
+        message: `Theo thể thức hiện tại, đội thắng phải hơn đội thua ít nhất ${winBy} điểm.`,
       };
     }
   }
@@ -155,3 +155,4 @@ export const compareStandingRows = (a, b, criteria = []) => {
   }
   return String(a.name || '').localeCompare(String(b.name || ''));
 };
+

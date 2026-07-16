@@ -1,7 +1,8 @@
-import SportsCarousel from "@/components/home/SportsCarousel";
+﻿import SportsCarousel from "@/components/home/SportsCarousel";
 import UpcomingMatches from "@/components/home/UpcomingMatches";
 import { Button } from "@/components/ui/button";
 import { RichTextRenderer } from "@/components/ui/rich-text-renderer";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Match, MatchResult, Sport, TournamentDetail } from "@/types/tournament";
 
@@ -15,7 +16,11 @@ interface OverviewTabProps {
 const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: OverviewTabProps) => {
   const registeredTeams = Math.min(detail.registeredTeams, detail.maxTeams);
   const remainingSlots = Math.max(0, detail.maxTeams - registeredTeams);
-  const registrationClosed = remainingSlots === 0 || new Date(detail.timeLine.registrationEnd).getTime() < Date.now();
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    queueMicrotask(() => setNow(Date.now()));
+  }, []);
+  const registrationClosed = remainingSlots === 0 || (now !== null && new Date(detail.timeLine.registrationEnd).getTime() < now);
   const progress = Math.min(100, (registeredTeams / Math.max(1, detail.maxTeams)) * 100);
   const usesExternalRegistration = detail.registrationMode === "external" && Boolean(detail.registrationFormUrl);
 
@@ -23,7 +28,7 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
     <div className="grid grid-cols-1 gap-8 py-8 md:grid-cols-3">
       <div className="space-y-8 md:col-span-2">
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="mb-4 border-l-4 border-primary pl-2 text-lg font-bold uppercase">Ve giải đấu nay</h3>
+          <h3 className="mb-4 border-l-4 border-primary pl-2 text-lg font-bold uppercase">Về giải đấu này</h3>
           <RichTextRenderer html={detail.about} />
         </section>
 
@@ -32,7 +37,7 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
         </div>
 
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="mb-4 border-l-4 border-primary pl-2 text-lg font-bold uppercase">Thể thức thi dau</h3>
+          <h3 className="mb-4 border-l-4 border-primary pl-2 text-lg font-bold uppercase">Thể thức thi đấu</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {detail.format.map((format, index) => (
               <div key={index} className="rounded-lg bg-muted p-4">
@@ -45,8 +50,8 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
 
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="border-l-4 border-primary pl-2 text-lg font-bold uppercase">Ket qua gan day</h3>
-            <span className="cursor-pointer text-xs font-bold text-primary hover:underline">Xem tat ca &rarr;</span>
+            <h3 className="border-l-4 border-primary pl-2 text-lg font-bold uppercase">Kết quả gần đây</h3>
+            <span className="cursor-pointer text-xs font-bold text-primary hover:underline">Xem tất cả &rarr;</span>
           </div>
           <div className="space-y-3">
             {recentResults.map((result) => (
@@ -68,11 +73,11 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
       </div>
 
       <div className="space-y-6">
-        <div className={`${registrationClosed ? "bg-slate-800" : "bg-primary"} rounded-xl p-6 text-white shadow-lg`}>
-          <h3 className="mb-2 font-bold uppercase">{registrationClosed ? "Đăng ký đã đóng" : "Đang mở đăng ký"}</h3>
+        <div className="rounded-xl bg-primary-dark p-6 text-white shadow-lg">
+          <h3 className="mb-2 font-bold uppercase text-white/80">{registrationClosed ? "Đăng ký đã đóng" : "Đang mở đăng ký"}</h3>
           <p className="mb-4 text-xs text-white/80">
             {registrationClosed
-              ? `Đã có ${registeredTeams}/${detail.maxTeams} đội. Giải đấu khong con nhan them đội.`
+              ? `Đã có ${registeredTeams}/${detail.maxTeams} đội. Giải đấu không còn nhận thêm đội.`
               : `Chỉ còn ${remainingSlots} suất. Đăng ký trước ${new Date(detail.timeLine.registrationEnd).toLocaleDateString("vi-VN")}.`}
           </p>
           <div className="mb-4 h-2 w-full rounded-full bg-black/20">
@@ -96,22 +101,22 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
           {usesExternalRegistration && detail.registrationInstructions && !registrationClosed && (
             <p className="mb-3 text-xs text-white/80">{detail.registrationInstructions}</p>
           )}
-          <Button variant="outline" className="w-full border-white/30 text-white hover:bg-white/10">
-            {detail.supportContacts || "Lien he Ban tổ chức"}
+          <Button variant="outline" className="w-full border-white/30 bg-white/8 !text-white hover:bg-white/14">
+            {detail.supportContacts || "Liên hệ Ban tổ chức"}
           </Button>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-sm font-bold uppercase text-muted-foreground">Thong tin giai</h3>
+          <h3 className="mb-4 text-sm font-bold uppercase text-muted-foreground">Thông tin giải</h3>
           <ul className="space-y-4 text-sm">
-            <li className="flex flex-col"><span className="text-xs text-muted-foreground">Mon thi dau</span><span className="font-semibold">{detail.sportType[0]}</span></li>
+            <li className="flex flex-col"><span className="text-xs text-muted-foreground">Môn thi đấu</span><span className="font-semibold">{detail.sportType[0]}</span></li>
             <li className="flex flex-col"><span className="text-xs text-muted-foreground">Giải thưởng</span><span className="font-semibold text-accent-foreground">{detail.prizes[0].amount}</span></li>
             <li className="flex flex-col"><span className="text-xs text-muted-foreground">Ban tổ chức</span><span className="font-semibold">{detail.organizer}</span></li>
           </ul>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h3 className="mb-4 text-sm font-bold uppercase text-muted-foreground">Co cau giai thuong</h3>
+          <h3 className="mb-4 text-sm font-bold uppercase text-muted-foreground">Cơ cấu giải thưởng</h3>
           <div className="space-y-2">
             {detail.prizes.map((prize, index) => (
               <div key={index} className={`flex items-center justify-between rounded-lg border p-3 ${prize.color}`}>

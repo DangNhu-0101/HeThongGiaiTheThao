@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, Flag, LineChart,  ShieldCheck, Trophy, UsersRound, } from "lucide-react";
+import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, Flag, LineChart, ShieldCheck, Trophy, UsersRound } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import Hero from "@/components/home/Hero";
@@ -40,11 +40,8 @@ const process = [
   ["06", "Công bố và kết thúc", CheckCircle2],
 ] as const;
 
-
-
 const HomePage = () => {
   const { tournaments, upcomingMatches, sports, stats, loading, error, fetchHomeData } = useHomeStore();
-
 
   useEffect(() => {
     void fetchHomeData();
@@ -54,9 +51,7 @@ const HomePage = () => {
     <div className="min-h-screen bg-background font-sans text-foreground">
       <Header />
       <main className="page-fade">
-        <Hero stats={stats} loading={loading} />
-
-       
+        <Hero stats={stats} loading={loading} error={error} />
 
         <section id="features" className="section-y page-shell">
           <div className="mb-10 grid gap-4 md:grid-cols-[1fr_0.7fr] md:items-end">
@@ -93,9 +88,6 @@ const HomePage = () => {
           </div>
         </section>
 
-        <AllTournaments tournaments={tournaments} loading={loading} error={error} onRetry={fetchHomeData} />
-        <UpcomingMatches matches={upcomingMatches} loading={loading} error={error} onRetry={fetchHomeData} />
-
         <section id="process" className="deep-band section-y text-white">
           <div className="page-shell">
             <div className="mb-12 grid gap-6 lg:grid-cols-[0.8fr_1fr] lg:items-end">
@@ -117,7 +109,7 @@ const HomePage = () => {
               {process.map(([step, title, Icon]) => (
                 <article key={step} className="relative rounded-2xl border border-white/12 bg-white/10 p-5 backdrop-blur">
                   <div className="mb-6 flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-primary">{step}</span>
+                    <span className="text-sm font-extrabold text-primary-light">{step}</span>
                     <span className="flex size-10 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/15">
                       <Icon className="size-5" />
                     </span>
@@ -130,6 +122,8 @@ const HomePage = () => {
         </section>
 
         <SportsCarousel sports={sports} loading={loading} error={error} onRetry={fetchHomeData} />
+        <AllTournaments tournaments={tournaments} loading={loading} error={error} onRetry={fetchHomeData} />
+        <UpcomingMatches matches={upcomingMatches} loading={loading} error={error} onRetry={fetchHomeData} />
       </main>
       <Footer />
     </div>

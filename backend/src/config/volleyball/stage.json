@@ -1,0 +1,7 @@
+{
+  "sportType": "Bóng chuyền",
+  "stages": [
+    { "name": "Vòng bảng", "type": "GROUP_STAGE", "format": "ROUND_ROBIN", "scoring": "BEST_OF_5_TO_25", "advanceCriteria": "TOP_2_PER_GROUP", "config": { "groupSize": 4, "rankingCriteria": ["points", "setRatio", "pointRatio", "headToHead", "draw"] } },
+    { "name": "Vòng loại trực tiếp", "type": "KNOCKOUT", "format": "SINGLE_ELIMINATION", "scoring": "BEST_OF_5_TO_25", "advanceCriteria": null, "config": { "supportsBye": true, "hasBronzeMatch": true } }
+  ]
+}

@@ -1,5 +1,12 @@
 import type { GroupStanding } from "@/types/standing";
 
+const rowStylesForStatus = (status: string) => {
+  if (status === "advance") return { rowStyle: "bg-green-50/40 hover:bg-green-50/80", borderStyle: "border-l-4 border-green-500" };
+  if (status === "eliminated") return { rowStyle: "bg-red-50/30 hover:bg-red-50/60", borderStyle: "border-l-4 border-red-400" };
+  if (status === "playoff") return { rowStyle: "bg-orange-50/40 hover:bg-orange-50/80", borderStyle: "border-l-4 border-orange-400" };
+  return { rowStyle: "hover:bg-muted/30", borderStyle: "border-l-4 border-transparent" };
+};
+
 const GroupStandingsTable = ({ group }: { group: GroupStanding }) => {
   return (
     <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden mb-8">
@@ -29,22 +36,7 @@ const GroupStandingsTable = ({ group }: { group: GroupStanding }) => {
           <tbody className="divide-y divide-border/50">
             {group.teams.map((team) => {
               // Xử lý logic tô viền và màu nền dựa trên trạng thái
-              let rowStyle = "";
-              let borderStyle = "border-l-4 border-transparent";
-              
-              if (team.status === 'advance') {
-                rowStyle = "bg-green-50/40 hover:bg-green-50/80";
-                borderStyle = "border-l-4 border-green-500";
-              } else if (team.status === 'eliminated') {
-                rowStyle = "bg-red-50/30 hover:bg-red-50/60";
-                borderStyle = "border-l-4 border-red-400";
-              } else if (team.status === 'playoff') {
-                rowStyle = "bg-orange-50/40 hover:bg-orange-50/80";
-                borderStyle = "border-l-4 border-orange-400";
-              } else {
-                rowStyle = "hover:bg-muted/30";
-              }
-
+              const { rowStyle, borderStyle } = rowStylesForStatus(team.status);
               return (
                 <tr key={team.id} className={`${rowStyle} transition-colors`}>
                   <td className={`px-4 py-3 font-medium text-muted-foreground ${borderStyle}`}>

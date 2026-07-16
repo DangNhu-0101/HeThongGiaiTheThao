@@ -1,7 +1,18 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import type { MatchStatusTag, ResultStageOption, ResultStat, ResultMatchRecord } from "@/types/orgResultMgmt";
 import { orgResultMgmtService } from "@/services/orgResultMgmtService";
+import type { MatchStatusTag, ResultMatchRecord, ResultStageOption, ResultStat } from "@/types/orgResultMgmt";
+
+type ApiStoreError = Error & {
+  response?: {
+    status?: number;
+    data?: {
+      title?: string;
+      message?: string;
+      sync?: unknown;
+    };
+  };
+};
 
 export interface OrgResultMgmtState {
   stats: ResultStat[];
@@ -39,8 +50,8 @@ export const useOrgResultMgmtStore = create<OrgResultMgmtState>((set, get) => ({
       const data = await orgResultMgmtService.getResultData(tournamentItemId);
       set({ stats: data.stats, matches: data.matches, stages: data.stages, statusTags: data.statusTags, currentTournamentItemId: tournamentItemId || null, error: null });
     } catch (error) {
-      console.error("Lỗi tai dữ liệu kết quả:", error);
-      set({ stats: [], matches: [], stages: [], statusTags: [], error: "Không thể tai dữ liệu kết quả. Vui lòng thử lại sau." });
+      console.error("Lỗi tải dữ liệu kết quả:", error);
+      set({ stats: [], matches: [], stages: [], statusTags: [], error: "Không thể tải dữ liệu kết quả. Vui lòng thử lại sau." });
     } finally {
       if (!silent) set({ loading: false });
     }
@@ -52,10 +63,10 @@ export const useOrgResultMgmtStore = create<OrgResultMgmtState>((set, get) => ({
     matches: state.matches.map((match) => {
       if (match.id !== matchId) return match;
       if (match.status !== "live") {
-        toast.error(match.status === "completed" ? "Trận đã hoan thanh" : "Chưa thể nhap điểm", {
+        toast.error(match.status === "completed" ? "Trận đã hoàn thành" : "Chưa thể nhập điểm", {
           description: match.status === "completed"
-            ? "Trận đã hoan thanh nen khong the sua điểm tai man hinh nay."
-            : "Chi co trận dang dien ra moi duoc phep nhap điểm.",
+            ? "Trận đã hoàn thành nên không thể sửa điểm tại màn hình này."
+            : "Chỉ có trận đang diễn ra mới được phép nhập điểm.",
         });
         return match;
       }
@@ -67,22 +78,23 @@ export const useOrgResultMgmtStore = create<OrgResultMgmtState>((set, get) => ({
     const match = get().matches.find((item) => item.id === matchId);
     if (!match) return;
     if (match.status !== "live") {
-      toast.error(match.status === "completed" ? "Trận đã hoan thanh" : "Chưa thể luu điểm", {
+      toast.error(match.status === "completed" ? "Trận đã hoàn thành" : "Chưa thể lưu điểm", {
         description: match.status === "completed"
-          ? "Trận đã hoan thanh nen khong the sua điểm."
-          : "Chi co trận dang dien ra moi duoc phep luu điểm.",
+          ? "Trận đã hoàn thành nên không thể sửa điểm."
+          : "Chỉ có trận đang diễn ra mới được phép lưu điểm.",
       });
       return;
     }
     set((state) => ({ savingMatchIds: [...new Set([...state.savingMatchIds, matchId])] }));
     try {
       await orgResultMgmtService.saveLiveScore(match);
-      toast.success("Đã lưu điểm dang dien ra.");
+      toast.success("Đã lưu điểm đang diễn ra.");
       const tournamentItemId = get().currentTournamentItemId;
       if (tournamentItemId) await get().fetchData(tournamentItemId, true);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.title || "Chưa thể luu điểm", {
-        description: error?.response?.data?.message || error?.message || "Vui lòng thử lại.",
+    } catch (error: unknown) {
+      const apiError = error as ApiStoreError;
+      toast.error(apiError.response?.data?.title || "Chưa thể lưu điểm", {
+        description: apiError.response?.data?.message || apiError.message || "Vui lòng thử lại.",
       });
       throw error;
     } finally {
@@ -94,27 +106,28 @@ export const useOrgResultMgmtStore = create<OrgResultMgmtState>((set, get) => ({
     const match = get().matches.find((item) => item.id === matchId);
     if (!match) return;
     if (match.status !== "live") {
-      toast.error(match.status === "completed" ? "Trận đã hoan thanh" : "Chưa thể ket thuc tran", {
+      toast.error(match.status === "completed" ? "Trận đã hoàn thành" : "Chưa thể kết thúc trận", {
         description: match.status === "completed"
-          ? "Trận đã hoan thanh nen khong the nhap lai kết quả."
-          : "Chi co trận dang dien ra moi duoc phep xac nhan kết quả.",
+          ? "Trận đã hoàn thành nên không thể nhập lại kết quả."
+          : "Chỉ có trận đang diễn ra mới được phép xác nhận kết quả.",
       });
       return;
     }
     set((state) => ({ savingMatchIds: [...new Set([...state.savingMatchIds, matchId])] }));
     try {
       const response = await orgResultMgmtService.confirmMatchResult(match);
-      console.info("Dong bo kết quả thành công", response?.data?.sync || {});
-      toast.success("Đã xác nhận kết quả va dong bo BXH.");
+      console.info("Đồng bộ kết quả thành công", response?.data?.sync || {});
+      toast.success("Đã xác nhận kết quả và đồng bộ BXH.");
       const tournamentItemId = get().currentTournamentItemId;
       if (tournamentItemId) {
         await get().fetchData(tournamentItemId);
         window.dispatchEvent(new CustomEvent("tournament-result-synced", { detail: { tournamentItemId } }));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiStoreError;
       console.error("Save final result failed", {
-        status: error?.response?.status,
-        data: error?.response?.data,
+        status: apiError.response?.status,
+        data: apiError.response?.data,
         requestPayload: {
           matchId: match.id,
           matchCode: match.matchCode,
@@ -126,8 +139,8 @@ export const useOrgResultMgmtStore = create<OrgResultMgmtState>((set, get) => ({
           winnerId: match.teamA.score >= match.teamB.score ? match.teamA.id : match.teamB.id,
         },
       });
-      const title = error?.response?.data?.title || "Chưa thể cập nhật kết quả";
-      const message = error?.response?.data?.message || error?.message || "Vui lòng kiểm tra thể thức, điểm so va trạng thái công bố BXH roi thử lại.";
+      const title = apiError.response?.data?.title || "Chưa thể cập nhật kết quả";
+      const message = apiError.response?.data?.message || apiError.message || "Vui lòng kiểm tra thể thức, điểm số và trạng thái công bố BXH rồi thử lại.";
       toast.error(title, { description: message });
     } finally {
       set((state) => ({ savingMatchIds: state.savingMatchIds.filter((id) => id !== matchId) }));
@@ -139,9 +152,10 @@ export const useOrgResultMgmtStore = create<OrgResultMgmtState>((set, get) => ({
       await orgResultMgmtService.updateMatchStatus(matchId, status);
       const tournamentItemId = get().currentTournamentItemId;
       if (tournamentItemId) await get().fetchData(tournamentItemId);
-    } catch (error: any) {
-      toast.error("Chưa thể doi trạng thái tran", {
-        description: error?.response?.data?.message || "Vui lòng thử lại sau.",
+    } catch (error: unknown) {
+      const apiError = error as ApiStoreError;
+      toast.error("Chưa thể đổi trạng thái trận", {
+        description: apiError.response?.data?.message || "Vui lòng thử lại sau.",
       });
     }
   },
@@ -152,9 +166,10 @@ export const useOrgResultMgmtStore = create<OrgResultMgmtState>((set, get) => ({
       toast.success("Đã công bố BXH cho stage.");
       const tournamentItemId = get().currentTournamentItemId;
       if (tournamentItemId) await get().fetchData(tournamentItemId);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as ApiStoreError;
       toast.error("Chưa thể công bố BXH", {
-        description: error?.response?.data?.message || "Vui lòng thử lại sau.",
+        description: apiError.response?.data?.message || "Vui lòng thử lại sau.",
       });
     }
   },

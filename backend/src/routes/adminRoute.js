@@ -11,12 +11,13 @@ import {
     updateUserByAdmin,
     deleteUser
 } from '../controllers/userController.js';
-import { getAdminDashboard, getAdminReports } from '../controllers/adminAnalyticsController.js';
+import { getAdminDashboard, getAdminReports, getAdminReportsPdf } from '../controllers/adminAnalyticsController.js';
 
 const router = express.Router();
 
 router.get('/dashboard', protectedRoute('admin'), getAdminDashboard);
 router.get('/reports', protectedRoute('admin'), getAdminReports);
+router.get('/reports/pdf', protectedRoute('admin'), getAdminReportsPdf);
 
 // Quản lý user
 router.get('/users', protectedRoute('admin'), getUsers);

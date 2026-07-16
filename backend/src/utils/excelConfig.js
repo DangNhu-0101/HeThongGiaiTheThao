@@ -115,7 +115,7 @@ export const slugifyUsername = (value = '') => normalizeImportHeader(value)
     .replace(/[^a-z0-9]+/g, '')
     .slice(0, 24) || 'vdv';
 
-export const makeImportPassword = () => 'TMS@123456';
+export const makeImportPassword = () => process.env.DEFAULT_ATHLETE_PASSWORD || '1234@TMSdf';
 
 export const getUniqueUsername = async (base, used) => {
     let index = 1;
@@ -333,5 +333,114 @@ export const buildLoginWorkbookBuffer = async (rows = []) => {
     sheet.getRow(1).font = { bold: true };
     rows.forEach(row => sheet.addRow(row));
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    return workbook.xlsx.writeBuffer();
+};
+
+export const buildDefaultAccountWorkbookBuffer = async (rows = []) => {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'TMS';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Tài khoản vận động viên');
+    sheet.columns = [
+        { header: 'STT', key: 'index', width: 8 },
+        { header: 'Họ và tên', key: 'athleteName', width: 28 },
+        { header: 'Tên đội', key: 'teamName', width: 28 },
+        { header: 'Tên đăng nhập', key: 'username', width: 24 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Mật khẩu mặc định', key: 'password', width: 24 },
+
+    ];
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D243B' } };
+    rows.forEach((row, index) => sheet.addRow({ index: index + 1, ...row }));
+    sheet.eachRow((row) => {
+        row.eachCell((cell) => {
+            cell.alignment = { vertical: 'middle', wrapText: true };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+                left: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+                bottom: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+                right: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+            };
+        });
+    });
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    return workbook.xlsx.writeBuffer();
+};
+
+export const buildTeamAthleteWorkbookBuffer = async (teams = []) => {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'TMS';
+    workbook.created = new Date();
+
+    const teamSheet = workbook.addWorksheet('Danh sách đội');
+    teamSheet.columns = [
+        { header: 'STT', key: 'index', width: 8 },
+        { header: 'Tên đội', key: 'name', width: 28 },
+        { header: 'Người đại diện', key: 'representativeName', width: 24 },
+        { header: 'Số điện thoại', key: 'phone', width: 18 },
+        { header: 'Email', key: 'email', width: 28 },
+        { header: 'Trạng thái duyệt', key: 'registrationStatus', width: 18 },
+        { header: 'Trạng thái lệ phí', key: 'paymentStatus', width: 18 },
+        { header: 'Số VĐV', key: 'playerCount', width: 12 },
+    ];
+    teams.forEach((team, index) => teamSheet.addRow({
+        index: index + 1,
+        name: team.name || '',
+        representativeName: team.representative?.name || '',
+        phone: team.representative?.phone || '',
+        email: team.representative?.email || '',
+        registrationStatus: team.registrationStatus || '',
+        paymentStatus: team.paymentStatus || '',
+        playerCount: team.lineup?.length || 0,
+    }));
+
+    const athleteSheet = workbook.addWorksheet('Danh sách VĐV');
+    athleteSheet.columns = [
+        { header: 'STT', key: 'index', width: 8 },
+        { header: 'Họ và tên', key: 'name', width: 28 },
+        { header: 'Tên đội', key: 'teamName', width: 28 },
+        { header: 'Giới tính', key: 'gender', width: 14 },
+        { header: 'Ngày sinh', key: 'birthDate', width: 16 },
+        { header: 'Trình độ', key: 'skill', width: 12 },
+        { header: 'Username', key: 'username', width: 24 },
+        { header: 'Email', key: 'email', width: 28 },
+        { header: 'Trạng thái', key: 'status', width: 16 },
+    ];
+    let athleteIndex = 1;
+    teams.forEach((team) => {
+        (team.lineup || []).forEach((slot) => {
+            const player = slot.Player || {};
+            athleteSheet.addRow({
+                index: athleteIndex,
+                name: player.name || '',
+                teamName: team.name || '',
+                gender: player.gender || '',
+                birthDate: player.birthDate ? new Date(player.birthDate).toLocaleDateString('vi-VN') : '',
+                skill: player.skill ?? '',
+                username: player.userId?.username || '',
+                email: player.userId?.email || player.email || '',
+                status: player.status || '',
+            });
+            athleteIndex += 1;
+        });
+    });
+
+    [teamSheet, athleteSheet].forEach((sheet) => {
+        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D243B' } };
+        sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+        sheet.eachRow((row) => {
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+                    left: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+                    bottom: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+                    right: { style: 'thin', color: { argb: 'FFDCE3EA' } },
+                };
+            });
+        });
+    });
+
     return workbook.xlsx.writeBuffer();
 };

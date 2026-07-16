@@ -1,0 +1,10 @@
+{
+  "sportType": "Bóng rổ",
+  "displayName": "Bóng rổ",
+  "slug": "basketball",
+  "categories": [
+    { "code": "BB5_M", "name": "Bóng rổ nam", "playerSlotsPerTeam": { "min": 5, "max": 12 }, "gameRules": { "playersPerTeam": 5, "periods": 4 }, "scoringRules": { "pointSystem": { "win": 2, "draw": 0, "loss": 1 } } },
+    { "code": "BB5_W", "name": "Bóng rổ nữ", "playerSlotsPerTeam": { "min": 5, "max": 12 }, "gameRules": { "playersPerTeam": 5, "periods": 4 }, "scoringRules": { "pointSystem": { "win": 2, "draw": 0, "loss": 1 } } },
+    { "code": "BB3", "name": "Bóng rổ 3x3", "playerSlotsPerTeam": { "min": 3, "max": 5 }, "gameRules": { "playersPerTeam": 3, "format": "3x3" }, "scoringRules": { "targetScore": 21 } }
+  ]
+}

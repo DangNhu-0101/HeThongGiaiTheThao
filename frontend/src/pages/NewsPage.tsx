@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { newsService, type NewsRecord } from "@/services/newsService";
 import NewsCard from "@/components/news/NewsCard";
 
+const heroImage = "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1800&q=80";
+
 const NewsPage = () => {
   const [news, setNews] = useState<NewsRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,7 +55,8 @@ const NewsPage = () => {
           eyebrow="Tin tức"
           title="Cập nhật hoạt động và thông tin giải đấu"
           description="Theo dõi thông báo, câu chuyện vận hành và các nội dung mới nhất từ hệ thống giải đấu."
-          imageAlt="Tin tức thể thao"
+          imageSrc={heroImage}
+          imageAlt="Phóng viên và vận động viên trong sự kiện thể thao"
           stats={[
             { value: news.length, label: "Bài đã đăng" },
             { value: topics.length - 1, label: "Chủ đề" },

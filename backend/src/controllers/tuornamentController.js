@@ -2,10 +2,109 @@
 import Tournament from '../models/tournaments.js';
 import TournamentItem from '../models/tournamentItem.js';
 import User from '../models/users.js';
+import Participant from '../models/participants.js';
+import Match from '../models/matches.js';
 import TournamentService from '../services/tournamentService.js';
+import { buildTournamentOverviewPdf } from '../services/pdf/templates/tournamentReportTemplate.js';
+import { safePdfFileName } from '../services/pdf/pdfExportService.js';
 import { checkPermission, buildTimeline } from '../utils/tournamentHelper.js';
 
 // ========== GET ==========
+export const getPublicTournamentStats = async (req, res) => {
+    try {
+        const now = new Date();
+        const publicItemFilter = { status: { $ne: 'cancelled' } };
+        const activeItemFilter = { ...publicItemFilter, status: { $nin: ['cancelled', 'completed'] } };
+        const itemIds = await TournamentItem.distinct('_id', publicItemFilter);
+
+        const validParticipantFilter = {
+            tournamentItemId: { $in: itemIds },
+            type: 'team',
+            registrationStatus: { $nin: ['rejected', 'suspended'] },
+        };
+        const matchFilter = {
+            tournamentItemId: { $in: itemIds },
+            status: { $nin: ['cancelled', 'canceled', 'deleted'] },
+        };
+
+        const [
+            totalTournaments,
+            openRegistrationTournaments,
+            ongoingTournaments,
+            totalTeams,
+            sports,
+            athleteRows,
+            totalMatches,
+            upcomingMatches,
+            completedMatches,
+            feeRows,
+        ] = await Promise.all([
+            TournamentItem.countDocuments(publicItemFilter),
+            TournamentItem.countDocuments({
+                ...activeItemFilter,
+                'timeLine.registrationStart': { $lte: now },
+                'timeLine.registrationEnd': { $gte: now },
+            }),
+            TournamentItem.countDocuments({
+                ...publicItemFilter,
+                $or: [
+                    { status: 'playing' },
+                    {
+                        status: 'actived',
+                        'timeLine.tournamentStart': { $lte: now },
+                        'timeLine.tournamentEnd': { $gte: now },
+                    },
+                ],
+            }),
+            Participant.countDocuments(validParticipantFilter),
+            TournamentItem.distinct('sportType', publicItemFilter),
+            Participant.aggregate([
+                { $match: validParticipantFilter },
+                { $unwind: '$lineup' },
+                { $match: { 'lineup.Player': { $ne: null } } },
+                { $group: { _id: '$lineup.Player' } },
+                { $count: 'total' },
+            ]),
+            Match.countDocuments(matchFilter),
+            Match.countDocuments({
+                ...matchFilter,
+                status: { $nin: ['completed', 'cancelled', 'canceled', 'deleted'] },
+                scheduledTime: { $gte: now },
+            }),
+            Match.countDocuments({
+                ...matchFilter,
+                status: { $in: ['completed'] },
+            }),
+            Participant.aggregate([
+                { $match: validParticipantFilter },
+                { $unwind: '$memberFees' },
+                { $match: { 'memberFees.status': 'paid' } },
+                { $group: { _id: null, total: { $sum: { $ifNull: ['$memberFees.amountPaid', '$memberFees.amount'] } } } },
+            ]),
+        ]);
+
+        const totalSports = sports.filter((sport) => String(sport || '').trim()).length;
+
+        res.json({
+            success: true,
+            data: {
+                totalTournaments,
+                openRegistrationTournaments,
+                ongoingTournaments,
+                totalTeams,
+                totalSports,
+                totalAthletesOrRegistrations: athleteRows[0]?.total || 0,
+                totalMatches,
+                upcomingMatches,
+                completedMatches,
+                collectedAmount: feeRows[0]?.total || 0,
+            },
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export const getAllTournaments = async (req, res) => {
     try {
         const { page = 1, limit = 10, status, organizerId, sortBy = 'createdAt', order = 'desc' } = req.query;
@@ -384,5 +483,40 @@ export const changeMultiStatus = async (req, res) => {
         res.json({ message: `Đã chuyển trạng thái hội thao sang ${newStatus}`, data: result });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const exportSingleTournamentPdf = async (req, res) => {
+    try {
+        const itemId = req.params.id;
+        const userId = req.user._id;
+
+        const item = await TournamentItem.findById(itemId)
+            .populate('organization', 'name logo email username')
+            .populate({
+                path: 'categoryRule',
+                populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
+            })
+            .lean();
+        if (!item) return res.status(404).json({ message: 'Không tìm thấy giải đấu' });
+
+        const perm = await checkPermission(userId, item.organization?._id || item.organization);
+        if (!perm.allowed) return res.status(403).json({ message: perm.message });
+
+        const teams = await Participant.find({ tournamentItemId: itemId })
+            .populate('lineup.Player', 'name gender birthDate skill')
+            .lean();
+        const buffer = await buildTournamentOverviewPdf({
+            tournament: item,
+            teams,
+            exportedBy: req.user,
+        });
+        const date = new Date().toISOString().slice(0, 10);
+        const fileName = `bao-cao-giai-${safePdfFileName(item.name || itemId)}-${date}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.send(buffer);
+    } catch (error) {
+        res.status(500).json({ message: error.message || 'Không thể xuất PDF giải đấu' });
     }
 };

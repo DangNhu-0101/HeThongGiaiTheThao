@@ -52,13 +52,13 @@ const tournamentItemSchema = new mongoose.Schema({
     competitionFormat: {
         selectedType: {
             type: String,
-            enum: ['preset', 'custom', 'none'],
+            enum: ['preset', 'template', 'custom', 'none'],
             default: 'none'
         },
         presetId: { type: String, default: '' },
         presetSource: {
             type: String,
-            enum: ['json', 'categoryRule', 'categoryTemplate', ''],
+            enum: ['json', 'categoryRule', 'categoryTemplate', 'competition-template', ''],
             default: ''
         },
         name: { type: String, default: '' },

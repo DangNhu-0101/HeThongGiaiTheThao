@@ -251,27 +251,25 @@ const isTerminalCard = (card: KnockoutCard, branchCards: KnockoutCard[]) => {
   return !hasChild;
 };
 
-const AchievementPanel = ({ achievements, branchName, finalCards }: { achievements: Achievement[]; branchName: string; finalCards: KnockoutCard[] }) => (
+const AchievementPanel = ({ achievements, finalCards }: { achievements: Achievement[]; branchName: string; finalCards: KnockoutCard[] }) => (
   <div className="grid gap-3 md:grid-cols-2">
     {achievements.length ? achievements.map((item) => {
       const champion = item.championParticipantId;
       const runner = item.runnerUpParticipantId;
-      const score = item.finalScore ? `${item.finalScore.teamA ?? 0} - ${item.finalScore.teamB ?? 0}` : "";
-      const finalMatch = asRecord(item.finalMatchId);
-      const finalCode = String(finalMatch.name || "");
+
+
       return (
         <div key={item._id} className="grid gap-3 sm:grid-cols-2 md:col-span-2">
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-amber-700"><Trophy className="h-5 w-5" /><span className="text-xs font-black uppercase">Quán quân</span></div>
-            {finalCode && <p className="mb-1 text-xs font-black text-amber-700">{finalCode}: Đội thắng trận {finalCode}</p>}
+          
             <p className="text-lg font-black text-foreground">{champion?.name || "Chưa xác định"}</p>
-            <p className="mt-1 text-xs font-bold text-muted-foreground">{item.branchName || branchName} {score && `- ${score}`}</p>
+            
           </div>
           <div className="rounded-lg border border-slate-200 bg-card p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-slate-600"><Medal className="h-5 w-5" /><span className="text-xs font-black uppercase">Á quân</span></div>
-            {finalCode && <p className="mb-1 text-xs font-black text-slate-600">L{finalCode.replace(/^M/i, "")}: Đội thua trận {finalCode}</p>}
             <p className="text-lg font-black text-foreground">{runner?.name || "Chưa xác định"}</p>
-            <p className="mt-1 text-xs font-bold text-muted-foreground">{item.branchName || branchName} {score && `- ${score}`}</p>
+           
           </div>
         </div>
       );
@@ -318,7 +316,7 @@ const BracketTab = ({ tournamentId }: { tournamentId: string }) => {
         setCards(canonicalizeCards(asArray(data.matches as ApiList).map(mapMatch).filter(Boolean) as KnockoutCard[]));
         setAchievements(asArray(data.achievements as ApiList<Achievement>) as Achievement[]);
       } catch (error) {
-        console.error("Không thể tai knockout bracket", error);
+        console.error("Không thể tải cây khung knockout", error);
         setCards([]);
         setAchievements([]);
       } finally {
@@ -355,22 +353,22 @@ const BracketTab = ({ tournamentId }: { tournamentId: string }) => {
     });
   }, [achievements, cards]);
 
-  if (loading) return <div className="py-20 text-center font-medium text-muted-foreground animate-pulse">Đang tải sơ đồ knockout...</div>;
+  if (loading) return <div className="py-20 text-center font-medium text-muted-foreground animate-pulse">Đang tải cây khung knockout...</div>;
 
   return (
     <div className="space-y-6 py-8">
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h3 className="text-lg font-black uppercase text-foreground">Sơ đồ knock-out</h3>
-        <p className="mt-1 text-sm font-semibold text-muted-foreground">Bracket hien thi theo nhanh, stage va duong di that cua trận đấu.</p>
+        <p className="mt-1 text-sm font-semibold text-muted-foreground">Cây khung knockout hiển thị theo nhánh, stage và đường đi thực của trận đấu.</p>
       </div>
 
       {branches.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm font-bold text-muted-foreground">Chưa có cấu hình knockout cho giai nay.</div>
+        <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm font-bold text-muted-foreground">Chưa có cấu hình knockout cho giải này.</div>
       ) : branches.map((branch) => (
         <section key={branch.branchKey} className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h4 className="text-base font-black uppercase text-foreground">{branch.name}</h4>
-            <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-black uppercase text-muted-foreground">{branch.cards.length} tran</span>
+            <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-black uppercase text-muted-foreground">{branch.cards.length} trận</span>
           </div>
           <AchievementPanel
             achievements={branch.achievements}

@@ -33,6 +33,15 @@ const normalizeStatus = (status: unknown): Tournament["status"] => {
   return "upcoming";
 };
 
+export const slugifySport = (value: unknown) => String(value || "")
+  .trim()
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/đ/g, "d")
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "");
+
 const textFromRef = (value: unknown, fallback = "") => {
   if (!value) return fallback;
   if (typeof value === "string") return value;
@@ -330,6 +339,7 @@ export const buildSportsFromTournaments = (tournaments: Tournament[]): Sport[] =
   return Array.from(counts.entries()).map(([name, eventCount], index) => ({
     _id: `backend-sport-${index + 1}`,
     name,
+    slug: slugifySport(name),
     iconUrl: "",
     eventCount,
   }));
@@ -494,6 +504,5 @@ export const getBackendSportsConfig = async (): Promise<{ stats: SportStat[]; sp
     formats: sports.map((sport) => ({ name: sport.name, value: sport.formatsCount })),
   };
 };
-
 
 

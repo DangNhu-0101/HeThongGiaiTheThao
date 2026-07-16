@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import RuleService from '../services/RuleService.js';
 import CategoryRuleService from '../services/categoryRuleSevice.js';
+import CompetitionConfigService from '../services/competitionConfigService.js';
 
 // lấy tất cả luật system
 export const getTemplates = async (req, res) => {
@@ -137,5 +138,49 @@ export const getAllCategoryRules = async (req, res) => {
     }
 };
 
+export const getCompetitionSports = async (req, res) => {
+    try {
+        const includeInactive = req.query.includeInactive === 'true';
+        const sports = await CompetitionConfigService.listSports({ includeInactive });
+        res.json({ success: true, data: sports });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message || 'Không thể tải danh sách môn thể thao' });
+    }
+};
+
+export const updateCompetitionSportStatus = async (req, res) => {
+    try {
+        const sportType = String(req.params.sportType || '').trim();
+        if (!sportType) return res.status(400).json({ success: false, message: 'Thiếu môn thể thao cần cập nhật' });
+        const active = Boolean(req.body.active);
+        const data = await CompetitionConfigService.setSportStatus(sportType, active);
+        res.json({ success: true, data, message: active ? 'Đã bật môn thể thao' : 'Đã tắt môn thể thao' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message || 'Không thể cập nhật trạng thái môn thể thao' });
+    }
+};
+
+export const getTemplatesBySport = async (req, res) => {
+    try {
+        const sportType = String(req.query.sportType || '').trim();
+        if (!sportType) return res.status(400).json({ success: false, message: 'Thiếu môn thể thao để lọc thể thức' });
+        const templates = await CompetitionConfigService.listTemplatesBySport(sportType);
+        res.json({ success: true, data: templates });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message || 'Không thể tải danh sách thể thức mẫu' });
+    }
+};
+
+export const getCompetitionTemplateDetail = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ success: false, message: 'Mã thể thức mẫu không hợp lệ' });
+        }
+        const template = await CompetitionConfigService.getTemplateDetail(req.params.id);
+        res.json({ success: true, data: template });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Không thể tải chi tiết thể thức mẫu' });
+    }
+};
 
 

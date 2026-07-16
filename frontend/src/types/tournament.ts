@@ -79,6 +79,7 @@ export interface TournamentDetail extends Omit<Tournament, 'prizes'> {
 export interface Sport {
   _id: string;
   name: string;
+  slug?: string;
   iconUrl: string;
   eventCount: number;
   imageUrl?: string;

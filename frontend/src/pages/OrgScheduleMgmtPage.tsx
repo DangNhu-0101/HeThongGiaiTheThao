@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, CalendarClock, Clock, MapPinned, Rocket, Send, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScheduleStats from "@/components/org/schedule-mgmt/ScheduleStats";
@@ -68,9 +68,10 @@ const OrgScheduleMgmtPage = () => {
   }, [fetchData, selectedTournamentItemId]);
 
   const selectedStage = stages.find((stage) => stage.id === selectedStageId) || stages[0];
+  const selectedStageIdForMatches = selectedStage?.id;
   const stageMatches = useMemo(
-    () => matches.filter((match) => !selectedStage?.id || match.stageId === selectedStage.id),
-    [matches, selectedStage?.id],
+    () => matches.filter((match) => !selectedStageIdForMatches || match.stageId === selectedStageIdForMatches),
+    [matches, selectedStageIdForMatches],
   );
   const selectedMatchAny = matches.find((match) => match.id === selectedMatchId);
   const unscheduled = matches.filter((match) => match.status === "Unscheduled" && (!unscheduledStageFilter || match.stageId === unscheduledStageFilter));
@@ -84,10 +85,10 @@ const OrgScheduleMgmtPage = () => {
     const scheduled = stageMatches.filter((match) => match.status === "Scheduled" || match.status === "Live").length;
     const assignedReferees = new Set(stageMatches.flatMap((match) => match.refereeIds || [])).size;
     return [
-      { id: "total", label: "Tong tran", value: stageMatches.length, iconType: "total" as const, color: "text-blue-600 bg-blue-100" },
+      { id: "total", label: "Tổng trận", value: stageMatches.length, iconType: "total" as const, color: "text-blue-600 bg-blue-100" },
       { id: "scheduled", label: "Đã xếp lịch", value: scheduled, iconType: "scheduled" as const, color: "text-green-600 bg-green-100" },
       { id: "unscheduled", label: "Chưa xếp", value: unscheduled.length, iconType: "unscheduled" as const, color: "text-amber-600 bg-amber-100" },
-      { id: "conflict", label: "Xung dot", value: conflicts.length, iconType: "conflict" as const, color: "text-red-600 bg-red-100" },
+      { id: "conflict", label: "Xung đột", value: conflicts.length, iconType: "conflict" as const, color: "text-red-600 bg-red-100" },
       { id: "referee", label: "Trọng tài", value: assignedReferees, iconType: "referee" as const, color: "text-purple-600 bg-purple-100" },
     ];
   }, [conflicts.length, stageMatches, unscheduled.length]);
@@ -106,7 +107,7 @@ const OrgScheduleMgmtPage = () => {
   const publishCurrentStage = async () => {
     if (!selectedTournamentItemId) return;
     const allConflicts = matches.filter((match) => match.status === "Conflict");
-    if (allConflicts.length > 0 && !window.confirm("Lich dang co xung dot san/gio. Ban van muon công bố cac trận da xếp lịch?")) return;
+    if (allConflicts.length > 0 && !window.confirm("Lịch đang có xung đột sân/giờ. Bạn vẫn muốn công bố các trận đã xếp lịch?")) return;
     setWorking(true);
     try {
       await publishScheduledMatches(selectedTournamentItemId);
@@ -140,17 +141,17 @@ const OrgScheduleMgmtPage = () => {
   }
 
   if (!selectedTournamentItemId) {
-    return <RequireTournamentSelection description="Hay chon giai o Sidebar de quan ly lịch thi đấu va phan cong cua giai do." />;
+    return <RequireTournamentSelection description="Hãy chọn giải ở sidebar để quản lý lịch thi đấu và phân công của giải đó." />;
   }
 
   if (needsGroupSetup) {
     return (
       <div className="mx-auto max-w-[1600px] space-y-6 pb-12">
-        <HeaderPanel title="Trận & Lịch" subtitle="Trang nay chi xep san, gio va công bố lich sau khi thể thức da co slot doi." />
+        <HeaderPanel title="Trận & Lịch" subtitle="Trang này chỉ xếp sân, giờ và công bố lịch sau khi thể thức đã có slot đội." />
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center shadow-sm">
-          <h2 className="text-lg font-black text-foreground">Chưa có match de xếp lịch</h2>
+          <h2 className="text-lg font-bold text-foreground">Chưa có trận để xếp lịch</h2>
           <p className="mt-2 text-sm font-semibold text-muted-foreground">
-            Hay vao trang Thể thức thi dau, tab Gán đội / Seed de keo doi vao bang hoac slot knockout, sau do sinh match that roi quay lai xếp lịch.
+            Hãy vào trang Thể thức thi đấu, tab Gán đội / Seed để kéo đội vào bảng hoặc slot knockout, sau đó sinh trận thật rồi quay lại xếp lịch.
           </p>
         </div>
       </div>
@@ -160,7 +161,7 @@ const OrgScheduleMgmtPage = () => {
   if (stageMatches.length === 0) {
     return (
       <div className="flex h-full items-center justify-center font-medium text-muted-foreground">
-        Chưa có trận đấu cho stage dang chon.
+        Chưa có trận đấu cho stage đang chọn.
       </div>
     );
   }
@@ -178,7 +179,7 @@ const OrgScheduleMgmtPage = () => {
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col space-y-6 pb-12">
-      <HeaderPanel title="Lịch thi đấu & Phan cong" subtitle="Xếp lịch theo tung stage, keo tha giua cac san, auto schedule va công bố lich." />
+      <HeaderPanel title="Lịch thi đấu & Phân công" subtitle="Xếp lịch theo từng stage, kéo thả giữa các sân, xếp tự động và công bố lịch." />
 
       <div className="space-y-4">
         <StageToolbar
@@ -195,7 +196,7 @@ const OrgScheduleMgmtPage = () => {
       {conflicts.length > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700 shadow-sm">
           <AlertTriangle className="h-4 w-4" />
-          {conflicts.length} trận dang trung sân va gio trong stage nay. Hay doi gio/sân hoac xac nhan khi công bố.
+          {conflicts.length} trận đang trùng sân và giờ trong stage này. Hãy đổi giờ/sân hoặc xác nhận khi công bố.
         </div>
       )}
 
@@ -215,8 +216,8 @@ const OrgScheduleMgmtPage = () => {
             <Clock className="h-3.5 w-3.5" />
           </div>
           <h4 className="text-sm font-bold text-foreground">Trận chưa xếp lịch</h4>
-          <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-600">{unscheduled.length} tran</span>
-          <span className="text-[10px] font-semibold text-muted-foreground">Keo trận vao day de xoa sân va gio</span>
+          <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-600">{unscheduled.length} trận</span>
+          <span className="text-[10px] font-semibold text-muted-foreground">Kéo trận vào đây để xóa sân và giờ</span>
           <StageFilter stages={stages} value={unscheduledStageFilter} onChange={setUnscheduledStageFilter} className="ml-auto" />
         </div>
         <div
@@ -242,7 +243,7 @@ const OrgScheduleMgmtPage = () => {
           ))}
           {unscheduled.length === 0 && (
             <div className="flex min-h-9 items-center px-2 text-xs font-bold text-muted-foreground">
-              Tat ca trận cua stage nay da duoc xếp lịch.
+              Tất cả trận của stage này đã được xếp lịch.
             </div>
           )}
         </div>
@@ -251,7 +252,7 @@ const OrgScheduleMgmtPage = () => {
       <div className="flex h-[760px] flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border bg-background shadow-sm">
           <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
-            <span className="text-xs font-black uppercase text-muted-foreground">Ngay xếp lịch</span>
+            <span className="text-xs font-bold uppercase text-muted-foreground">Ngày xếp lịch</span>
             <div className="flex items-center gap-2">
               <input
                 type="date"
@@ -276,7 +277,7 @@ const OrgScheduleMgmtPage = () => {
             <AssignmentEditor match={selectedMatchAny} venues={venues} referees={referees} saving={savingMatchIds.includes(selectedMatchAny.id)} onSave={updateMatchAssignment} />
           ) : (
             <div className="rounded-xl border-2 border-dashed border-border bg-card p-6 text-center text-sm font-medium text-muted-foreground">
-              Chọn mot trận de sua gio, sân hoac thu tu.
+              Chọn một trận để sửa giờ, sân hoặc thứ tự.
             </div>
           )}
         </div>
@@ -288,11 +289,11 @@ const OrgScheduleMgmtPage = () => {
             <div className="mb-4">
               <p className="text-xs font-black uppercase text-primary">Stage hiện tại</p>
               <h3 className="text-lg font-black text-foreground">{selectedStage.name}</h3>
-              <p className="mt-1 text-xs font-semibold text-muted-foreground">Auto se ghi de san/gio theo thuat toan, khong tao them match va khong doi kết quả.</p>
+              <p className="mt-1 text-xs font-semibold text-muted-foreground">Auto sẽ ghi đè sân/giờ theo thuật toán, không tạo thêm match và không đổi kết quả.</p>
             </div>
             <div className="space-y-3">
               <label className="block text-xs font-bold uppercase text-muted-foreground">
-                Thời gian bat dau
+                Thời gian bắt đầu
                 <input
                   type="datetime-local"
                   value={autoStartAt}
@@ -301,7 +302,7 @@ const OrgScheduleMgmtPage = () => {
                 />
               </label>
               <label className="block text-xs font-bold uppercase text-muted-foreground">
-                Khoang cach giua 2 dot trận (phut)
+                Khoảng cách giữa 2 đợt trận (phút)
                 <input
                   type="number"
                   min={1}
@@ -314,7 +315,7 @@ const OrgScheduleMgmtPage = () => {
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAutoOpen(false)} disabled={working}>Hủy</Button>
               <Button onClick={runAutoSchedule} disabled={working}>
-                <Rocket className="h-4 w-4" /> {working ? "Đang xếp..." : "Xếp lịch tu dong"}
+                <Rocket className="h-4 w-4" /> {working ? "Đang xếp..." : "Xếp lịch tự động"}
               </Button>
             </div>
           </div>
@@ -331,7 +332,7 @@ const HeaderPanel = ({ title, subtitle }: { title: string; subtitle: string }) =
       <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase text-white/70">
         <span>Cổng tổ chức</span>
         <span className="text-accent">&gt;</span>
-        <span>Quan ly trận đấu</span>
+        <span>Quản lý trận đấu</span>
       </div>
       <h1 className="mb-1 text-3xl font-black uppercase tracking-wider">{title}</h1>
       <p className="text-sm text-white/70">{subtitle}</p>
@@ -378,16 +379,16 @@ const StageToolbar = ({ selectedStageId, working, onAuto, onQuickVenues, onQuick
       
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={onAuto} disabled={!selectedStageId || working}>
-            <CalendarClock className="h-4 w-4" /> Xếp lịch tu dong
+            <CalendarClock className="h-4 w-4" /> Xếp lịch tự động
           </Button>
           <Button type="button" variant="outline" onClick={onQuickVenues} disabled={!selectedStageId || working}>
-            <MapPinned className="h-4 w-4" /> Phan sân nhanh
+            <MapPinned className="h-4 w-4" /> Phân sân nhanh
           </Button>
           <Button type="button" variant="outline" onClick={onQuickReferees} disabled={!selectedStageId || working}>
-            <UserCheck className="h-4 w-4" /> Phan trọng tài nhanh
+            <UserCheck className="h-4 w-4" /> Phân trọng tài nhanh
           </Button>
           <Button type="button" onClick={onPublish} disabled={working}>
-            <Send className="h-4 w-4" /> Công bố lich da xep
+            <Send className="h-4 w-4" /> Công bố lịch đã xếp
           </Button>
         </div>
       </div>

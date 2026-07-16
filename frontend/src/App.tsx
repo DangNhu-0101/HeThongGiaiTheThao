@@ -43,6 +43,7 @@ import OrgResultMgmtPage from "./pages/OrgResultMgmtPage";
 import OrgScheduleMgmtPage from "./pages/OrgScheduleMgmtPage";
 import OrgFinanceMgmtPage from "./pages/OrgFinanceMgmtPage";
 import OrgCompetitionFormatPage from "./pages/OrgCompetitionFormatPage";
+import OrgReportsPage from "./pages/OrgReportsPage";
 
 // ==========================================
 // 4. ADMIN PAGES (Dành cho Quản trị viên)
@@ -55,6 +56,7 @@ import AdminBackendFeaturesPage from "./pages/AdminBackendFeaturesPage";
 import AdminOrganizationsPage from "./pages/AdminOrganizationsPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import AdminNewsMgmtPage from "./pages/AdminNewsMgmtPage";
+import AdminContactMessagesPage from "./pages/AdminContactMessagesPage";
 
 function App() {
   const initialized = useAuthStore((state) => state.initialized);
@@ -108,6 +110,8 @@ function App() {
               <Route path="/org" element={<OrgLayout />}>
                 <Route path="dashboard" element={<OrgDashboardPage />} />
                 <Route path="tournaments" element={<OrgTournamentMgmtPage />} />
+                <Route path="tournaments/create" element={<OrgTournamentMgmtPage />} />
+                <Route path="tournaments/:tournamentId" element={<OrgTournamentDashboardPage />} />
                 <Route path="tournament" element={<OrgTournamentDashboardPage />} />
                 <Route path="competition-formats" element={<OrgCompetitionFormatPage />} />
                 <Route path="schedule" element={<OrgScheduleMgmtPage />} />
@@ -115,7 +119,7 @@ function App() {
                 <Route path="teams" element={<OrgTeamMgmtPage />} />
                 <Route path="resources" element={<OrgResourceMgmtPage />} />
                 <Route path="finance" element={<OrgFinanceMgmtPage />} />
-                <Route path="reports" element={<OrgTournamentDashboardPage />} />
+                <Route path="reports" element={<OrgReportsPage />} />
                 {/* Các route con khác của org... */}
               </Route>
           </Route>
@@ -131,6 +135,7 @@ function App() {
               <Route path="backend-features" element={<AdminBackendFeaturesPage />} />
               <Route path="reports" element={<AdminReportsPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="contact-messages" element={<AdminContactMessagesPage />} />
             </Route>
           </Route>
 

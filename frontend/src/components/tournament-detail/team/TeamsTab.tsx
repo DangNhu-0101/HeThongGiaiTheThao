@@ -17,11 +17,13 @@ const TeamsTab = ({ tournamentItemId }: { tournamentItemId: string }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    participantService.getByTournament(tournamentItemId)
-      .then((items) => setTeams(items.filter((item) => item.type === "team")))
-      .catch(() => setTeams([]))
-      .finally(() => setLoading(false));
+    queueMicrotask(() => {
+      setLoading(true);
+      participantService.getByTournament(tournamentItemId)
+        .then((items) => setTeams(items.filter((item) => item.type === "team")))
+        .catch(() => setTeams([]))
+        .finally(() => setLoading(false));
+    });
   }, [tournamentItemId]);
 
   const filteredTeams = useMemo(

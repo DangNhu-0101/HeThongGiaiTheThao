@@ -37,10 +37,16 @@ export interface HomeState {
   upcomingMatches: Match[];
   sports: Sport[];
   stats: {
+    totalTournaments: number;
+    openRegistrationTournaments: number;
     ongoingTournaments: number;
     totalTeams: number;
     totalSports: number;
     totalAthletesOrRegistrations: number;
+    totalMatches: number;
+    upcomingMatches: number;
+    completedMatches: number;
+    collectedAmount: number;
   };
   loading: boolean;
   error: string | null;

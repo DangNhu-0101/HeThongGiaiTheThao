@@ -12,6 +12,7 @@ export type TeamSource = 'user' | 'organization' | 'import';
 
 export interface OrgTeamRecord {
   id: string;
+  slug?: string;
   name: string;
   tournamentName: string;
   sport: string;
@@ -23,4 +24,15 @@ export interface OrgTeamRecord {
   paymentStatus?: TeamPaymentStatus;
   source?: TeamSource;
   avatars: string[];
+  memberFees?: Array<{
+    playerId: string;
+    playerName: string;
+    amount: number;
+    amountPaid?: number;
+    status: "unpaid" | "pending" | "paid" | "rejected" | "exempted";
+    receiptImage?: string;
+    submittedAt?: string;
+    reviewedAt?: string;
+    rejectReason?: string;
+  }>;
 }

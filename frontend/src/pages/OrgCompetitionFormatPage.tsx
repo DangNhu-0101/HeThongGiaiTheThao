@@ -8,6 +8,7 @@ import FlowCanvas from "@/components/org/competition-format/workflow/FlowCanvas"
 import { mapStagesToFlow } from "@/components/org/competition-format/workflow/FlowMapper";
 import StageEditor from "@/components/org/competition-format/workflow/StageEditor";
 import TeamSeedingBoard from "@/components/org/competition-format/TeamSeedingBoard";
+import { competitionFormatService } from "@/services/competitionFormatService";
 import { useCompetitionFormatStore } from "@/stores/useCompetitionFormatStore";
 import { useOrgContextStore } from "@/stores/useOrgContextStore";
 import type {
@@ -21,6 +22,11 @@ import type {
 
 const defaultRankingCriteria: RankingCriterion[] = ["points", "pointDiff", "headToHead", "draw"];
 const defaultLuckyCriteria: RankingCriterion[] = ["points", "pointDiff", "draw"];
+
+const wildcardCriteria = (criteria: RankingCriterion[]) => criteria.map((criterion, index) => ({
+  type: criterion,
+  priority: index + 1,
+}));
 
 const createSelection = (
   slots: number,
@@ -142,6 +148,30 @@ const createDraft = (option?: CompetitionTournamentOption): CompetitionFormatRec
   };
 };
 
+const normalizeTemplateByEligibleTeams = (record: CompetitionFormatRecord, totalTeams: number): CompetitionFormatRecord => {
+  if (!totalTeams || totalTeams < 1) return record;
+  const stages = record.stages.map((stage, stageIndex) => {
+    if (stageIndex !== 0) return stage;
+    return {
+      ...stage,
+      input: { ...stage.input, teams: totalTeams },
+      brackets: stage.brackets.map((branch) => {
+        if (branch.type !== "group") return { ...branch, totalTeamsIn: totalTeams };
+        const existingGroups = branch.groups || [];
+        const currentGroupCount = Math.max(1, existingGroups.length || stage.input.groups || 1);
+        const teamsPerGroup = Math.max(1, branch.groups?.[0]?.numberOfTeams || stage.input.teamsPerGroup || Math.ceil(totalTeams / currentGroupCount));
+        const groupCount = Math.max(1, Math.ceil(totalTeams / teamsPerGroup));
+        return {
+          ...branch,
+          totalTeamsIn: totalTeams,
+          groups: createGroups(totalTeams, groupCount),
+        };
+      }),
+    };
+  });
+  return { ...record, stageCount: stages.length, stages };
+};
+
 const normalizeStages = (stageCount: number, currentStages: CompetitionStageConfig[]) => {
   const count = Math.max(1, Math.min(20, Number(stageCount) || 1));
   return Array.from({ length: count }, (_, index) => {
@@ -149,6 +179,11 @@ const normalizeStages = (stageCount: number, currentStages: CompetitionStageConf
     const previousId = order === 1 ? "" : `stage-${order - 1}`;
     const current = currentStages[index] || createStage(order, count);
     const inputTeams = order === 1 ? current.input.teams : current.input.selection.slots || current.input.teams;
+    const sourceStageIds = currentStages
+      .filter((stage) => Number(stage.order || 0) < order)
+      .sort((a, b) => a.order - b.order)
+      .map((stage) => stage.id);
+    const luckyCriteria = current.luckyCriteria?.length ? current.luckyCriteria : defaultLuckyCriteria;
     return {
       ...current,
       id: current.id || `stage-${order}`,
@@ -159,7 +194,13 @@ const normalizeStages = (stageCount: number, currentStages: CompetitionStageConf
       brackets: (current.brackets.length ? current.brackets : [createBranch(order, count, inputTeams)]).map(normalizeBranchMatchSlots),
       scoring: { setsToWin: 1, winBy: 2, ...current.scoring },
       rankingCriteria: current.rankingCriteria?.length ? current.rankingCriteria : defaultRankingCriteria,
-      luckyCriteria: current.luckyCriteria?.length ? current.luckyCriteria : defaultLuckyCriteria,
+      wildcard: {
+        ...current.wildcard,
+        slots: current.wildcard.selection.slots,
+        sourceStageIds,
+        criteria: current.wildcard.criteria?.length ? current.wildcard.criteria : wildcardCriteria(luckyCriteria),
+      },
+      luckyCriteria,
     };
   });
 };
@@ -260,6 +301,8 @@ const OrgCompetitionFormatPage = () => {
   const [draft, setDraft] = useState<CompetitionFormatRecord>(createDraft());
   const [focusedBranchId, setFocusedBranchId] = useState<string>();
   const [activeTab, setActiveTab] = useState<"config" | "seeding">("config");
+  const [presetTemplates, setPresetTemplates] = useState<CompetitionFormatRecord[]>([]);
+  const [loadingPresets, setLoadingPresets] = useState(false);
 
   useEffect(() => {
     void fetchTournamentOptions();
@@ -280,30 +323,51 @@ const OrgCompetitionFormatPage = () => {
     [formats, selectedTournamentItemId],
   );
   useEffect(() => {
-    if (selectedFormat) {
-      if (selectedFormat.selectedType === "preset") {
+    queueMicrotask(() => {
+      if (selectedFormat) {
+        const stageCount = Math.max(1, selectedFormat.stageCount || selectedFormat.stages.length || 3);
+        const stages = selectedFormat.stages.length
+          ? normalizeStages(stageCount, selectedFormat.stages)
+          : createDraft(selectedTournament).stages;
+        setDraft({
+          ...selectedFormat,
+          stageCount: stages.length,
+          sportType: capitalize(selectedFormat.sportType),
+          stages,
+        });
+        setFocusedBranchId(stages[0]?.brackets[0]?.id);
+      } else if (selectedTournament) {
         const nextDraft = createDraft(selectedTournament);
         setDraft(nextDraft);
         setFocusedBranchId(nextDraft.stages[0]?.brackets[0]?.id);
-        return;
       }
-      const stageCount = Math.max(1, selectedFormat.stageCount || selectedFormat.stages.length || 3);
-      const stages = selectedFormat.stages.length
-        ? normalizeStages(stageCount, selectedFormat.stages)
-        : createDraft(selectedTournament).stages;
-      setDraft({
-        ...selectedFormat,
-        stageCount: stages.length,
-        sportType: capitalize(selectedFormat.sportType),
-        stages,
-      });
-      setFocusedBranchId(stages[0]?.brackets[0]?.id);
-    } else if (selectedTournament) {
-      const nextDraft = createDraft(selectedTournament);
-      setDraft(nextDraft);
-      setFocusedBranchId(nextDraft.stages[0]?.brackets[0]?.id);
-    }
+    });
   }, [selectedFormat, selectedTournament]);
+
+  useEffect(() => {
+    if (!selectedTournament?.sportType) {
+      queueMicrotask(() => setPresetTemplates([]));
+      return;
+    }
+    let mounted = true;
+    queueMicrotask(() => {
+      if (mounted) setLoadingPresets(true);
+    });
+    competitionFormatService.getCompetitionTemplates(selectedTournament.sportType)
+      .then((items) => {
+        if (mounted) setPresetTemplates(items);
+      })
+      .catch((error) => {
+        console.error(error);
+        if (mounted) setPresetTemplates([]);
+      })
+      .finally(() => {
+        if (mounted) setLoadingPresets(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [selectedTournament?.sportType]);
 
   const updateDraft = (patch: Partial<CompetitionFormatRecord>) =>
     setDraft((current) => ({ ...current, ...patch }));
@@ -363,6 +427,43 @@ const OrgCompetitionFormatPage = () => {
     });
   };
 
+  const applyPresetTemplate = async (template: CompetitionFormatRecord) => {
+    try {
+      const detail = await competitionFormatService.getCompetitionTemplateDetail(template.presetId || template.id);
+      const eligible = selectedTournamentItemId
+        ? await competitionFormatService.getEligibleTeams(selectedTournamentItemId).catch(() => ({ totalTeams: 0, teamIds: [] }))
+        : { totalTeams: 0, teamIds: [] };
+      const normalizedDetail = normalizeTemplateByEligibleTeams(detail, eligible.totalTeams);
+      const stages = normalizeStages(normalizedDetail.stages.length || 1, normalizedDetail.stages);
+      setDraft({
+        ...normalizedDetail,
+        id: selectedTournamentItemId || normalizedDetail.id,
+        tournamentItemId: selectedTournamentItemId || undefined,
+        selectedType: "template",
+        presetId: normalizedDetail.presetId || template.presetId || template.id,
+        presetSource: "competition-template",
+        sportType: selectedTournament?.sportType || normalizedDetail.sportType,
+        stageCount: stages.length,
+        stages,
+      });
+      setFocusedBranchId(stages[0]?.brackets[0]?.id);
+      toast.success("Đã tải thể thức mẫu vào bản nháp. Bấm Lưu cấu hình để áp dụng cho giải.");
+    } catch (error) {
+      console.error(error);
+      toast.error("Không thể tải chi tiết thể thức mẫu.");
+    }
+  };
+
+  const selectCustomFormat = () => {
+    setDraft((current) => ({
+      ...current,
+      selectedType: "custom",
+      presetId: "",
+      presetSource: "",
+    }));
+    toast.success("Đã chuyển sang Tự cấu hình. Cấu hình hiện tại vẫn được giữ để chỉnh sửa.");
+  };
+
   const submit = async () => {
     if (!selectedTournamentItemId) return toast.error("Hãy chọn giải cần cấu hình.");
     if (!draft.name.trim()) return toast.error("Vui lòng nhập tên cấu hình.");
@@ -375,7 +476,9 @@ const OrgCompetitionFormatPage = () => {
     try {
       await saveTournamentFormat({
         tournamentItemId: selectedTournamentItemId,
-        selectedType: "custom",
+        selectedType: draft.selectedType === "template" ? "template" : draft.selectedType === "preset" ? "preset" : "custom",
+        presetId: draft.presetId,
+        presetSource: draft.presetSource,
         name: draft.name.trim(),
         sportType: draft.sportType.trim() || selectedTournament?.sportType || "Pickleball",
         description: draft.description,
@@ -421,7 +524,15 @@ const OrgCompetitionFormatPage = () => {
         </div>
       ) : (
         <>
-          <ConfigChooser />
+          <TemplateChooser
+            sportType={selectedTournament?.sportType || ""}
+            templates={presetTemplates}
+            loading={loadingPresets}
+            selectedPresetId={draft.presetId}
+            selectedType={draft.selectedType}
+            onCustom={selectCustomFormat}
+            onSelect={(template) => void applyPresetTemplate(template)}
+          />
           <div className="flex shrink-0 rounded-lg border border-border bg-card p-1 shadow-sm">
             <button
               type="button"
@@ -472,6 +583,7 @@ const OrgCompetitionFormatPage = () => {
                   key={`${stage.id}-${stage.order}`}
                   stage={stage}
                   allStages={draft.stages}
+                  tournamentItemId={selectedTournamentItemId}
                   focusedBranchId={focusedBranchId}
                   onFocusBranch={setFocusedBranchId}
                   onChange={updateStage}
@@ -500,6 +612,78 @@ const OrgCompetitionFormatPage = () => {
   );
 };
 
+const TemplateChooser = ({
+  sportType,
+  templates,
+  loading,
+  selectedPresetId,
+  selectedType,
+  onCustom,
+  onSelect,
+}: {
+  sportType: string;
+  templates: CompetitionFormatRecord[];
+  loading: boolean;
+  selectedPresetId?: string;
+  selectedType?: CompetitionFormatRecord["selectedType"];
+  onCustom: () => void;
+  onSelect: (template: CompetitionFormatRecord) => void;
+}) => (
+  <section className="shrink-0 rounded-lg border border-border bg-card p-3 shadow-sm">
+    <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 className="text-sm font-black text-foreground">Chọn thể thức mẫu</h2>
+        <p className="text-xs text-muted-foreground">
+          Dữ liệu lấy từ template đang hoạt động của môn {sportType || "đang chọn"}. Template chỉ nạp bản nháp, chưa lưu vào giải.
+        </p>
+      </div>
+      {loading && <span className="text-xs font-bold text-muted-foreground">Đang tải template...</span>}
+    </div>
+
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+      <button
+        type="button"
+        onClick={onCustom}
+        className={`min-h-[120px] rounded-lg border p-3 text-left shadow-sm transition-colors ${selectedType === "custom" || !selectedPresetId ? "border-primary bg-primary/10 text-primary" : "border-border bg-background hover:border-primary/40 hover:bg-primary-light/10"}`}
+      >
+        <span className="block truncate text-sm font-black">Tự cấu hình</span>
+        <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
+          Giữ cấu hình hiện tại và cho phép tự tạo Stage, nhánh, bảng đấu, trận, slot, key và match flow.
+        </span>
+        <span className="mt-3 inline-flex rounded bg-muted px-2 py-1 text-[10px] font-bold">Custom schema</span>
+      </button>
+      {templates.map((template) => {
+        const selected = selectedPresetId === (template.presetId || template.id);
+        const hasGroups = template.stages.some((stage) => stage.brackets.some((branch) => branch.type === "group"));
+        const hasKnockout = template.stages.some((stage) => stage.brackets.some((branch) => branch.type === "knockout"));
+        const hasDouble = template.stages.some((stage) => stage.brackets.length > 1 && stage.brackets.some((branch) => branch.selection.mode === "LOSER"));
+        return (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => onSelect(template)}
+            className={`min-h-[120px] rounded-lg border p-3 text-left shadow-sm transition-colors ${selected ? "border-primary bg-primary/10 text-primary" : "border-border bg-background hover:border-primary/40 hover:bg-primary-light/10"}`}
+          >
+            <span className="block truncate text-sm font-black">{template.name}</span>
+            <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">{template.description}</span>
+            <span className="mt-3 flex flex-wrap gap-1 text-[10px] font-bold">
+              <span className="rounded bg-muted px-2 py-1">{template.stageCount} giai đoạn</span>
+              {hasGroups && <span className="rounded bg-muted px-2 py-1">Có bảng</span>}
+              {hasKnockout && <span className="rounded bg-muted px-2 py-1">Có cây đấu</span>}
+              {hasDouble && <span className="rounded bg-muted px-2 py-1">Nhánh thắng/thua</span>}
+            </span>
+          </button>
+        );
+      })}
+      {!loading && templates.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+          Chưa có thể thức mẫu đang hoạt động cho môn này. Hãy kiểm tra seed tại trang cấu hình môn thi.
+        </div>
+      )}
+    </div>
+  </section>
+);
+
 const ConfigChooser = () => (
   <section className="shrink-0 rounded-lg border border-border bg-card p-3 shadow-sm">
     <div className="mb-2">
@@ -517,6 +701,8 @@ const ConfigChooser = () => (
     </div>
   </section>
 );
+void ConfigChooser;
+
 const CustomGuide = () => (
   <section className="shrink-0 rounded-lg border border-border bg-card p-3 shadow-sm">
     <h2 className="text-sm font-black text-foreground">Hướng dẫn cấu hình thể thức</h2>

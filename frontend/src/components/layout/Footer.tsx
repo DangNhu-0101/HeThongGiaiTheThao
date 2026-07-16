@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { canManageTournaments, ORGANIZER_ROLES } from "@/libs/auth";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 type FooterLink =
   | { label: string; to: string; action?: never }
@@ -18,19 +19,11 @@ const footerGroups: Array<{ title: string; links: FooterLink[] }> = [
       { label: "Tìm đội", to: "/teams/find" },
     ],
   },
-  {
-    title: "Hỗ trợ",
-    links: [
-      { label: "Tin tức", to: "/news" },
-      { label: "Trung tâm liên hệ", to: "/contact" },
-      { label: "Điều khoản sử dụng", to: "/contact" },
-      { label: "Chính sách bảo mật", to: "/contact" },
-    ],
-  },
+
   {
     title: "Về chúng tôi",
     links: [
-      { label: "Giới thiệu TMS", to: "/about" },
+      { label: "Giới thiệu", to: "/about" },
       { label: "Liên hệ", to: "/contact" },
       { label: "Tạo giải đấu", action: "organizer" },
       { label: "Quản lý Ban tổ chức", action: "organizer" },
@@ -38,15 +31,15 @@ const footerGroups: Array<{ title: string; links: FooterLink[] }> = [
   },
 ];
 
-const contactInfo = [
-  { icon: MapPin, value: import.meta.env.VITE_CONTACT_ADDRESS || "Địa chỉ liên hệ chưa cấu hình" },
-  { icon: Mail, value: import.meta.env.VITE_CONTACT_EMAIL || "Email hỗ trợ chưa cấu hình" },
-  { icon: Phone, value: import.meta.env.VITE_CONTACT_PHONE || "Số điện thoại chưa cấu hình" },
-];
-
 const Footer = () => {
   const navigate = useNavigate();
   const { accessToken, user, initialized } = useAuthStore();
+  const { settings } = useSystemSettings();
+  const contactInfo = [
+    { icon: MapPin, value: settings.contactAddress || "Địa chỉ liên hệ chưa cấu hình" },
+    { icon: Mail, value: settings.supportEmail || "Email hỗ trợ chưa cấu hình" },
+    { icon: Phone, value: settings.contactPhone || "Số điện thoại chưa cấu hình" },
+  ];
 
   const openOrganizerArea = () => {
     if (!initialized) {
@@ -68,28 +61,28 @@ const Footer = () => {
   return (
     <footer className="mt-10 overflow-hidden bg-footer-bg text-footer-foreground">
       <div className="relative">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary-light/70 to-transparent" />
         <div className="page-shell py-14">
           <div className="grid gap-10 lg:grid-cols-[1.1fr_2fr]">
             <div className="space-y-6">
               <Link to="/" className="flex items-center gap-3 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/20">
-                <div className="flex size-11 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/15">
-                  <Trophy className="size-5" />
+                <div className="flex size-11 items-center justify-center overflow-hidden rounded-lg bg-white/10 text-white ring-1 ring-white/15">
+                  {settings.logoUrl ? <img src={settings.logoUrl} alt={`Logo ${settings.siteName}`} className="h-full w-full object-contain p-1" /> : <Trophy className="size-5" />}
                 </div>
                 <span>
-                  <span className="block text-lg font-extrabold text-white">TMS</span>
-                  <span className="block text-xs font-semibold uppercase text-white/55">
-                    Tournament Suite
+                  <span className="block font-heading text-lg font-bold text-white">{settings.siteName}</span>
+                  <span className="block font-highlight text-xs font-medium uppercase tracking-wide text-white/55">
+                    Tournament Management System
                   </span>
                 </span>
               </Link>
-              <p className="max-w-md text-sm font-normal leading-7 text-footer-foreground/78">
+              <p className="max-w-md text-sm font-normal leading-7 text-white/78">
                 Nền tảng quản lý giải đấu thể thao: đăng ký, xếp lịch, vận hành trận đấu, theo dõi kết quả và báo cáo trên một giao diện thống nhất.
               </p>
-              <div className="grid gap-3 text-sm text-footer-foreground/78">
+              <div className="grid gap-3 text-sm text-white/78">
                 {contactInfo.map((item) => (
                   <span key={item.value} className="flex items-center gap-2">
-                    <item.icon className="size-4 text-primary" /> {item.value}
+                    <item.icon className="size-4 text-primary-light" /> {item.value}
                   </span>
                 ))}
               </div>
@@ -98,21 +91,21 @@ const Footer = () => {
             <div className="grid gap-8 sm:grid-cols-3">
               {footerGroups.map((group) => (
                 <div key={group.title} className="space-y-4">
-                  <h4 className="border-l-2 border-primary pl-3 text-xs font-bold uppercase text-white">
+                  <h4 className="border-l-2 border-primary-light pl-3 font-heading text-xs font-bold uppercase text-white">
                     {group.title}
                   </h4>
                   <ul className="space-y-3 text-sm">
                     {group.links.map((link) => (
                       <li key={link.label}>
                         {link.to ? (
-                          <Link to={link.to} className="text-footer-foreground/70 transition-colors hover:text-primary focus-visible:outline-none focus-visible:text-primary">
+                          <Link to={link.to} className="text-white/70 transition-colors hover:text-primary-light focus-visible:outline-none focus-visible:text-primary-light">
                             {link.label}
                           </Link>
                         ) : (
                           <button
                             type="button"
                             onClick={openOrganizerArea}
-                            className="text-left text-footer-foreground/70 transition-colors hover:text-primary focus-visible:outline-none focus-visible:text-primary"
+                            className="text-left text-white/70 transition-colors hover:text-primary-light focus-visible:outline-none focus-visible:text-primary-light"
                           >
                             {link.label}
                           </button>
@@ -125,15 +118,15 @@ const Footer = () => {
             </div>
           </div>
 
-          <div className="mt-12 flex flex-col gap-5 border-t border-white/10 pt-6 text-xs text-footer-foreground/60 sm:flex-row sm:items-center sm:justify-between">
-            <span>&copy; {new Date().getFullYear()} TMS Tournament Suite. All rights reserved.</span>
+          <div className="mt-12 flex flex-col gap-5 border-t border-white/10 pt-6 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
+            <span>&copy; {new Date().getFullYear()} {settings.siteName}. All rights reserved.</span>
             <div className="flex items-center gap-2">
               {[MessagesSquare, Send, Globe2].map((Icon, index) => (
                 <Link
                   key={index}
                   to="/contact"
-                  className="flex size-9 items-center justify-center rounded-xl bg-white/6 text-footer-foreground transition-all hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/25"
-                  aria-label="Kênh liên hệ TMS"
+                  className="flex size-9 items-center justify-center rounded-lg bg-white/6 text-white/70 transition-all hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-light/25"
+                  aria-label={`Kênh liên hệ ${settings.siteName}`}
                 >
                   <Icon className="size-4" />
                 </Link>

@@ -1,19 +1,98 @@
 {
-    "sportType": "pickleball",
-    "templateName": "Pickleball_Standard",
-    "version": "1.0",
-    "language": "vi",
-    "categoryCodes": [
-        "S_OPEN",
-        "MS",
-        "WS",
-        "D_OPEN",
-        "MD",
-        "WD",
-        "XD"
-    ],
-    "stageNames": [
-        "Vòng bảng",
-        "Vòng loại trực tiếp"
-    ]
+  "sportType": "pickleball",
+  "version": "2.0",
+  "language": "vi",
+  "templates": [
+    {
+      "sportType": "pickleball",
+      "templateName": "pickleball_single_elimination_v2",
+      "name": "Loại trực tiếp",
+      "slug": "single-elimination",
+      "description": "Đội thua bị loại ngay, đội thắng đi tiếp vào vòng trong. Cây đấu hỗ trợ bye khi số đội không phải lũy thừa của 2.",
+      "version": "2.0",
+      "language": "vi",
+      "categoryCodes": ["S_OPEN", "MS", "WS", "D_OPEN", "MD", "WD", "XD"],
+      "stageNames": ["Vòng loại trực tiếp"],
+      "stageType": "knockout",
+      "knockoutConfig": { "type": "single_elimination", "autoCalculateRounds": true, "supportsBye": true, "slotKeyPattern": "M{match}" },
+      "seedingRules": { "modes": ["manual", "random", "seed", "ranking"], "preventDuplicateTeam": true },
+      "defaultSettings": { "stageCount": 1, "generateMatchesOnApplyOnly": true }
+    },
+    {
+      "sportType": "pickleball",
+      "templateName": "pickleball_round_robin_v2",
+      "name": "Đấu vòng tròn",
+      "slug": "round-robin",
+      "description": "Mỗi đội thi đấu lần lượt với tất cả đội còn lại, có thể cấu hình một hoặc nhiều lượt.",
+      "version": "2.0",
+      "language": "vi",
+      "categoryCodes": ["S_OPEN", "MS", "WS", "D_OPEN", "MD", "WD", "XD"],
+      "stageNames": ["Vòng bảng"],
+      "stageType": "round_robin",
+      "roundRobinConfig": { "rounds": 1, "allowReturnLeg": true, "generateScheduleOnConfirmOnly": true },
+      "rankingCriteria": ["points", "setDifference", "pointDifference", "headToHead", "draw"],
+      "defaultSettings": { "stageCount": 1, "hasStandings": true }
+    },
+    {
+      "sportType": "pickleball",
+      "templateName": "pickleball_group_knockout_v2",
+      "name": "Chia bảng đấu",
+      "slug": "group-knockout",
+      "description": "Giai đoạn 1 chia bảng đá vòng tròn, giai đoạn 2 loại trực tiếp hoặc nhánh thắng - nhánh thua.",
+      "version": "2.0",
+      "language": "vi",
+      "categoryCodes": ["S_OPEN", "MS", "WS", "D_OPEN", "MD", "WD", "XD"],
+      "stageNames": ["Vòng bảng", "Vòng loại trực tiếp"],
+      "stageType": "group_then_playoff",
+      "groupConfig": { "defaultGroupCount": 4, "balanceTeams": true, "groupKeys": ["A", "B", "C", "D"] },
+      "advancementRules": [{ "from": "group", "slots": ["A1", "A2", "B1", "B2"], "criteria": ["topRank", "bestNext"] }],
+      "knockoutConfig": { "type": "single_elimination", "supportsBye": true },
+      "seedingRules": { "modes": ["manual", "random", "seed", "avoidSameUnit"], "previewBeforeApply": true }
+    },
+    {
+      "sportType": "pickleball",
+      "templateName": "pickleball_round_robin_playoff_v2",
+      "name": "Vòng tròn - loại trực tiếp",
+      "slug": "round-robin-playoff",
+      "description": "Giai đoạn đầu thi đấu vòng tròn, giai đoạn sau loại trực tiếp hoặc nhánh thắng - nhánh thua.",
+      "version": "2.0",
+      "language": "vi",
+      "categoryCodes": ["S_OPEN", "MS", "WS", "D_OPEN", "MD", "WD", "XD"],
+      "stageNames": ["Vòng bảng", "Vòng loại trực tiếp"],
+      "stageType": "round_robin_then_playoff",
+      "roundRobinConfig": { "groups": 1, "rounds": 1, "hasStandings": true },
+      "advancementRules": [{ "from": "standings", "defaultQualifiedTeams": 4, "editable": true }],
+      "knockoutConfig": { "type": "single_elimination", "supportsBye": true }
+    },
+    {
+      "sportType": "pickleball",
+      "templateName": "pickleball_round_robin_double_elimination_v2",
+      "name": "Vòng tròn - nhánh thắng, nhánh thua",
+      "slug": "round-robin-double-elimination",
+      "description": "Giai đoạn đầu thi đấu vòng tròn, sau đó chọn đội vào nhánh thắng và nhánh thua.",
+      "version": "2.0",
+      "language": "vi",
+      "categoryCodes": ["S_OPEN", "MS", "WS", "D_OPEN", "MD", "WD", "XD"],
+      "stageNames": ["Vòng bảng", "Vòng loại trực tiếp"],
+      "stageType": "round_robin_then_double_elimination",
+      "roundRobinConfig": { "groups": 1, "rounds": 1, "hasStandings": true },
+      "advancementRules": [{ "from": "standings", "defaultQualifiedTeams": 4, "editable": true }],
+      "doubleEliminationConfig": { "winnerBracket": true, "loserBracket": true, "grandFinal": true, "winnerKey": "M{match}", "loserKey": "L{match}" },
+      "seedingRules": { "modes": ["manual", "random", "seed"], "firstRoundOnly": true }
+    },
+    {
+      "sportType": "pickleball",
+      "templateName": "pickleball_double_elimination_v2",
+      "name": "Nhánh thắng và nhánh thua",
+      "slug": "double-elimination",
+      "description": "Đội thua ở nhánh thắng chuyển xuống nhánh thua; đội thua tại nhánh thua bị loại. Hai nhánh gặp nhau ở chung kết.",
+      "version": "2.0",
+      "language": "vi",
+      "categoryCodes": ["S_OPEN", "MS", "WS", "D_OPEN", "MD", "WD", "XD"],
+      "stageNames": ["Vòng loại trực tiếp"],
+      "stageType": "double_elimination",
+      "doubleEliminationConfig": { "winnerBracket": true, "loserBracket": true, "grandFinal": true, "winnerKey": "M{match}", "loserKey": "L{match}" },
+      "seedingRules": { "modes": ["manual", "random", "seed"], "firstRoundOnly": true }
+    }
+  ]
 }

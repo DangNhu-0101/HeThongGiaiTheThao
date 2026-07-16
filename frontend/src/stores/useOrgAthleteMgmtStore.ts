@@ -8,6 +8,7 @@ export interface OrgAthleteMgmtState {
   tournamentItemId: string;
   fetchData: (tournamentItemId?: string) => Promise<void>;
   toggleStatus: (athleteId: string, newStatus: OrgAthleteRecord["status"]) => void;
+  updateAthlete: (athleteId: string, payload: Partial<OrgAthleteRecord>) => Promise<void>;
   linkPlayerAccount: (playerId: string, userId: string) => Promise<void>;
 }
 
@@ -33,6 +34,13 @@ export const useOrgAthleteMgmtStore = create<OrgAthleteMgmtState>((set, get) => 
       athlete.id === athleteId ? { ...athlete, status: newStatus } : athlete,
     ),
   })),
+
+  updateAthlete: async (athleteId, payload) => {
+    const tournamentItemId = get().tournamentItemId;
+    if (!tournamentItemId) throw new Error("Vui lòng chọn giải trước khi sửa vận động viên.");
+    await orgAthleteMgmtService.updateAthlete(athleteId, tournamentItemId, payload);
+    await get().fetchData(tournamentItemId);
+  },
 
   linkPlayerAccount: async (playerId, userId) => {
     const tournamentItemId = get().tournamentItemId;

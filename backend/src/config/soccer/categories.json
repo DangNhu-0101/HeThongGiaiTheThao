@@ -1,0 +1,10 @@
+{
+  "sportType": "Bóng đá",
+  "displayName": "Bóng đá",
+  "slug": "soccer",
+  "categories": [
+    { "code": "F5", "name": "Bóng đá 5 người", "playerSlotsPerTeam": { "min": 5, "max": 12 }, "gameRules": { "playersPerTeam": 5, "substitutionType": "ROLLING" }, "scoringRules": { "pointSystem": { "win": 3, "draw": 1, "loss": 0 } } },
+    { "code": "F7", "name": "Bóng đá 7 người", "playerSlotsPerTeam": { "min": 7, "max": 14 }, "gameRules": { "playersPerTeam": 7, "substitutionType": "ROLLING" }, "scoringRules": { "pointSystem": { "win": 3, "draw": 1, "loss": 0 } } },
+    { "code": "F11", "name": "Bóng đá 11 người", "playerSlotsPerTeam": { "min": 11, "max": 23 }, "gameRules": { "playersPerTeam": 11, "substitutionType": "LIMITED" }, "scoringRules": { "pointSystem": { "win": 3, "draw": 1, "loss": 0 } } }
+  ]
+}

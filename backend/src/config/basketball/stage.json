@@ -1,0 +1,7 @@
+{
+  "sportType": "Bóng rổ",
+  "stages": [
+    { "name": "Vòng bảng", "type": "GROUP_STAGE", "format": "ROUND_ROBIN", "scoring": "BASKETBALL_POINTS", "advanceCriteria": "TOP_2_PER_GROUP", "config": { "groupSize": 4, "rankingCriteria": ["points", "pointDifference", "pointsFor", "headToHead", "draw"] } },
+    { "name": "Vòng loại trực tiếp", "type": "KNOCKOUT", "format": "SINGLE_ELIMINATION", "scoring": "BASKETBALL_KNOCKOUT", "advanceCriteria": null, "config": { "supportsBye": true, "overtime": true } }
+  ]
+}

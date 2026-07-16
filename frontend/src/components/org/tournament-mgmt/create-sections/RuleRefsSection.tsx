@@ -28,7 +28,6 @@ interface CategoryOption {
   playerSlotsPerTeam?: { min?: number; max?: number };
 }
 
-const DEFAULT_SPORTS = ["Pickleball", "Bóng đá", "Cầu lông", "Bóng rổ", "Bóng chuyền", "Quần vợt", "Bơi lội", "Điền kinh"];
 const normalizeSport = (value: string) => value.trim().toLowerCase();
 
 const emptyRuleForSport = (sport: string): TournamentRuleRef => ({
@@ -40,43 +39,46 @@ const emptyRuleForSport = (sport: string): TournamentRuleRef => ({
 });
 
 const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
-  const normalized = rules.length ? rules : [emptyRuleForSport("Pickleball")];
+  const normalized = rules.length ? rules : [emptyRuleForSport("pickleball")];
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
   const [openKeys, setOpenKeys] = useState<string[]>(["rule-0"]);
-  const selectedSport = normalized[0]?.sport || "Pickleball";
+  const selectedSport = normalized[0]?.sport || "pickleball";
 
   useEffect(() => {
-    competitionFormatService.getCategoryTemplates(DEFAULT_SPORTS)
+    competitionFormatService
+      .getCategoryTemplates()
       .then((items) => {
         const seen = new Set<string>();
-        setCategoryOptions(items
-          .map((item) => ({
-            id: item.id,
-            categoryTemplateId: item.categoryTemplateId,
-            name: item.name,
-            displayName: item.displayName,
-            sportType: item.sportType,
-            description: item.description,
-            playerSlotsPerTeam: item.playerSlotsPerTeam,
-          }))
-          .filter((item) => {
-            const key = item.categoryTemplateId || item.id;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          }));
+        setCategoryOptions(
+          items
+            .map((item) => ({
+              id: item.id,
+              categoryTemplateId: item.categoryTemplateId,
+              name: item.name,
+              displayName: item.displayName,
+              sportType: item.sportType,
+              description: item.description,
+              playerSlotsPerTeam: item.playerSlotsPerTeam,
+            }))
+            .filter((item) => {
+              const key = item.categoryTemplateId || item.id;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            }),
+        );
       })
       .catch((error) => console.warn("Không tải được danh sách nội dung thi đấu", error));
   }, []);
 
   const sportOptions = useMemo(() => {
     const byKey = new Map<string, string>();
-    DEFAULT_SPORTS.forEach((sport) => byKey.set(normalizeSport(sport), sport));
     categoryOptions.forEach((item) => {
       const key = normalizeSport(item.sportType);
       if (!byKey.has(key)) byKey.set(key, item.sportType);
     });
-    return Array.from(byKey.values());
+    const values = Array.from(byKey.values());
+    return values.length ? values : ["pickleball"];
   }, [categoryOptions]);
 
   const contentOptions = useMemo(
@@ -85,7 +87,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
   );
 
   const updateRule = (index: number, patch: Partial<TournamentRuleRef>) => {
-    onChange(normalized.map((rule, current) => current === index ? { ...rule, ...patch } : rule));
+    onChange(normalized.map((rule, current) => (current === index ? { ...rule, ...patch } : rule)));
   };
 
   const selectSport = (sport: string) => {
@@ -97,7 +99,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
     const exists = normalized.some((rule) => normalizeSport(rule.sport) === normalizeSport(sport));
     if (exists) {
       const next = normalized.filter((rule) => normalizeSport(rule.sport) !== normalizeSport(sport));
-      onChange(next.length ? next : [emptyRuleForSport("Pickleball")]);
+      onChange(next.length ? next : [emptyRuleForSport("pickleball")]);
     } else {
       onChange([...normalized, emptyRuleForSport(sport)]);
     }
@@ -130,7 +132,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
   };
 
   const toggleOpen = (key: string) => {
-    setOpenKeys((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+    setOpenKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
 
   const selectedSports = new Set(normalized.map((rule) => rule.sport));
@@ -140,7 +142,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
       <div>
         <h3 className="font-bold text-foreground">{kind === "single" ? "Môn và nội dung giải đơn" : "Môn và nội dung thi đấu"}</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Chọn môn trước, sau đó chọn nội dung thi đấu trong từng ô nội dung: Đơn Nam, Đơn Nữ, Đôi Nam, Đôi Nữ, Đôi Nam Nữ...
+          Chọn môn trước, sau đó chọn nội dung thi đấu trong từng ô nội dung: đơn nam, đơn nữ, đôi nam, đôi nữ, đôi nam nữ...
         </p>
       </div>
 
@@ -170,7 +172,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
       <div className="flex items-center justify-between gap-3">
         <div>
           <Label>Nội dung thi đấu của {selectedSport} *</Label>
-          <p className="mt-1 text-xs text-muted-foreground">Bấm thêm nội dung nếu giải có nhìều hạng mục trong cùng môn.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Bấm thêm nội dung nếu giải có nhiều hạng mục trong cùng môn.</p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={addContent}>
           <Plus className="mr-1 h-4 w-4" /> Thêm nội dung
@@ -181,10 +183,12 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
         {normalized.map((rule, index) => {
           const key = `rule-${index}`;
           const open = openKeys.includes(key);
-          const usedTemplateIds = new Set(normalized
-            .filter((_, current) => current !== index)
-            .map((item) => item.categoryTemplateId)
-            .filter(Boolean));
+          const usedTemplateIds = new Set(
+            normalized
+              .filter((_, current) => current !== index)
+              .map((item) => item.categoryTemplateId)
+              .filter(Boolean),
+          );
           const options = contentOptions.filter((option) => !usedTemplateIds.has(option.categoryTemplateId));
 
           return (
@@ -203,6 +207,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
                       event.stopPropagation();
                       removeContent(index);
                     }}
+                    aria-label="Xóa nội dung"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -241,7 +246,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
                       <Input value={rule.itemDescription || ""} onChange={(event) => updateRule(index, { itemDescription: event.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <Label>S? Đội tối đa</Label>
+                      <Label>Số đội tối đa</Label>
                       <Input type="number" min={2} value={rule.maxTeams || 0} onChange={(event) => updateRule(index, { maxTeams: Number(event.target.value) })} />
                     </div>
                   </div>

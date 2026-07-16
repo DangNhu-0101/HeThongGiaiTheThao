@@ -36,6 +36,17 @@ const upload = multer({
 
 const router = express.Router();
 
+const mapFile = (req, file) => {
+    const relativeUrl = `/uploads/media/${file.filename}`;
+    return {
+        url: `${req.protocol}://${req.get('host')}${relativeUrl}`,
+        path: relativeUrl,
+        name: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size
+    };
+};
+
 router.post('/image', protectedRoute(), (req, res) => {
     upload.single('image')(req, res, (error) => {
         if (error) {
@@ -44,9 +55,31 @@ router.post('/image', protectedRoute(), (req, res) => {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Vui lòng chọn một tệp ảnh hợp lệ.' });
         }
-        const relativeUrl = `/uploads/media/${req.file.filename}`;
-        const absoluteUrl = `${req.protocol}://${req.get('host')}${relativeUrl}`;
-        return res.status(201).json({ success: true, data: { url: absoluteUrl, path: relativeUrl } });
+        return res.status(201).json({ success: true, data: mapFile(req, req.file) });
+    });
+});
+
+router.post('/images', protectedRoute(), (req, res) => {
+    upload.array('images', 5)(req, res, (error) => {
+        if (error) {
+            return res.status(400).json({ success: false, message: error.message || 'Không thể tải ảnh lên.' });
+        }
+        if (!req.files?.length) {
+            return res.status(400).json({ success: false, message: 'Vui lòng chọn ít nhất một tệp ảnh hợp lệ.' });
+        }
+        return res.status(201).json({ success: true, data: req.files.map((file) => mapFile(req, file)) });
+    });
+});
+
+router.post('/contact-images', (req, res) => {
+    upload.array('images', 5)(req, res, (error) => {
+        if (error) {
+            return res.status(400).json({ success: false, message: error.message || 'Không thể tải ảnh lên.' });
+        }
+        if (!req.files?.length) {
+            return res.status(400).json({ success: false, message: 'Vui lòng chọn ít nhất một tệp ảnh hợp lệ.' });
+        }
+        return res.status(201).json({ success: true, data: req.files.map((file) => mapFile(req, file)) });
     });
 });
 

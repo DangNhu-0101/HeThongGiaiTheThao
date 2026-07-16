@@ -36,6 +36,6 @@ export const useTeamStore = create<TeamState>((set) => ({
     await teamService.removeMember(teamId, memberId);
     const data = await teamService.getTeamDetail(teamId);
     set({ ...data });
-    toast.success("Đã xoá thành viên khỏi đội.");
+    toast.success("Đã xóa thành viên khỏi đội.");
   },
 }));

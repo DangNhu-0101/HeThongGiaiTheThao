@@ -1,0 +1,13 @@
+{
+  "sportType": "Cầu lông",
+  "displayName": "Cầu lông",
+  "slug": "badminton",
+  "categories": [
+    { "code": "BS_OPEN", "name": "Đơn mở rộng", "playerSlotsPerTeam": { "min": 1, "max": 1 }, "gameRules": { "playersPerTeam": 1, "serving": "diagonal" }, "scoringRules": { "setsCalculation": { "numberOfSets": 3, "targetScore": 21, "winByGap": 2 } } },
+    { "code": "BMS", "name": "Đơn nam", "playerSlotsPerTeam": { "min": 1, "max": 1 }, "gameRules": { "playersPerTeam": 1, "serving": "diagonal" }, "scoringRules": { "setsCalculation": { "numberOfSets": 3, "targetScore": 21, "winByGap": 2 } } },
+    { "code": "BWS", "name": "Đơn nữ", "playerSlotsPerTeam": { "min": 1, "max": 1 }, "gameRules": { "playersPerTeam": 1, "serving": "diagonal" }, "scoringRules": { "setsCalculation": { "numberOfSets": 3, "targetScore": 21, "winByGap": 2 } } },
+    { "code": "BMD", "name": "Đôi nam", "playerSlotsPerTeam": { "min": 2, "max": 2 }, "gameRules": { "playersPerTeam": 2, "serving": "diagonal" }, "scoringRules": { "setsCalculation": { "numberOfSets": 3, "targetScore": 21, "winByGap": 2 } } },
+    { "code": "BWD", "name": "Đôi nữ", "playerSlotsPerTeam": { "min": 2, "max": 2 }, "gameRules": { "playersPerTeam": 2, "serving": "diagonal" }, "scoringRules": { "setsCalculation": { "numberOfSets": 3, "targetScore": 21, "winByGap": 2 } } },
+    { "code": "BXD", "name": "Đôi nam nữ", "playerSlotsPerTeam": { "min": 2, "max": 2 }, "gameRules": { "playersPerTeam": 2, "serving": "diagonal", "mixedGender": true }, "scoringRules": { "setsCalculation": { "numberOfSets": 3, "targetScore": 21, "winByGap": 2 } } }
+  ]
+}

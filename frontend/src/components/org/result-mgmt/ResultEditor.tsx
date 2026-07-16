@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, Trophy } from "lucide-react";
+﻿import { CheckCircle2, Clock, Trophy } from "lucide-react";
 import type { MatchStatusTag, ResultMatchRecord } from "@/types/orgResultMgmt";
 import { Button } from "@/components/ui/button";
 
@@ -26,7 +26,7 @@ const ResultEditor = ({ match, statusTags, saving = false, onUpdateScore, onSave
   const canEditScore = match.status === "live";
   const lockedMessage = match.status === "completed"
     ? "Trận đã hoan thanh. Diem so da khoa tai man hinh nay."
-    : "Chi trận dang dien ra moi duoc nhap điểm.";
+    : "Chỉ trận đang diễn ra mới được nhập điểm.";
 
   return (
     <div className="flex h-full min-h-[620px] flex-col gap-4 pb-0">
@@ -82,7 +82,7 @@ const ResultEditor = ({ match, statusTags, saving = false, onUpdateScore, onSave
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Button disabled={!canEditScore || saving} variant="outline" onClick={() => onSaveLiveScore(match.id)} className="h-12 w-full text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60">
-          {saving ? "Đang lưu..." : "Lưu điểm dang dien ra"}
+          {saving ? "Đang lưu..." : "Lưu điểm đang diễn ra"}
         </Button>
         <Button disabled={!canEditScore || saving} onClick={() => onConfirmResult(match.id)} className="h-12 w-full bg-emerald-500 text-sm font-bold text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70">
           <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" /> {saving ? "Đang đồng bộ..." : "Kết thúc & đồng bộ BXH"}
@@ -124,3 +124,4 @@ const ScoreTeam = ({
 };
 
 export default ResultEditor;
+

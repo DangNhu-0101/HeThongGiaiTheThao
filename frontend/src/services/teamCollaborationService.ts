@@ -7,6 +7,10 @@ import type {
   TeamNotification,
 } from "@/types/teamCollaboration";
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL
+  || (import.meta.env.MODE === "development" ? "http://localhost:5001/api" : "/api"))
+  .replace(/\/api\/?$/, "");
+
 const unwrap = <T>(value: { data?: T } | T): T =>
   value && typeof value === "object" && "data" in value
     ? (value as { data: T }).data
@@ -15,20 +19,40 @@ const unwrap = <T>(value: { data?: T } | T): T =>
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" ? value as Record<string, unknown> : {};
 
+const normalizeImage = (value?: unknown) => {
+  const image = String(value || "").trim();
+  if (!image) return "";
+  if (/^(https?:\/\/|data:image\/|blob:)/i.test(image)) return image;
+  if (/^\/?uploads\//i.test(image)) return `${API_ORIGIN}/${image.replace(/^\/+/, "")}`;
+  return image;
+};
+
+const genderLabel = (value?: string) => {
+  if (value === "male") return "Nam";
+  if (value === "female") return "Nữ";
+  if (value === "other") return "Khác";
+  return "";
+};
+
 const mapPlayer = (value: unknown): PlayerProfileSummary => {
   const raw = asRecord(value);
-  const player = asRecord(raw.playerProfile);
+  const player = asRecord(raw.playerProfile || raw);
+  const user = asRecord(raw.userId || raw.requesterId);
   const sports = Array.isArray(player.sports) ? asRecord(player.sports[0]) : asRecord(player.sports);
+  const name = String(player.name || raw.username || raw.name || "Vận động viên");
   return {
     id: String(player._id || raw._id || raw.id || ""),
-    userId: String(raw._id || raw.id || player.userId || ""),
-    name: String(player.name || raw.username || raw.name || "Vận động viên"),
-    avatar: String(raw.avatar || player.avatar || player.name?.toString().slice(0, 1) || raw.username?.toString().slice(0, 1) || ""),
-    gender: String(player.gender || ""),
+    userId: String(user._id || raw.requesterId || raw._id || raw.id || player.userId || ""),
+    name,
+    avatar: normalizeImage(raw.avatar || player.avatar) || name.slice(0, 1).toUpperCase(),
+    email: String(raw.email || user.email || player.email || ""),
+    phone: String(raw.phoneNumber || raw.phone || user.phoneNumber || player.phone || ""),
+    gender: genderLabel(String(player.gender || "")),
     birthDate: String(player.birthDate || ""),
     skill: Number(player.skill || 0),
     sport: String(sports.category || "Chưa cập nhật"),
-    level: String(sports.level || (player.skill ? `${player.skill}` : "Chưa cập nhật")),
+    level: String(sports.level || (player.skill ? `${player.skill}/5` : "Chưa cập nhật")),
+    position: String(sports.position || ""),
     experience: "Chưa cập nhật",
   };
 };
@@ -55,21 +79,13 @@ const mapJoinRequest = (value: unknown): TeamJoinRequest => {
   const raw = asRecord(value);
   const participant = asRecord(raw.participantId);
   const requester = asRecord(raw.requesterPlayerId);
+  const requesterUser = asRecord(raw.requesterId);
   return {
     id: String(raw._id || raw.id || ""),
     teamId: String(participant._id || raw.participantId || ""),
     tournamentItemId: String(participant.tournamentItemId || raw.tournamentItemId || ""),
     player: {
-      id: String(requester._id || raw.requesterPlayerId || ""),
-      userId: String(raw.requesterId || ""),
-      name: String(requester.name || "Vận động viên"),
-      avatar: String(requester.name?.toString().slice(0, 1) || ""),
-      gender: String(requester.gender || ""),
-      birthDate: String(requester.birthDate || ""),
-      skill: Number(requester.skill || 0),
-      sport: "Chưa cập nhật",
-      level: requester.skill ? String(requester.skill) : "Chưa cập nhật",
-      experience: "Chưa cập nhật",
+      ...mapPlayer({ ...requester, requesterId: requesterUser }),
       teamId: String(participant._id || raw.participantId || ""),
       teamName: String(participant.name || "Đội thi đấu"),
     },
@@ -82,13 +98,24 @@ const mapJoinRequest = (value: unknown): TeamJoinRequest => {
 const mapFee = (value: unknown): MemberFee => {
   const raw = asRecord(value);
   const player = asRecord(raw.playerId);
+  const user = asRecord(player.userId);
   return {
     playerId: String(player._id || raw.playerId || ""),
     playerName: String(player.name || "Vận động viên"),
+    playerAvatar: normalizeImage(player.avatar || user.avatar),
+    playerEmail: String(player.email || user.email || user.username || ""),
+    playerPhone: String(player.phone || user.phoneNumber || ""),
     amount: Number(raw.amount || 0),
+    amountPaid: Number(raw.amountPaid || 0),
     status: (raw.status || "unpaid") as MemberFee["status"],
     paidAt: raw.paidAt ? String(raw.paidAt) : undefined,
-    receiptImage: raw.receiptImage ? String(raw.receiptImage) : undefined,
+    submittedAt: raw.submittedAt ? String(raw.submittedAt) : undefined,
+    reviewedAt: raw.reviewedAt ? String(raw.reviewedAt) : undefined,
+    receiptImage: normalizeImage(raw.receiptImage),
+    method: String(raw.method || ""),
+    transactionCode: String(raw.transactionCode || ""),
+    note: String(raw.note || ""),
+    rejectReason: String(raw.rejectReason || ""),
   };
 };
 
@@ -132,11 +159,6 @@ export const teamCollaborationService = {
     await api.delete(`/participants/invitations/${id}/cancel`);
   },
 
-  async searchTeams(tournamentItemId: string, keyword: string) {
-    const response = await api.get(`/participants/tournament/${tournamentItemId}`, { params: { search: keyword } });
-    return response.data.data;
-  },
-
   async requestToJoin(teamId: string, message: string) {
     const response = await api.post(`/participants/${teamId}/join-requests`, { message });
     return mapJoinRequest(unwrap<unknown>(response.data));
@@ -156,8 +178,8 @@ export const teamCollaborationService = {
     await api.delete(`/participants/join-requests/${id}`);
   },
 
-  async reviewJoinRequest(id: string, decision: "accept" | "reject") {
-    const response = await api.patch(`/participants/join-requests/${id}/review`, { decision });
+  async reviewJoinRequest(id: string, decision: "accept" | "reject", reason?: string) {
+    const response = await api.patch(`/participants/join-requests/${id}/review`, { decision, reason });
     return mapJoinRequest(unwrap<unknown>(response.data));
   },
 
@@ -174,9 +196,25 @@ export const teamCollaborationService = {
     return response.data.data.map(mapFee);
   },
 
-  async submitFee(teamId: string, playerId: string, receiptImage: string) {
-    void playerId;
-    const response = await api.post(`/participants/${teamId}/fees/receipt`, { receiptImage });
+  async submitFee(teamId: string, payload: {
+    receiptImage: string;
+    amountPaid?: number;
+    transferDate?: string;
+    method?: string;
+    transactionCode?: string;
+    note?: string;
+  }) {
+    const response = await api.post(`/participants/${teamId}/fees/receipt`, payload);
+    return mapFee(unwrap<unknown>(response.data));
+  },
+
+  async cancelFee(teamId: string, playerId: string) {
+    const response = await api.delete(`/participants/${teamId}/fees/${playerId}/receipt`);
+    return mapFee(unwrap<unknown>(response.data));
+  },
+
+  async reviewFee(teamId: string, playerId: string, decision: "approve" | "reject", reason?: string) {
+    const response = await api.patch(`/participants/${teamId}/fees/${playerId}/review`, { decision, reason });
     return mapFee(unwrap<unknown>(response.data));
   },
 };

@@ -23,6 +23,8 @@ const toAuthUser = (user) => ({
     phoneNumber: user.phoneNumber,
     avatar: user.avatar || '',
     status: user.status,
+    isDefaultGenerated: Boolean(user.isDefaultGenerated),
+    mustChangePassword: Boolean(user.mustChangePassword),
     roles: (user.roles || []).map((role) => {
         if (role && typeof role === 'object' && role.name) return { _id: role._id, name: role.name };
         return role;
@@ -85,7 +87,7 @@ const PASSWORD_RESET_TTL_MINUTES = Number(process.env.PASSWORD_RESET_CODE_TTL_MI
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Number(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES || 10);
 const PASSWORD_RESET_MAX_ATTEMPTS = Number(process.env.PASSWORD_RESET_MAX_ATTEMPTS || 5);
 const PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = Number(process.env.PASSWORD_RESET_RESEND_COOLDOWN_SECONDS || 60);
-const GENERIC_RESET_MESSAGE = 'Neu email ton tai trong he thong, ma xac minh da duoc gui.';
+const GENERIC_RESET_MESSAGE = 'Nếu email tồn tại trong hệ thống, mã xác minh đã được gửi.';
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const isEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -96,7 +98,7 @@ export const requestPasswordReset = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
         if (!isEmail(email)) {
-            return res.status(400).json({ message: 'Email khong hop le' });
+            return res.status(400).json({ message: 'Email không hợp lệ' });
         }
 
         const user = await User.findOne({ email });
@@ -149,12 +151,12 @@ export const verifyPasswordResetCode = async (req, res) => {
         const email = normalizeEmail(req.body.email);
         const code = String(req.body.code || '').trim();
         if (!isEmail(email) || !/^\d{6}$/.test(code)) {
-            return res.status(400).json({ message: 'Email hoac ma xac minh khong hop le' });
+            return res.status(400).json({ message: 'Email hoặc mã xác minh không hợp lệ' });
         }
 
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(400).json({ message: 'Ma xac minh khong hop le hoac da het han' });
+            return res.status(400).json({ message: 'Mã xác minh không hợp lệ hoặc đã hết hạn' });
         }
 
         const token = await PasswordResetToken.findOne({
@@ -164,17 +166,17 @@ export const verifyPasswordResetCode = async (req, res) => {
             expiresAt: { $gt: new Date() },
         }).sort({ createdAt: -1 });
         if (!token) {
-            return res.status(400).json({ message: 'Ma xac minh khong hop le hoac da het han' });
+            return res.status(400).json({ message: 'Mã xác minh không hợp lệ hoặc đã hết hạn' });
         }
         if (token.attempts >= PASSWORD_RESET_MAX_ATTEMPTS) {
             token.usedAt = new Date();
             await token.save();
-            return res.status(429).json({ message: 'Ma xac minh da bi khoa do nhap sai qua nhìeu lan' });
+            return res.status(429).json({ message: 'Mã xác minh đã bị khóa do nhập sai quá nhiều lần' });
         }
         if (token.codeHash !== sha256(code)) {
             token.attempts += 1;
             await token.save();
-            return res.status(400).json({ message: 'Ma xac minh khong hop le hoac da het han' });
+            return res.status(400).json({ message: 'Mã xác minh không hợp lệ hoặc đã hết hạn' });
         }
 
         const resetToken = crypto.randomBytes(32).toString('hex');
@@ -198,7 +200,7 @@ export const resetPassword = async (req, res) => {
         const resetToken = String(req.body.resetToken || '').trim();
         const newPassword = String(req.body.newPassword || '');
         if (!resetToken || newPassword.length < 8) {
-            return res.status(400).json({ message: 'Mật khẩu moi phai co it nhất 8 ky tu' });
+            return res.status(400).json({ message: 'Mật khẩu mới phai co it nhất 8 ky tu' });
         }
 
         const token = await PasswordResetToken.findOne({
@@ -207,14 +209,14 @@ export const resetPassword = async (req, res) => {
             resetTokenExpiresAt: { $gt: new Date() },
         });
         if (!token) {
-            return res.status(400).json({ message: 'Phien dat lai mật khẩu khong hop le hoac da het han' });
+            return res.status(400).json({ message: 'Phiên đặt lại mật khẩu không hợp lệ hoặc đã hết hạn' });
         }
 
         const user = await User.findById(token.userId);
         if (!user) {
             token.usedAt = new Date();
             await token.save();
-            return res.status(400).json({ message: 'Phien dat lai mật khẩu khong hop le hoac da het han' });
+            return res.status(400).json({ message: 'Phiên đặt lại mật khẩu không hợp lệ hoặc đã hết hạn' });
         }
 
         user.hashedPassword = await bcrypt.hash(newPassword, 10);

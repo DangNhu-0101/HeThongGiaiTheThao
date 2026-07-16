@@ -9,8 +9,11 @@ export interface OrgTeamMgmtState {
   loading: boolean;
   fetchData: (tournamentItemId?: string) => Promise<void>;
   toggleFeeExempt: (teamId: string) => Promise<void>;
+  updatePaymentStatus: (teamId: string, paymentStatus: "paid" | "unpaid" | "exempted") => Promise<void>;
   approveTeam: (teamId: string) => Promise<void>;
   rejectTeam: (teamId: string) => Promise<void>;
+  unapproveTeam: (teamId: string) => Promise<void>;
+  deleteTeam: (teamId: string) => Promise<void>;
   addTeamByOrganization: (payload: {
     name: string;
     representative?: { name?: string; phone?: string; email?: string };
@@ -46,9 +49,11 @@ export const useOrgTeamMgmtStore = create<OrgTeamMgmtState>((set, get) => ({
     const team = get().records.find((item) => item.id === teamId);
     const nextStatus = team?.paymentStatus === "exempted" ? "unpaid" : "exempted";
     await orgTeamMgmtService.updatePayment(teamId, nextStatus);
-    if (nextStatus === "exempted") {
-      await orgTeamMgmtService.reviewTeam(teamId, "approved");
-    }
+    await get().fetchData(get().tournamentItemId);
+  },
+
+  updatePaymentStatus: async (teamId, paymentStatus) => {
+    await orgTeamMgmtService.updatePayment(teamId, paymentStatus);
     await get().fetchData(get().tournamentItemId);
   },
 
@@ -62,6 +67,16 @@ export const useOrgTeamMgmtStore = create<OrgTeamMgmtState>((set, get) => ({
     await get().fetchData(get().tournamentItemId);
   },
 
+  unapproveTeam: async (teamId) => {
+    await orgTeamMgmtService.reviewTeam(teamId, "pending");
+    await get().fetchData(get().tournamentItemId);
+  },
+
+  deleteTeam: async (teamId) => {
+    await orgTeamMgmtService.deleteTeam(teamId);
+    await get().fetchData(get().tournamentItemId);
+  },
+
   addTeamByOrganization: async (payload) => {
     const tournamentItemId = get().tournamentItemId;
     if (!tournamentItemId) throw new Error("Vui lòng chọn giải trước khi thêm đội.");
@@ -71,7 +86,7 @@ export const useOrgTeamMgmtStore = create<OrgTeamMgmtState>((set, get) => ({
 
   importTeamsFromFile: async (file) => {
     const tournamentItemId = get().tournamentItemId;
-    if (!tournamentItemId) throw new Error("Vui lòng chon giai truoc khi nhap file.");
+    if (!tournamentItemId) throw new Error("Vui lòng chọn giải trước khi nhập file.");
     const result = await orgTeamMgmtService.importTeamsFromFile(tournamentItemId, file);
     await get().fetchData(tournamentItemId);
     return result;

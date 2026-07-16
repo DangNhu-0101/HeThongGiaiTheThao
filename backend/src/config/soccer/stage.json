@@ -1,0 +1,7 @@
+{
+  "sportType": "Bóng đá",
+  "stages": [
+    { "name": "Vòng bảng", "type": "GROUP_STAGE", "format": "ROUND_ROBIN", "scoring": "SOCCER_POINTS", "advanceCriteria": "TOP_2_PER_GROUP", "config": { "groupSize": 4, "rounds": 1, "rankingCriteria": ["points", "goalDifference", "goalsFor", "headToHead", "draw"] } },
+    { "name": "Vòng loại trực tiếp", "type": "KNOCKOUT", "format": "SINGLE_ELIMINATION", "scoring": "SOCCER_KNOCKOUT", "advanceCriteria": null, "config": { "supportsBye": true, "hasThirdPlaceMatch": true, "extraTime": true, "penaltyShootout": true } }
+  ]
+}

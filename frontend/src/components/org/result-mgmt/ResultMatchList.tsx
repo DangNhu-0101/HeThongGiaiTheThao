@@ -18,11 +18,11 @@ const ResultMatchList = ({ matches, selectedId, onSelect }: Props) => {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <div className="border-b border-border bg-muted/20 px-4 py-3">
-        <p className="text-xs font-black uppercase text-muted-foreground">Danh sach tran</p>
-        <p className="text-[11px] font-semibold text-muted-foreground">{matches.length} trận theo bộ lọc hien tai</p>
+        <p className="text-xs font-bold uppercase text-muted-foreground">Danh sách trận</p>
+        <p className="text-[11px] font-semibold text-muted-foreground">{matches.length} trận theo bộ lọc hiện tại</p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 beautiful-scrollbar">
+      <div className="beautiful-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {matches.map((match) => (
           <button
             type="button"
@@ -31,7 +31,7 @@ const ResultMatchList = ({ matches, selectedId, onSelect }: Props) => {
             className={`w-full rounded-xl border p-3 text-left transition-all ${selectedId === match.id ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-background hover:border-primary/50"}`}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className={`rounded border px-2 py-0.5 text-[9px] font-black uppercase ${statusClass(match.status)}`}>
+              <span className={`rounded border px-2 py-0.5 text-[9px] font-bold uppercase ${statusClass(match.status)}`}>
                 {match.statusLabel || match.status}
               </span>
               <span className="text-[10px] font-bold text-primary">{match.matchCode}</span>
@@ -39,24 +39,24 @@ const ResultMatchList = ({ matches, selectedId, onSelect }: Props) => {
 
             <div className="mb-3 flex items-center justify-between gap-2 text-xs font-semibold text-muted-foreground">
               <span className="truncate">{match.round}</span>
-              <span className="truncate">{match.time || "Chưa có gio"} - {match.venue}</span>
+              <span className="truncate">{match.time || "Chưa có giờ"} - {match.venue}</span>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <span className={`truncate text-sm font-bold ${selectedId === match.id ? "text-foreground" : "text-muted-foreground"}`}>{match.teamA.name}</span>
-                <span className="font-black text-lg">{match.status === "pending" ? "-" : match.teamA.score}</span>
+                <span className="text-lg font-bold">{match.status === "pending" ? "-" : match.teamA.score}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className={`truncate text-sm font-bold ${selectedId === match.id ? "text-foreground" : "text-muted-foreground"}`}>{match.teamB.name}</span>
-                <span className="font-black text-lg">{match.status === "pending" ? "-" : match.teamB.score}</span>
+                <span className="text-lg font-bold">{match.status === "pending" ? "-" : match.teamB.score}</span>
               </div>
             </div>
           </button>
         ))}
         {matches.length === 0 && (
           <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-border p-4 text-center text-xs font-bold text-muted-foreground">
-            Không có trận nao phu hop bộ lọc.
+            Không có trận nào phù hợp bộ lọc.
           </div>
         )}
       </div>

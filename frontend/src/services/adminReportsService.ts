@@ -26,4 +26,9 @@ export const adminReportsService = {
       exports: data.exports || [],
     };
   },
+
+  async exportPdf(): Promise<Blob> {
+    const response = await api.get("/admin/reports/pdf", { responseType: "blob" });
+    return response.data;
+  },
 };

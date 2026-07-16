@@ -1,141 +1,70 @@
-
-import { Eye, Edit, UserX, Check } from "lucide-react";
-import type { OrgAthleteRecord } from "@/types/orgAthleteMgmt";
+import { Check, Edit, Eye, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { OrgAthleteRecord } from "@/types/orgAthleteMgmt";
 
 interface Props {
   records: OrgAthleteRecord[];
   isMobile: boolean;
   onToggleStatus: (id: string, status: OrgAthleteRecord["status"]) => void;
   onView?: (record: OrgAthleteRecord) => void;
+  onEdit?: (record: OrgAthleteRecord) => void;
 }
 
-/** Named export để tái sử dụng ở nơi khác */
-export const formatValue = (val: any): string => {
-  if (val === null || val === undefined) return "-";
-  if (typeof val === "string") return val;
-  if (typeof val === "number") return String(val);
-  if (Array.isArray(val) && val.length) return val.join(", ");
-  if (val.name) return String(val.name);
-  if (val.email) return String(val.email);
-  if (val.phone) return String(val.phone);
-  try {
-    return JSON.stringify(val);
-  } catch {
-    return "-";
-  }
+const formatValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value) && value.length) return value.join(", ");
+  if (typeof value === "object" && "name" in value) return String((value as { name?: string }).name || "-");
+  return "-";
 };
 
-/** Named export để tái sử dụng ở nơi khác */
-export const renderStatus = (status: string) => {
-  switch (status) {
-    case "Active":
-      return (
-        <span className="bg-green-50 text-green-600 border border-green-200 text-[10px] font-bold px-2 py-0.5 rounded w-max">
-          Đang thi đấu
-        </span>
-      );
-    case "Pending":
-      return (
-        <span className="bg-orange-50 text-orange-600 border border-orange-200 text-[10px] font-bold px-2 py-0.5 rounded w-max">
-          Chờ duyệt
-        </span>
-      );
-    case "Suspended":
-      return (
-        <span className="bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold px-2 py-0.5 rounded w-max">
-          Đình chỉ
-        </span>
-      );
-    default:
-      return null;
-  }
+const renderStatus = (status: string) => {
+  if (status === "Active") return <span className="w-max rounded border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-700">Đang hoạt động</span>;
+  if (status === "Pending") return <span className="w-max rounded border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700">Chờ duyệt</span>;
+  return <span className="w-max rounded border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">Đình chỉ</span>;
 };
 
-const AthleteMgmtTable = ({ records, isMobile, onToggleStatus, onView }: Props) => {
-  // KỊCH BẢN 1: MOBILE (Card List)
+const Avatar = ({ record }: { record: OrgAthleteRecord }) => (
+  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xs font-bold text-primary">
+    {record.avatarUrl ? <img src={record.avatarUrl} alt={record.name} className="h-full w-full object-cover" /> : record.avatar}
+  </div>
+);
+
+const AthleteMgmtTable = ({ records, isMobile, onToggleStatus, onView, onEdit }: Props) => {
+  if (!records.length) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+        Chưa có vận động viên trong giải đang chọn.
+      </div>
+    );
+  }
+
   if (isMobile) {
     return (
       <div className="space-y-4">
-        {records.map((r) => (
-          <div
-            key={r.id}
-            className="bg-card border border-border rounded-xl p-4 shadow-sm relative"
-          >
-            <div className="absolute top-4 right-4">{renderStatus(r.status)}</div>
-
-            <div className="flex min-w-0 items-center gap-3 mb-4 pr-20">
-              <div className="w-12 h-12 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center overflow-hidden text-xs font-bold">
-                {r.avatar}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="truncate font-bold text-foreground text-sm leading-tight" title={r.name}>
-                  {r.name}
-                </h4>
-                <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                  <span className="w-3 h-3 shrink-0 overflow-hidden rounded-sm bg-muted flex items-center justify-center font-bold">
-                    {r.teamLogo}
-                  </span>
-                  <span className="truncate">{formatValue(r.teamName)}</span>
+        {records.map((record) => (
+          <div key={record.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar record={record} />
+                <div className="min-w-0">
+                  <h4 className="truncate text-sm font-bold text-foreground">{record.name}</h4>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{record.teamName}</p>
                 </div>
               </div>
+              {renderStatus(record.status)}
             </div>
-
-            <div className="grid grid-cols-3 gap-2 text-xs mb-4 bg-muted/30 p-2 rounded-lg">
-              <div className="text-center">
-                <span className="text-muted-foreground block text-[10px] mb-0.5 uppercase">
-                  Giới tính/Tuổi
-                </span>
-                <span className="font-semibold">
-                  {r.gender}, {r.age}
-                </span>
-              </div>
-              <div className="text-center border-l border-r border-border/50">
-                <span className="text-muted-foreground block text-[10px] mb-0.5 uppercase">
-                  Trình độ
-                </span>
-                <span className="font-semibold text-accent-foreground">
-                  {r.rating}
-                </span>
-              </div>
-              <div className="text-center">
-                <span className="text-muted-foreground block text-[10px] mb-0.5 uppercase">
-                  Đăng ký
-                </span>
-                <span className="font-semibold">{r.registeredAt}</span>
-              </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 p-2 text-center text-xs">
+              <div><span className="block text-[10px] uppercase text-muted-foreground">Giới tính/Tuổi</span><strong>{record.gender}, {record.age || "-"}</strong></div>
+              <div><span className="block text-[10px] uppercase text-muted-foreground">Trình độ</span><strong>{record.rating}</strong></div>
+              <div><span className="block text-[10px] uppercase text-muted-foreground">Đăng ký</span><strong>{record.registeredAt}</strong></div>
             </div>
-
-            <div className="flex justify-between items-center border-t border-border pt-3">
-              <span className="text-[10px] text-muted-foreground">
-                {formatValue(r.contact)}
-              </span>
-              <div className="flex gap-2">
-                {r.status === "Pending" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 w-7 p-0 border-green-200 text-green-600 hover:bg-green-50"
-                    onClick={() => onToggleStatus(r.id, "Active")}
-                  >
-                    <Check className="w-3 h-3" />
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 p-0 text-muted-foreground"
-                  onClick={() => onView?.(r)}
-                >
-                  <Eye className="w-4 h-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 p-0 text-muted-foreground"
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+              <span className="truncate text-xs text-muted-foreground">{formatValue(record.contact)}</span>
+              <div className="flex gap-1">
+                {record.status === "Pending" && <Button size="icon-sm" variant="outline" onClick={() => onToggleStatus(record.id, "Active")} aria-label="Duyệt vận động viên"><Check className="h-4 w-4" /></Button>}
+                <Button size="icon-sm" variant="ghost" onClick={() => onView?.(record)} aria-label="Xem vận động viên"><Eye className="h-4 w-4" /></Button>
+                <Button size="icon-sm" variant="ghost" onClick={() => onEdit?.(record)} aria-label="Sửa vận động viên"><Edit className="h-4 w-4" /></Button>
               </div>
             </div>
           </div>
@@ -144,112 +73,42 @@ const AthleteMgmtTable = ({ records, isMobile, onToggleStatus, onView }: Props) 
     );
   }
 
-  // KỊCH BẢN 2: DESKTOP (Data Table)
   return (
-    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <div className="overflow-x-auto beautiful-scrollbar">
         <table className="min-w-[900px] w-full table-fixed text-left text-sm">
-          <colgroup>
-            <col className="w-12" />
-            <col className="w-[28%]" />
-            <col className="w-[22%]" />
-            <col className="w-24" />
-            <col className="w-32" />
-            <col className="w-[18%]" />
-            <col className="w-28" />
-          </colgroup>
-
-          <thead className="bg-muted/30 text-xs uppercase text-muted-foreground border-b border-border">
+          <thead className="border-b border-border bg-muted/30 text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="p-4 w-10">
-                <input type="checkbox" className="rounded accent-primary" />
-              </th>
               <th className="p-4 font-semibold">Vận động viên</th>
-              <th className="p-4 font-semibold">Trực thuộc đội</th>
-              <th className="p-4 font-semibold text-center">Trình độ</th>
+              <th className="p-4 font-semibold">Đội</th>
+              <th className="p-4 text-center font-semibold">Trình độ</th>
               <th className="p-4 font-semibold">Trạng thái</th>
               <th className="p-4 font-semibold">Liên hệ</th>
-              <th className="p-4 font-semibold text-center">Thao tác</th>
+              <th className="p-4 text-center font-semibold">Thao tác</th>
             </tr>
           </thead>
-
           <tbody className="divide-y divide-border text-foreground">
-            {records.map((r) => (
-              <tr key={r.id} className="hover:bg-muted/10 transition-colors group">
-                <td className="p-4 align-middle overflow-hidden">
-                  <input type="checkbox" className="rounded accent-primary" />
-                </td>
-
-                <td className="p-4 align-middle overflow-hidden">
-                  <div className="flex min-w-0 max-w-full items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center overflow-hidden font-bold text-xs shrink-0">
-                      {r.avatar}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-bold text-sm leading-tight" title={r.name}>
-                        {r.name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {r.gender} • {r.age} tuổi
-                      </p>
+            {records.map((record) => (
+              <tr key={record.id} className="transition-colors hover:bg-muted/10">
+                <td className="p-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar record={record} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">{record.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{record.gender} · {record.age || "-"} tuổi</p>
                     </div>
                   </div>
                 </td>
-
-                <td className="p-4 align-middle overflow-hidden">
-                  <div className="flex min-w-0 max-w-full items-center gap-2">
-                    <div className="w-5 h-5 rounded bg-muted flex items-center justify-center overflow-hidden text-[9px] font-bold shrink-0">
-                      {r.teamLogo}
-                    </div>
-                    <span className="min-w-0 flex-1 truncate font-semibold text-xs" title={formatValue(r.teamName)}>
-                      {formatValue(r.teamName)}
-                    </span>
-                  </div>
-                </td>
-
-                <td className="p-4 text-center font-black text-accent-foreground align-middle overflow-hidden">
-                  <span className="block truncate" title={r.rating}>
-                    {r.rating}
-                  </span>
-                </td>
-
-                <td className="p-4 align-middle overflow-hidden">
-                  <div className="flex max-w-full">{renderStatus(r.status)}</div>
-                </td>
-
-                <td className="p-4 text-xs align-middle overflow-hidden">
-                  <p className="truncate font-semibold" title={formatValue(r.contact)}>
-                    {formatValue(r.contact)}
-                  </p>
-                  <p className="truncate text-[10px] text-muted-foreground">{r.registeredAt}</p>
-                </td>
-
-                <td className="p-4 text-center overflow-hidden">
-                  <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                    {r.status === "Pending" && (
-                      <button
-                        onClick={() => onToggleStatus(r.id, "Active")}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
-                        title="Duyệt"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button className="p-1.5 text-muted-foreground hover:text-primary transition-colors" title="Xem" onClick={() => onView?.(r)}>
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button className="p-1.5 text-muted-foreground hover:text-accent transition-colors" title="Sửa">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    {r.status === "Active" && (
-                      <button
-                        onClick={() => onToggleStatus(r.id, "Suspended")}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
-                        title="Đình chỉ"
-                      >
-                        <UserX className="w-4 h-4" />
-                      </button>
-                    )}
+                <td className="p-4"><span className="truncate text-xs font-semibold">{record.teamName}</span></td>
+                <td className="p-4 text-center font-bold">{record.rating}</td>
+                <td className="p-4">{renderStatus(record.status)}</td>
+                <td className="p-4 text-xs"><p className="truncate font-semibold">{formatValue(record.contact)}</p><p className="text-[10px] text-muted-foreground">{record.registeredAt}</p></td>
+                <td className="p-4">
+                  <div className="flex items-center justify-center gap-1">
+                    {record.status === "Pending" && <button onClick={() => onToggleStatus(record.id, "Active")} className="rounded p-1.5 text-green-600 hover:bg-green-50" title="Duyệt"><Check className="h-4 w-4" /></button>}
+                    <button className="rounded p-1.5 text-muted-foreground hover:text-primary" title="Xem" onClick={() => onView?.(record)}><Eye className="h-4 w-4" /></button>
+                    <button className="rounded p-1.5 text-muted-foreground hover:text-accent" title="Sửa" onClick={() => onEdit?.(record)}><Edit className="h-4 w-4" /></button>
+                    {record.status === "Active" && <button onClick={() => onToggleStatus(record.id, "Suspended")} className="rounded p-1.5 text-red-500 hover:bg-red-50" title="Đình chỉ"><UserX className="h-4 w-4" /></button>}
                   </div>
                 </td>
               </tr>

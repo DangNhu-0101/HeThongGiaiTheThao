@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import TournamentReferee from "../models/tournamentReferees.js";
 import User from "../models/users.js";
 import { checkTournamentItemPermission } from "../utils/tournamentHelper.js";
@@ -113,7 +113,7 @@ export const linkTournamentRefereeAccount = async (req, res) => {
         const { id } = req.params;
         const { userId } = req.body;
         if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ success: false, message: "ID khong hop le" });
+            return res.status(400).json({ success: false, message: "ID không hợp lệ" });
         }
 
         const referee = await TournamentReferee.findById(id);
@@ -137,3 +137,4 @@ export const linkTournamentRefereeAccount = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
+

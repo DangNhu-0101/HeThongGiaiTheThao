@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { GripVertical, RotateCcw, Users } from "lucide-react";
-import { fetchPlanningTeams, type PlanningTeam } from "@/services/orgMatchPlanningService";
+import { confirmAutoSeed, fetchPlanningTeams, previewAutoSeed, type AutoSeedCriterion, type PlanningTeam } from "@/services/orgMatchPlanningService";
 import { mapStagesToFlow } from "@/components/org/competition-format/workflow/FlowMapper";
 import type { CompetitionStageConfig, StageSeedAssignment } from "@/types/competitionFormat";
 import { cn } from "@/libs/utils";
+import { toast } from "sonner";
 
 interface Props {
   tournamentItemId: string;
@@ -80,23 +81,32 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
   const [teams, setTeams] = useState<PlanningTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStageId, setSelectedStageId] = useState(stages[0]?.id || "");
+  const [criterion, setCriterion] = useState<AutoSeedCriterion>("skill");
+  const [previewAssignments, setPreviewAssignments] = useState<StageSeedAssignment[]>([]);
+  const [previewing, setPreviewing] = useState(false);
 
   useEffect(() => {
-    setSelectedStageId((current) => current && stages.some((stage) => stage.id === current) ? current : stages[0]?.id || "");
+    const timeout = window.setTimeout(() => {
+      setSelectedStageId((current) => current && stages.some((stage) => stage.id === current) ? current : stages[0]?.id || "");
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [stages]);
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    fetchPlanningTeams(tournamentItemId)
-      .then((items) => {
-        if (mounted) setTeams(items);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+    const timeout = window.setTimeout(() => {
+      setLoading(true);
+      fetchPlanningTeams(tournamentItemId)
+        .then((items) => {
+          if (mounted) setTeams(items);
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    }, 0);
     return () => {
       mounted = false;
+      window.clearTimeout(timeout);
     };
   }, [tournamentItemId]);
 
@@ -136,16 +146,54 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
     onChangeStage(nextStage);
   };
 
+  const handlePreviewAutoSeed = async () => {
+    if (!selectedStage) return;
+    setPreviewing(true);
+    try {
+      const result = await previewAutoSeed(tournamentItemId, selectedStage, criterion);
+      const assignments = (result.assignments || []) as StageSeedAssignment[];
+      setPreviewAssignments(assignments);
+      let nextStage: CompetitionStageConfig = { ...selectedStage, seedAssignments: assignments };
+      if (!isGroupStage) {
+        assignments.forEach((assignment) => {
+          const globalIndex = Number(String(assignment.slotId).split(":seed-")[1]);
+          nextStage = applyKnockoutSlotLabel(nextStage, assignment.branchId, assignment.nodeId, Number.isFinite(globalIndex) ? globalIndex : undefined, assignment.participantName);
+        });
+      }
+      onChangeStage(nextStage);
+      toast.success(`Đã xem trước ${assignments.length} vị trí xếp đội.`);
+      if (result.notes?.length) toast.info(result.notes.join("\n"));
+    } catch (error) {
+      console.error(error);
+      toast.error("Không thể xem trước phương án xếp đội.");
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const applyPreview = () => {
+    if (!selectedStage || !previewAssignments.length) return;
+    confirmAutoSeed(tournamentItemId, selectedStage.id, criterion)
+      .then(() => {
+        setPreviewAssignments([]);
+        toast.success("Đã lưu phương án xếp đội.");
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error("Chưa thể lưu phương án xếp đội.");
+      });
+  };
+
   if (!selectedStage) {
-    return <div className="rounded-lg border border-dashed border-border bg-card p-8 text-sm font-bold text-muted-foreground">Chưa có stage de gán đội.</div>;
+    return <div className="rounded-lg border border-dashed border-border bg-card p-8 text-sm font-bold text-muted-foreground">Chưa có stage để gán đội.</div>;
   }
 
   return (
     <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
       <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
         <div className="mb-4">
-          <h2 className="text-sm font-black uppercase text-foreground">Danh sach doi</h2>
-          <p className="mt-1 text-xs font-semibold text-muted-foreground">Keo doi that vao slot dau vao. Slot kết quả nhu A1/Winner M1 se bi khoa logic.</p>
+          <h2 className="text-sm font-bold uppercase text-foreground">Danh sách đội</h2>
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">Kéo đội thật vào slot đầu vào. Slot kết quả như A1/M1/L1 sẽ bị khóa logic.</p>
         </div>
         <select
           value={selectedStage.id}
@@ -158,9 +206,41 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
           <span>Chưa gán</span>
           <span>{availableTeams.length}/{teams.length}</span>
         </div>
+        <div className="mb-4 rounded-lg border border-border bg-muted/20 p-3">
+          <label className="mb-2 block text-[11px] font-black uppercase text-muted-foreground">Tự động xếp đội</label>
+          <select
+            value={criterion}
+            onChange={(event) => setCriterion(event.target.value as AutoSeedCriterion)}
+            className="mb-2 h-9 w-full rounded-md border border-border bg-background px-2 text-xs font-bold text-foreground"
+          >
+            <option value="skill">Skill tương đồng</option>
+            <option value="seed">Theo hạt giống</option>
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => void handlePreviewAutoSeed()}
+              disabled={previewing}
+              className="rounded-md border border-primary/30 bg-white px-2 py-2 text-xs font-black text-primary hover:bg-primary-light/20 disabled:opacity-60"
+            >
+              {previewing ? "Đang tính..." : "Xem trước"}
+            </button>
+            <button
+              type="button"
+              onClick={applyPreview}
+              disabled={!previewAssignments.length}
+              className="rounded-md bg-primary px-2 py-2 text-xs font-black text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
+            >
+              Áp dụng
+            </button>
+          </div>
+          {previewAssignments.length > 0 && (
+            <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Đã tự đặt {previewAssignments.length} đội vào bản nháp. Có thể kéo tay để sửa, bấm Áp dụng để lưu thật.</p>
+          )}
+        </div>
         <div className="max-h-[620px] space-y-2 overflow-y-auto beautiful-scrollbar pr-1">
           {loading ? (
-            <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs font-bold text-muted-foreground">Đang tải doi...</div>
+            <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs font-bold text-muted-foreground">Đang tải đội...</div>
           ) : availableTeams.length ? availableTeams.map((team) => (
             <div
               key={team.id}
@@ -176,7 +256,7 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
               <span className="min-w-0 truncate">{team.name}</span>
             </div>
           )) : (
-            <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs font-bold text-muted-foreground">Tat ca doi da duoc gan.</div>
+            <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs font-bold text-muted-foreground">Tất cả đội đã được gán.</div>
           )}
         </div>
       </aside>
@@ -204,7 +284,7 @@ const GroupSeeding = ({
   const branches = stage.brackets.filter((branch) => branch.type === "group");
   return (
     <div className="space-y-4">
-      <Header title="Gán đội vao vòng bảng" subtitle="A1, A2... la thu hạng sau khi dau xong bang, khong phai slot keo doi truc tiep." />
+      <Header title="Gán đội vào vòng bảng" subtitle="A1, A2... là thứ hạng sau khi đấu xong bảng, không phải slot kéo đội trực tiếp." />
       <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {branches.flatMap((branch) => (branch.groups?.length ? branch.groups : [{ name: branch.name, numberOfTeams: branch.totalTeamsIn }]).map((group, groupIndex) => (
           <div key={`${branch.id}-${groupIndex}`} className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -252,13 +332,13 @@ const KnockoutSeeding = ({
   onClear: (slotId: string, branchId?: string, nodeId?: string, globalIndex?: number) => void;
 }) => (
   <div className="space-y-4">
-    <Header title="Gán đội vao knockout truc tiep" subtitle="Chi gán đội vao cac slot mo cua vong dau. Cac slot Winner M... la kết quả tu match truoc va bi khoa." />
+    <Header title="Gán đội vào knockout trực tiếp" subtitle="Chỉ gán đội vào các slot mở của vòng đầu. Các slot M.../L... là kết quả từ match trước và bị khóa." />
     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
       {matches.map((match) => (
         <div key={match.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-black uppercase text-foreground">{match.matchCode || match.title}</h3>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">Winner: {match.matchCode || match.title}</span>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">Key thắng: {match.matchCode || match.title}</span>
           </div>
           <div className="space-y-2">
             {match.seedSlots.map((slot, slotIndex) => {
@@ -271,7 +351,7 @@ const KnockoutSeeding = ({
                   label={slot.sourceLabel || slot.label}
                   assigned={assigned}
                   locked={locked}
-                  lockedText={slot.sourceLabel || "Ket qua tu match truoc"}
+                  lockedText={slot.sourceLabel || "Kết quả từ match trước"}
                   onDrop={(teamId) => onDropTeam({
                     slotId,
                     stageId: stage.id,
@@ -325,13 +405,13 @@ const DropSlot = ({
         {assigned?.participantLogo || label.slice(0, 2).toUpperCase()}
       </span>
       <div className="min-w-0">
-        <p className="truncate font-bold text-foreground">{assigned?.participantName || lockedText || "Keo doi vao day"}</p>
+        <p className="truncate font-bold text-foreground">{assigned?.participantName || lockedText || "Kéo đội vào đây"}</p>
         <p className="truncate text-[10px] font-semibold text-muted-foreground">{label}</p>
       </div>
     </div>
     {assigned && !locked && (
       <button type="button" onClick={onClear} className="rounded-md px-2 py-1 text-xs font-black text-muted-foreground hover:bg-muted hover:text-foreground">
-        Go
+        Gỡ
       </button>
     )}
   </div>

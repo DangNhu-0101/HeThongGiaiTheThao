@@ -6,8 +6,16 @@ export const AUTH_USER_STORAGE_KEY = "authUser";
 const ROLE_PRIORITY: UserRole[] = ["admin", "org", "organization", "referee", "coach", "player", "user"];
 const BACKEND_ROLE_NAMES: BackendRoleName[] = ["admin", "org", "organization", "referee", "coach", "player"];
 
-const isBackendRoleName = (value: unknown): value is BackendRoleName =>
-  typeof value === "string" && BACKEND_ROLE_NAMES.includes(value as BackendRoleName);
+const normalizeRoleName = (value: unknown): UserRole | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "administrator" || normalized === "superadmin" || normalized === "super-admin") return "admin";
+  if (normalized === "organizer") return "organization";
+  if (normalized === "athlete") return "player";
+  if (BACKEND_ROLE_NAMES.includes(normalized as BackendRoleName)) return normalized as BackendRoleName;
+  if (normalized === "user") return "user";
+  return null;
+};
 
 const asRoleValues = (raw: ApiUser): ApiRoleValue[] => {
   if (Array.isArray(raw.roles)) return raw.roles;
@@ -32,12 +40,14 @@ const normalizeRoles = (raw: ApiUser): { roles: UserRole[]; roleIds: string[] } 
 
   values.forEach((value) => {
     if (typeof value === "string") {
-      if (isBackendRoleName(value)) roles.add(value);
+      const normalizedRole = normalizeRoleName(value);
+      if (normalizedRole && normalizedRole !== "user") roles.add(normalizedRole);
       else roleIds.push(value);
       return;
     }
     if (value && typeof value === "object") {
-      if (isBackendRoleName(value.name)) roles.add(value.name);
+      const normalizedRole = normalizeRoleName(value.name);
+      if (normalizedRole && normalizedRole !== "user") roles.add(normalizedRole);
       if (value._id) roleIds.push(String(value._id));
     }
   });
@@ -48,13 +58,13 @@ const normalizeRoles = (raw: ApiUser): { roles: UserRole[]; roleIds: string[] } 
     if (configuredId && roleIds.includes(configuredId)) roles.add(role);
   });
 
-  // initialAdmin.js của BE gán tất cả 5 role cho admin nhưng login chỉ trả ObjectId[].
-  if (roles.size === 0 && roleIds.length >= BACKEND_ROLE_NAMES.length) {
-    roles.add("admin");
-  }
-
+  if (roles.size === 0 && roleIds.length >= BACKEND_ROLE_NAMES.length) roles.add("admin");
   if (roles.size === 0) roles.add("user");
-  return { roles: [...roles], roleIds: [...new Set(roleIds)] };
+
+  return {
+    roles: ROLE_PRIORITY.filter((role) => roles.has(role)),
+    roleIds: [...new Set(roleIds)],
+  };
 };
 
 export const normalizeUser = (value: unknown): User | null => {
@@ -68,6 +78,13 @@ export const normalizeUser = (value: unknown): User | null => {
     email: String(raw.email || ""),
     phoneNumber: String(raw.phoneNumber || ""),
     avatar: String(raw.avatar || ""),
+    fullName: raw.fullName,
+    birthDate: raw.birthDate,
+    gender: raw.gender,
+    address: raw.address,
+    bio: raw.bio,
+    isDefaultGenerated: raw.isDefaultGenerated,
+    mustChangePassword: raw.mustChangePassword,
     status: raw.status || "actived",
     roles,
     roleIds,
@@ -93,9 +110,14 @@ export const mergeUser = (current: User | null, incoming: User): User => {
     email: incoming.email || current?.email || "",
     phoneNumber: incoming.phoneNumber || current?.phoneNumber || "",
     avatar: incoming.avatar || current?.avatar || "",
-    roles: incoming.roles.includes("user") && current?.roles.length
-      ? current.roles
-      : incoming.roles,
+    fullName: incoming.fullName ?? current?.fullName,
+    birthDate: incoming.birthDate ?? current?.birthDate,
+    gender: incoming.gender ?? current?.gender,
+    address: incoming.address ?? current?.address,
+    bio: incoming.bio ?? current?.bio,
+    isDefaultGenerated: incoming.isDefaultGenerated ?? current?.isDefaultGenerated,
+    mustChangePassword: incoming.mustChangePassword ?? current?.mustChangePassword,
+    roles: incoming.roles.includes("user") && current?.roles.length ? current.roles : incoming.roles,
     roleIds: incoming.roleIds.length ? incoming.roleIds : current?.roleIds || [],
   };
 
@@ -146,7 +168,7 @@ export const getPrimaryRole = (roles?: UserRole[] | null): UserRole =>
 export const getRoleLabel = (role?: UserRole | null) => {
   switch (role) {
     case "admin": return "Quản trị viên";
-    case "org": return "Ban tổ chức";
+    case "org":
     case "organization": return "Ban tổ chức";
     case "referee": return "Trọng tài";
     case "coach": return "Huấn luyện viên";

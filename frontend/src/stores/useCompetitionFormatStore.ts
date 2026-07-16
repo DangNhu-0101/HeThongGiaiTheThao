@@ -22,7 +22,7 @@ export const useCompetitionFormatStore = create<CompetitionFormatStoreState>((se
         selectedId: state.selectedId ?? formats[0]?.id ?? null,
       }));
     } catch (error) {
-      console.error("Lỗi khi tai thể thức thi dau:", error);
+      console.error("Lỗi khi tải thể thức thi đấu:", error);
     } finally {
       set({ loading: false });
     }
@@ -36,7 +36,7 @@ export const useCompetitionFormatStore = create<CompetitionFormatStoreState>((se
       const selectedId = get().selectedTournamentItemId;
       if (selectedId) await get().selectTournamentItem(selectedId);
     } catch (error) {
-      console.error("Lỗi khi tai danh sach giải đấu:", error);
+      console.error("Lỗi khi tải danh sách giải đấu:", error);
     } finally {
       set({ loading: false });
     }

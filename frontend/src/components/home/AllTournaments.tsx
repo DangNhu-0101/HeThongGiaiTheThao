@@ -1,8 +1,9 @@
 import { AlertCircle, CalendarDays, MapPin, Trophy, UsersRound } from "lucide-react";
 import { Link } from "react-router-dom";
-import heroImage from "@/assets/hero.png";
+import heroImage from "@/assets/spectator.png";
 import type { Tournament } from "@/types/tournament";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/libs/utils";
 
 interface AllTournamentsProps {
@@ -47,7 +48,7 @@ const AllTournaments = ({ tournaments, loading = false, error, onRetry }: AllTou
       <div className="mb-8 grid gap-4 border-b border-border pb-5 md:grid-cols-[1fr_auto] md:items-end">
         <div>
           <span className="section-kicker">Tất cả giải đấu</span>
-          <h2 className="mt-4 text-[clamp(1.75rem,4vw,2.625rem)] font-extrabold tracking-normal text-foreground">
+          <h2 className="mt-4 text-[clamp(1.75rem,4vw,2.625rem)] font-bold tracking-normal text-foreground">
             Những giải đấu đang được quan tâm
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -88,18 +89,18 @@ const AllTournaments = ({ tournaments, loading = false, error, onRetry }: AllTou
                 key={tournament._id || tournament.name}
                 className="group overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-ring/35 hover:shadow-[var(--shadow-soft)]"
               >
-                <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
+                <div className="relative aspect-[16/10] overflow-hidden bg-primary-dark">
                   <img
                     src={tournament.banner || heroImage}
                     alt={tournament.banner ? tournament.name : `Ảnh đại diện môn ${sportName}`}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/12 to-transparent" />
-                  <div className={cn("absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold shadow-sm", status.className)}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary-dark/82 via-primary-dark/24 to-transparent" />
+                  <div className={cn("absolute left-3 top-3 rounded-full px-3 py-1 font-highlight text-xs font-semibold shadow-sm", status.className)}>
                     {status.label}
                   </div>
-                  <div className="absolute bottom-3 left-3 rounded-full bg-white/92 px-3 py-1 text-xs font-bold text-foreground shadow-sm">
+                  <div className="absolute bottom-3 left-3 rounded-full bg-primary-dark/82 px-3 py-1 text-xs font-bold text-white shadow-sm backdrop-blur">
                     {sportName}
                   </div>
                 </div>

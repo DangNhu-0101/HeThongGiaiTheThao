@@ -1,7 +1,7 @@
 [
   {
-    "_id": "group_stage_football_v1",
-    "sportType": "Football",
+    "_id": "group_stage_soccer_v1",
+    "sportType": "Soccer",
     "configType": "groupStage",
     "label": "Cấu hình vòng bảng - Bóng đá",
     "version": 2,

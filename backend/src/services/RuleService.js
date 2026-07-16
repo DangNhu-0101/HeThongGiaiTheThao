@@ -2,11 +2,14 @@ import CategoryTemplate from '../models/rules/ruleTemplate/categoryTemplate.js';
 import StageTemplate from '../models/rules/ruleTemplate/stageTemplate.js';
 import TournamentTemplate from '../models/rules/ruleTemplate/tournamentTemplate.js';
 
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const sportQuery = (sportType) => new RegExp(`^${escapeRegex(sportType)}$`, 'i');
+
 class RuleService {
 
     static async getAllTemplates(filter = {}) {
         let query = { status: 'actived' };
-        if (filter.sportType) query.sportType = filter.sportType;
+        if (filter.sportType) query.sportType = sportQuery(filter.sportType);
         const templates = await TournamentTemplate.find(query)
             .populate('categories')
             .populate('stages')
@@ -24,7 +27,7 @@ class RuleService {
     }
 
     static async getCategoriesBySport(sportType) {
-        const categories = await CategoryTemplate.find({ sportType, status: 'actived' }).lean();
+        const categories = await CategoryTemplate.find({ sportType: sportQuery(sportType), status: 'actived' }).lean();
         return categories;
     }
 
@@ -53,7 +56,7 @@ class RuleService {
     }
 
     static async getStagesBySport(sportType) {
-        const stages = await StageTemplate.find({ sportType, status: 'actived' }).lean();
+        const stages = await StageTemplate.find({ sportType: sportQuery(sportType), status: 'actived' }).lean();
         return stages;
     }
 }

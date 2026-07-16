@@ -2,32 +2,22 @@ import { AlertTriangle } from "lucide-react";
 import type { ScheduleMatch } from "@/types/schedule";
 
 const ScheduleMatchCard = ({ match, onViewResult }: { match: ScheduleMatch; onViewResult: (match: ScheduleMatch) => void }) => {
-  let cardStyle = "";
-  let statusText = "";
-
-  switch (match.status) {
-    case "scheduled":
-      cardStyle = "bg-blue-50/50 border-l-4 border-blue-400";
-      statusText = "text-blue-600";
-      break;
-    case "completed":
-      cardStyle = "bg-green-50/50 border-l-4 border-green-500";
-      statusText = "text-green-600 font-bold";
-      break;
-    case "live":
-      cardStyle = "bg-red-50 border-l-4 border-red-500 shadow-sm";
-      statusText = "text-red-600 font-bold animate-pulse";
-      break;
-    case "conflict":
-      cardStyle = "bg-yellow-50/80 border-l-4 border-yellow-500";
-      statusText = "text-red-600 font-semibold";
-      break;
-    case "final":
-      cardStyle = "bg-gradient-to-r from-orange-400 to-orange-500 border-none text-white shadow-md";
-      break;
-    default:
-      cardStyle = "bg-card border border-border";
-  }
+  const { cardStyle, statusText } = (() => {
+    switch (match.status) {
+      case "scheduled":
+        return { cardStyle: "bg-blue-50/50 border-l-4 border-blue-400", statusText: "text-blue-600" };
+      case "completed":
+        return { cardStyle: "bg-green-50/50 border-l-4 border-green-500", statusText: "text-green-600 font-bold" };
+      case "live":
+        return { cardStyle: "bg-red-50 border-l-4 border-red-500 shadow-sm", statusText: "text-red-600 font-bold animate-pulse" };
+      case "conflict":
+        return { cardStyle: "bg-yellow-50/80 border-l-4 border-yellow-500", statusText: "text-red-600 font-semibold" };
+      case "final":
+        return { cardStyle: "bg-gradient-to-r from-orange-400 to-orange-500 border-none text-white shadow-md", statusText: "" };
+      default:
+        return { cardStyle: "bg-card border border-border", statusText: "" };
+    }
+  })();
 
   const isFinal = match.status === "final";
 

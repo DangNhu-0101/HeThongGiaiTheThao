@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ResultStats from "@/components/org/result-mgmt/ResultStats";
@@ -82,7 +82,7 @@ const OrgResultMgmtPage = () => {
   }
 
   if (!selectedTournamentItemId) {
-    return <RequireTournamentSelection description="Hay chon giai o Sidebar de cập nhật kết quả cua giai do." />;
+    return <RequireTournamentSelection description="Hãy chọn giải ở sidebar để cập nhật kết quả của giải đó." />;
   }
 
   if (error) {
@@ -97,7 +97,7 @@ const OrgResultMgmtPage = () => {
   }
 
   if (matches.length === 0) {
-    return <div className="flex h-full items-center justify-center font-medium text-muted-foreground">Chưa có trận đấu that cho giai da chon.</div>;
+    return <div className="flex h-full items-center justify-center font-medium text-muted-foreground">Chưa có trận đấu thật cho giải đã chọn.</div>;
   }
 
   const filtersPanel = (
@@ -108,13 +108,13 @@ const OrgResultMgmtPage = () => {
       <FilterSelect label="Stage" value={filters.stageId} onChange={(stageId) => setFilters((current) => ({ ...current, stageId }))}>
         {stages.map((stage) => <option key={stage.id} value={stage.id}>Stage {stage.order} - {stage.name}</option>)}
       </FilterSelect>
-      <FilterSelect label="Bang" value={filters.groupName} onChange={(groupName) => setFilters((current) => ({ ...current, groupName }))}>
+      <FilterSelect label="Bảng" value={filters.groupName} onChange={(groupName) => setFilters((current) => ({ ...current, groupName }))}>
         {options.groups.map((group) => <option key={group} value={group}>{group}</option>)}
       </FilterSelect>
-      <FilterSelect label="Ngay" value={filters.date} onChange={(date) => setFilters((current) => ({ ...current, date }))}>
+      <FilterSelect label="Ngày" value={filters.date} onChange={(date) => setFilters((current) => ({ ...current, date }))}>
         {options.dates.map((date) => <option key={date} value={date}>{date}</option>)}
       </FilterSelect>
-      <FilterSelect label="San" value={filters.courtId} onChange={(courtId) => setFilters((current) => ({ ...current, courtId }))}>
+      <FilterSelect label="Sân" value={filters.courtId} onChange={(courtId) => setFilters((current) => ({ ...current, courtId }))}>
         {options.courts.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
       </FilterSelect>
       <FilterSelect label="Tag" value={filters.tag} onChange={(tag) => setFilters((current) => ({ ...current, tag }))}>
@@ -129,7 +129,7 @@ const OrgResultMgmtPage = () => {
         {!selectedMatch ? (
           <>
             <div className="shrink-0 space-y-3">
-              <h1 className="text-xl font-black uppercase text-foreground">Cap nhất kết quả</h1>
+              <h1 className="text-xl font-bold uppercase text-foreground">Cập nhật kết quả</h1>
               <ResultStats stats={stats} />
               {filtersPanel}
             </div>
@@ -140,7 +140,7 @@ const OrgResultMgmtPage = () => {
         ) : (
           <div className="flex min-h-[calc(100dvh-96px)] flex-col">
             <Button variant="ghost" className="mb-4 self-start pl-0 text-muted-foreground" onClick={() => setSelectedMatchId(null)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Quay lai danh sach
+              <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách
             </Button>
             <ResultEditor match={selectedMatch} statusTags={statusTags} saving={savingMatchIds.includes(selectedMatch.id)} onUpdateScore={updateScore} onSaveLiveScore={saveLiveScore} onUpdateStatus={updateStatus} onConfirmResult={confirmResult} />
           </div>
@@ -155,10 +155,10 @@ const OrgResultMgmtPage = () => {
         <div className="pointer-events-none absolute right-0 top-0 h-64 w-64 -translate-y-1/2 translate-x-1/3 rounded-full bg-white/5 blur-3xl" />
         <div className="relative z-10">
           <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase text-white/70">
-            <span>Cong To Chuc</span><span className="text-accent">&gt;</span><span>Quan ly kết quả</span>
+            <span>Cổng tổ chức</span><span className="text-accent">&gt;</span><span>Quản lý kết quả</span>
           </div>
-          <h1 className="mb-1 text-3xl font-black uppercase tracking-wider">Cap nhất kết quả trận đấu</h1>
-          <p className="text-sm text-white/70">Nhap ty so theo thể thức da luu, xac nhan va dong bo BXH/knockout.</p>
+          <h1 className="mb-1 text-3xl font-bold uppercase tracking-normal">Cập nhật kết quả trận đấu</h1>
+          <p className="text-sm text-white/70">Nhập tỷ số theo thể thức đã lưu, xác nhận và đồng bộ bảng xếp hạng/knockout.</p>
         </div>
       </div>
 
@@ -177,7 +177,7 @@ const OrgResultMgmtPage = () => {
             <ResultEditor match={selectedMatch} statusTags={statusTags} saving={savingMatchIds.includes(selectedMatch.id)} onUpdateScore={updateScore} onSaveLiveScore={saveLiveScore} onUpdateStatus={updateStatus} onConfirmResult={confirmResult} />
           ) : (
             <div className="flex h-full items-center justify-center rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground">
-              Vui lòng chon mot trận đấu ben trai de cập nhật.
+              Vui lòng chọn một trận đấu bên trái để cập nhật.
             </div>
           )}
         </div>
@@ -204,7 +204,7 @@ const FilterSelect = ({
       onChange={(event) => onChange(event.target.value)}
       className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-xs font-bold normal-case text-foreground focus:outline-none"
     >
-      <option value="">Tat ca</option>
+      <option value="">Tất cả</option>
       {children}
     </select>
   </label>

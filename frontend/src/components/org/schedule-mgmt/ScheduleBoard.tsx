@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock, GripVertical, MapPin } from "lucide-react";
+﻿import { AlertTriangle, Clock, GripVertical, MapPin } from "lucide-react";
 import type { DragEvent } from "react";
 import type { ScheduleMatchRecord, VenueColumn } from "@/types/orgScheduleMgmt";
 
@@ -35,7 +35,7 @@ const nextDropTime = (matches: ScheduleMatchRecord[], venueId: string, date: str
 
 const formatDateLabel = (value: string) => {
   const date = value ? new Date(`${value}T00:00:00`) : null;
-  if (!date || Number.isNaN(date.getTime())) return value || "Chưa có ngay";
+  if (!date || Number.isNaN(date.getTime())) return value || "Chưa có ngày";
   return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
@@ -80,10 +80,10 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-muted-foreground">
         <span className="flex items-center gap-1 rounded bg-accent/10 px-1.5 py-0.5 text-accent-foreground">
-          <Clock className="h-3 w-3" /> {match.time || "Chưa có gio"}
+          <Clock className="h-3 w-3" /> {match.time || "Chưa có giờ"}
         </span>
         <span className="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
-          <MapPin className="h-3 w-3" /> {venueName || "Chưa xếp san"}
+          <MapPin className="h-3 w-3" /> {venueName || "Chưa xếp sân"}
         </span>
         <span className={`rounded px-1.5 py-0.5 ${match.status === "Live" ? "bg-red-50 text-red-600" : "bg-muted"}`}>
           {match.status === "Live" ? "Đang diễn ra" : match.publishStatus === "published" ? "Published" : "Draft"}
@@ -97,7 +97,7 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
 
       {match.status === "Conflict" && (
         <div className="mt-2 flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">
-          <AlertTriangle className="h-3 w-3" /> {match.conflictReason || "Trung lich"}
+          <AlertTriangle className="h-3 w-3" /> {match.conflictReason || "Trùng lịch"}
         </div>
       )}
     </article>
@@ -109,7 +109,7 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-sm font-black uppercase text-foreground">{formatDateLabel(selectedDate)}</h3>
             <span className="rounded-full bg-background px-2 py-1 text-[10px] font-bold text-muted-foreground">
-              {matches.filter((match) => match.date === selectedDate && match.status !== "Unscheduled").length} tran
+              {matches.filter((match) => match.date === selectedDate && match.status !== "Unscheduled").length} trận
             </span>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-1 beautiful-scrollbar">
@@ -148,7 +148,7 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
               {laneMatches.map((match) => renderCard(match, venue.name))}
               {laneMatches.length === 0 && (
                 <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-border text-center text-xs font-bold text-muted-foreground">
-                  Chưa có trận trong ngay da chon. Keo trận vao cot sân nay de xếp lịch.
+                  Chưa có trận trong ngày đã chọn. Kéo trận vào cột sân này để xếp lịch.
                 </div>
               )}
             </div>
@@ -159,7 +159,7 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
         </section>
       {matches.filter((match) => match.date === selectedDate && match.status !== "Unscheduled").length === 0 && (
         <div className="flex min-h-60 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center text-xs font-bold text-muted-foreground">
-          Chưa có trận nao da duoc xếp lịch trong ngay da chon.
+          Chưa có trận nào đã được xếp lịch trong ngày đã chọn.
         </div>
       )}
     </div>

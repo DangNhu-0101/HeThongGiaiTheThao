@@ -9,6 +9,7 @@
     "dev": "nodemon src/server.js",
     "seed": "node src/scripts/createRuleSystem.js",
     "seed:sports": "node src/scripts/initialRuleSport.js",
+    "seed:competition-config": "node src/scripts/initialRuleSport.js",
     "template": "node src/scripts/configFileExcel.js",
     "initialAdmin": "node src/scripts/initialAdmin.js"
   },
@@ -29,7 +30,8 @@
     "mongoose": "^9.3.3",
     "multer": "^2.1.1",
     "nodemailer": "^9.0.3",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "pdfkit": "^0.19.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

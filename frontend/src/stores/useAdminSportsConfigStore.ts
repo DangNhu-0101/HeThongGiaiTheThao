@@ -10,6 +10,7 @@ export interface AdminSportsConfigState {
   selectedSportId: string | null;
   loading: boolean;
   fetchData: () => Promise<void>;
+  setSportActive: (sportName: string, active: boolean) => Promise<void>;
   setSelectedSportId: (id: string | null) => void;
 }
 
@@ -25,6 +26,11 @@ export const useAdminSportsConfigStore = create<AdminSportsConfigState>((set) =>
     } finally {
       set({ loading: false });
     }
+  },
+  setSportActive: async (sportName, active) => {
+    await adminSportsConfigService.setSportActive(sportName, active);
+    const data = await adminSportsConfigService.getConfigData();
+    set({ stats: data.stats, sports: data.sports, usageData: data.usage, formatData: data.formats });
   },
   setSelectedSportId: (id) => set({ selectedSportId: id })
 }));

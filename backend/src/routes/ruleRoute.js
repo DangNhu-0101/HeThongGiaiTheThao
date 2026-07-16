@@ -11,13 +11,21 @@ import {
     getCategoryRuleById,
     updateCategoryRule,
     deleteCategoryRule,
-    getAllCategoryRules
+    getAllCategoryRules,
+    getCompetitionSports,
+    updateCompetitionSportStatus,
+    getTemplatesBySport,
+    getCompetitionTemplateDetail
 } from '../controllers/ruleController.js';
 import { protectedRoute } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 // ==================== TEMPLATE ROUTES ====================
+router.get('/sports', getCompetitionSports);
+router.patch('/sports/:sportType/status', protectedRoute('admin'), updateCompetitionSportStatus);
+router.get('/competition-templates', protectedRoute('admin', 'org', 'organization', { profile: true }), getTemplatesBySport);
+router.get('/competition-templates/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), getCompetitionTemplateDetail);
 router.get('/templates', getTemplates);
 router.get('/templates/:id', getTemplateById);
 router.get('/categories', getCategories);

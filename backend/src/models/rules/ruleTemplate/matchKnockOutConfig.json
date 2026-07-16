@@ -1,7 +1,7 @@
 [
   {
-    "_id": "knockout_football_v1",
-    "sportType": "Football",
+    "_id": "knockout_S_v1",
+    "sportType": "Soccer",
     "configType": "knockout",
     "label": "Cấu hình loại trực tiếp - Bóng đá",
     "version": 2,

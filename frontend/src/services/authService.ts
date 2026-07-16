@@ -54,6 +54,21 @@ export const authService = {
     return response.data;
   },
 
+  async requestChangePasswordOtp(): Promise<{ message: string; expiresInSeconds: number; resendAfterSeconds: number }> {
+    const response = await api.post<{ message: string; expiresInSeconds: number; resendAfterSeconds: number }>("/users/change-password/request-otp");
+    return response.data;
+  },
+
+  async verifyChangePasswordOtp(code: string): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>("/users/change-password/verify-otp", { code });
+    return response.data;
+  },
+
+  async confirmChangePassword(code: string, newPassword: string): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>("/users/change-password/confirm", { code, newPassword });
+    return response.data;
+  },
+
   async getCurrentUser(): Promise<ApiUser> {
     try {
       const response = await api.get<UserApiResponse>("/users/me");
@@ -61,12 +76,26 @@ export const authService = {
       if (!user) throw new Error("Không tìm thấy thông tin tài khoản");
       try {
         const profileUser = await this.getProfile();
+        const {
+          profile,
+          playerProfile,
+          player,
+          organizationProfile,
+          organization,
+          refereeProfile,
+          referee,
+          profiles,
+        } = profileUser;
         return {
           ...user,
-          ...profileUser,
-          role: profileUser.role ?? user.role,
-          roles: profileUser.roles ?? user.roles,
-          roleIds: profileUser.roleIds ?? user.roleIds,
+          profile,
+          playerProfile,
+          player,
+          organizationProfile,
+          organization,
+          refereeProfile,
+          referee,
+          profiles,
         };
       } catch {
         return user;
@@ -87,7 +116,7 @@ export const authService = {
     return user;
   },
 
-  async updateProfile(payload: Partial<Pick<ApiUser, "username" | "email" | "phoneNumber" | "avatar">>): Promise<ApiUser> {
+  async updateProfile(payload: Partial<Pick<ApiUser, "username" | "email" | "phoneNumber" | "avatar" | "fullName" | "birthDate" | "gender" | "address" | "bio">>): Promise<ApiUser> {
     const response = await api.put<UserApiResponse>("/users/profile", payload);
     const user = response.data.data || response.data.user;
     if (!user) throw new Error("Không thể đọc hồ sơ sau khi cập nhật");

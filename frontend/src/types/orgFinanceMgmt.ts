@@ -2,6 +2,15 @@ export interface FeeProgressData {
   expectedAmount: number;
   collectedAmount: number;
   progressPercentage: number;
+  feePerPlayer?: number;
+  totalPlayers?: number;
+  approvedPlayers?: number;
+  approvedPaidPlayers?: number;
+  approvedFreePlayers?: number;
+  allEligiblePaidPlayers?: number;
+  freePlayers?: number;
+  paidTeams?: number;
+  freeTeams?: number;
 }
 
 export type SponsorStatus = 'Active' | 'Expired';

@@ -1,10 +1,14 @@
 ﻿// controllers/userController.js
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import User from '../models/users.js';
 import Role from '../models/roles.js';
 import Organization from '../models/orgs.js';
 import Referee from '../models/referees.js';
 import Player from '../models/players.js';
+import Session from '../models/session.js';
+import PasswordResetToken from '../models/passwordResetTokens.js';
+import { sendPasswordResetCode } from '../services/mailService.js';
 
 const ROLE_GRANT_CONFIG = {
     player: {
@@ -144,7 +148,7 @@ export const getProfile = async (req, res) => {
 };
 export const editProfile = async (req, res) => {
     try {
-        const { username, avatar, email, phoneNumber } = req.body;
+        const { username, avatar, email, phoneNumber, fullName, birthDate, gender, address, bio } = req.body;
         const userId = req.user._id;
 
         const updateData = {};
@@ -152,6 +156,11 @@ export const editProfile = async (req, res) => {
         if (avatar !== undefined) updateData.avatar = avatar;
         if (email) updateData.email = email;
         if (phoneNumber) updateData.phoneNumber = phoneNumber;
+        if (fullName !== undefined) updateData.fullName = String(fullName).trim();
+        if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
+        if (gender !== undefined && ['male', 'female', 'other', ''].includes(gender)) updateData.gender = gender;
+        if (address !== undefined) updateData.address = String(address).trim();
+        if (bio !== undefined) updateData.bio = String(bio).trim().slice(0, 1000);
 
         if (Object.keys(updateData).length === 0) {
             return res.status(400).json({ success: false, message: "Không có dữ liệu cập nhật" });
@@ -184,6 +193,124 @@ export const editProfile = async (req, res) => {
         });
     } catch (error) {
         console.error("Lỗi editProfile:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const PASSWORD_CHANGE_TTL_MINUTES = Number(process.env.PASSWORD_CHANGE_CODE_TTL_MINUTES || 10);
+const PASSWORD_CHANGE_MAX_ATTEMPTS = Number(process.env.PASSWORD_CHANGE_MAX_ATTEMPTS || 5);
+const PASSWORD_CHANGE_RESEND_COOLDOWN_SECONDS = Number(process.env.PASSWORD_CHANGE_RESEND_COOLDOWN_SECONDS || 60);
+const sha256 = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
+const createSixDigitCode = () => String(crypto.randomInt(100000, 1000000));
+
+export const requestChangePasswordOtp = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' });
+
+        const recentToken = await PasswordResetToken.findOne({
+            userId: user._id,
+            email: user.email,
+            usedAt: null,
+            createdAt: { $gt: new Date(Date.now() - PASSWORD_CHANGE_RESEND_COOLDOWN_SECONDS * 1000) },
+        }).sort({ createdAt: -1 });
+        if (recentToken) {
+            return res.status(429).json({ success: false, message: 'Vui lòng chờ trước khi gửi lại mã xác minh.' });
+        }
+
+        await PasswordResetToken.updateMany(
+            { userId: user._id, email: user.email, usedAt: null },
+            { $set: { usedAt: new Date() } }
+        );
+
+        const code = createSixDigitCode();
+        await PasswordResetToken.create({
+            userId: user._id,
+            email: user.email,
+            codeHash: sha256(code),
+            expiresAt: new Date(Date.now() + PASSWORD_CHANGE_TTL_MINUTES * 60 * 1000),
+        });
+
+        await sendPasswordResetCode({ to: user.email, code, ttlMinutes: PASSWORD_CHANGE_TTL_MINUTES });
+        return res.json({
+            success: true,
+            message: 'Mã xác minh đã được gửi đến email của bạn',
+            expiresInSeconds: PASSWORD_CHANGE_TTL_MINUTES * 60,
+            resendAfterSeconds: PASSWORD_CHANGE_RESEND_COOLDOWN_SECONDS
+        });
+    } catch (error) {
+        console.error('Lỗi gửi OTP đổi mật khẩu:', error);
+        return res.status(500).json({ success: false, message: 'Không thể gửi mã xác minh. Vui lòng thử lại sau.' });
+    }
+};
+
+export const verifyChangePasswordOtp = async (req, res) => {
+    try {
+        const code = String(req.body.code || '').trim();
+        if (!/^\d{6}$/.test(code)) {
+            return res.status(400).json({ success: false, message: 'Mã xác minh không hợp lệ' });
+        }
+
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' });
+
+        const token = await PasswordResetToken.findOne({
+            userId: user._id,
+            email: user.email,
+            usedAt: null,
+            expiresAt: { $gt: new Date() },
+        }).sort({ createdAt: -1 });
+        if (!token) return res.status(400).json({ success: false, message: 'Mã xác minh không hợp lệ hoặc đã hết hạn' });
+        if (token.attempts >= PASSWORD_CHANGE_MAX_ATTEMPTS) {
+            token.usedAt = new Date();
+            await token.save();
+            return res.status(429).json({ success: false, message: 'Mã xác minh đã bị khóa do nhập sai quá nhiều lần' });
+        }
+        if (token.codeHash !== sha256(code)) {
+            token.attempts += 1;
+            await token.save();
+            return res.status(400).json({ success: false, message: 'Mã xác minh không hợp lệ hoặc đã hết hạn' });
+        }
+
+        token.verifiedAt = new Date();
+        await token.save();
+        return res.json({ success: true, message: 'Xác minh thành công' });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const confirmChangePassword = async (req, res) => {
+    try {
+        const code = String(req.body.code || '').trim();
+        const newPassword = String(req.body.newPassword || '');
+        if (!/^\d{6}$/.test(code) || newPassword.length < 8) {
+            return res.status(400).json({ success: false, message: 'Mã xác minh hoặc mật khẩu mới không hợp lệ' });
+        }
+
+        const user = await User.findById(req.user._id).select('+hashedPassword');
+        if (!user) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản' });
+
+        const token = await PasswordResetToken.findOne({
+            userId: user._id,
+            email: user.email,
+            usedAt: null,
+            expiresAt: { $gt: new Date() },
+        }).sort({ createdAt: -1 });
+        if (!token || token.codeHash !== sha256(code) || !token.verifiedAt) {
+            return res.status(400).json({ success: false, message: 'Phiên xác minh không hợp lệ hoặc đã hết hạn' });
+        }
+
+        user.hashedPassword = await bcrypt.hash(newPassword, 10);
+        token.usedAt = new Date();
+        await Promise.all([
+            user.save(),
+            token.save(),
+            Session.deleteMany({ userId: user._id, refreshToken: { $ne: req.cookies?.refreshToken || '' } })
+        ]);
+
+        return res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+    } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -791,4 +918,3 @@ export const createPlayerProfile = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
-

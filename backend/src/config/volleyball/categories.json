@@ -1,0 +1,10 @@
+{
+  "sportType": "Bóng chuyền",
+  "displayName": "Bóng chuyền",
+  "slug": "volleyball",
+  "categories": [
+    { "code": "VB6_M", "name": "Bóng chuyền nam", "playerSlotsPerTeam": { "min": 6, "max": 14 }, "gameRules": { "playersPerTeam": 6, "rotation": true }, "scoringRules": { "setsCalculation": { "numberOfSets": 5, "targetScore": 25, "winByGap": 2 } } },
+    { "code": "VB6_W", "name": "Bóng chuyền nữ", "playerSlotsPerTeam": { "min": 6, "max": 14 }, "gameRules": { "playersPerTeam": 6, "rotation": true }, "scoringRules": { "setsCalculation": { "numberOfSets": 5, "targetScore": 25, "winByGap": 2 } } },
+    { "code": "VB6_MIX", "name": "Bóng chuyền hỗn hợp", "playerSlotsPerTeam": { "min": 6, "max": 14 }, "gameRules": { "playersPerTeam": 6, "mixedGender": true }, "scoringRules": { "setsCalculation": { "numberOfSets": 5, "targetScore": 25, "winByGap": 2 } } }
+  ]
+}

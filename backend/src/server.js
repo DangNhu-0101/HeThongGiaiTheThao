@@ -25,6 +25,10 @@ import userRoutes from './routes/userRoute.js';
 import adminRoutes from './routes/adminRoute.js';
 import newsRoutes from './routes/newsRoute.js';
 import uploadRoutes from './routes/uploadRoute.js';
+import notificationRoutes from './routes/notificationRoute.js';
+import systemSettingsRoutes from './routes/systemSettingsRoute.js';
+import contactMessageRoutes from './routes/contactMessageRoute.js';
+import reportRoutes from './routes/reportRoute.js';
 
 dotenv.config();
 
@@ -50,6 +54,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', systemSettingsRoutes);
+app.use('/api/contact-messages', contactMessageRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/stages', stageRoutes);
 app.use('/api/rules', ruleRoutes);

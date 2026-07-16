@@ -20,6 +20,8 @@ export interface ParticipantPlayerRef {
   // BE Player không có avatar; giữ optional để FE fallback từ mock/User nếu có populate thêm.
   avatar?: string;
   username?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface ParticipantTournamentItemRef {
@@ -44,9 +46,16 @@ export interface ParticipantMemberFee {
   _id?: string;
   playerId: string | ParticipantPlayerRef;
   amount: number;
-  status: "unpaid" | "pending" | "paid" | "exempted";
+  amountPaid?: number;
+  status: "unpaid" | "pending" | "paid" | "rejected" | "exempted";
   receiptImage?: string;
   paidAt?: string | null;
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  method?: string;
+  transactionCode?: string;
+  note?: string;
+  rejectReason?: string;
 }
 
 export interface Participant {

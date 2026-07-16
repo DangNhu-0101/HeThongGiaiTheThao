@@ -10,7 +10,8 @@ import {
     completeStage,
     getTournamentCompetitionFormat,
     saveTournamentCompetitionFormat,
-    publishStageStandings
+    publishStageStandings,
+    previewStageSeeding
 } from '../controllers/stageController.js';
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.get('/:id', getStageById);
 
 // ========== PROTECTED ==========
 router.put('/format/:tournamentItemId', protectedRoute(), saveTournamentCompetitionFormat);
+router.post('/seed-preview/:tournamentItemId', protectedRoute('admin', 'org', 'organization', { profile: true }), previewStageSeeding);
 router.post('/', protectedRoute('admin', 'org', 'organization', { profile: true }), createStage);
 router.put('/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), updateStage);
 router.delete('/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), deleteStage);

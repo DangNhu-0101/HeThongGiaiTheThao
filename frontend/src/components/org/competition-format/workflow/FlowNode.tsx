@@ -142,7 +142,7 @@ const FlowNode = ({
               <div className="flex items-center justify-between gap-2">
                 {node.id.includes(":custom-") && <span className="shrink-0 font-bold text-primary">Custom</span>}
               </div>
-              <span className="truncate font-black text-primary">Winner: {node.matchCode || node.title}</span>
+              <span className="truncate font-black text-primary">Key thắng: {node.matchCode || node.title}</span>
             </div>
           </>
         ) : (
@@ -203,7 +203,7 @@ const FlowNode = ({
           <span
             role="button"
             tabIndex={0}
-            title="Keo điểm noi sang match khac"
+            title="Kéo điểm nối sang match khác"
             onPointerDown={(event) => onBeginConnectDrag(node, event)}
             className="absolute -right-2 top-[calc(50%-34px)] flex h-5 w-5 cursor-crosshair items-center justify-center rounded-full border border-blue-300 bg-blue-50 text-blue-600 shadow-sm hover:bg-blue-600 hover:text-white"
           >

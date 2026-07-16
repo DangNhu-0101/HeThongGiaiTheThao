@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import AuthLayout from "@/components/layout/authLayout";
@@ -52,7 +52,7 @@ export function ForgotPasswordPage() {
 
   const requestCode = () => run(async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("Email khong hop le");
+      setError("Email không hợp lệ");
       return;
     }
     const result = await authService.requestPasswordReset(email.trim());
@@ -86,7 +86,7 @@ export function ForgotPasswordPage() {
       <div className="mx-auto w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-xl sm:p-8">
         <div className="mb-6">
           <p className="text-xs font-bold uppercase text-primary">Khoi phuc tài khoản</p>
-          <h1 className="mt-1 text-2xl font-black">Quen mật khẩu</h1>
+          <h1 className="mt-1 text-2xl font-bold">Quên mật khẩu</h1>
         </div>
 
         {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
@@ -107,8 +107,8 @@ export function ForgotPasswordPage() {
 
         {step === "code" && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Ma xac minh da duoc gui den {maskEmail(email)}.</p>
-            <label className="block text-xs font-bold uppercase text-muted-foreground">Ma xac minh</label>
+            <p className="text-sm text-muted-foreground">Mã xác minh đã được gửi đến {maskEmail(email)}.</p>
+            <label className="block text-xs font-bold uppercase text-muted-foreground">Mã xác minh</label>
             <div className="relative">
               <ShieldCheck className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-12 pl-10 tracking-[0.4em]" inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} />

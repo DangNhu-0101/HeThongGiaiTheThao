@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -38,6 +38,8 @@ interface Props {
   mode?: "create" | "edit";
   record?: TournamentRecord;
   onSuccess?: () => void;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
@@ -145,7 +147,7 @@ const dateTimeLocalValue = (offsetDays = 0) => {
   return date.toISOString().slice(0, 16);
 };
 
-const CreateTournamentModal = ({ mode = "create", record, onSuccess, children }: Props) => {
+const CreateTournamentModal = ({ mode = "create", record, onSuccess, defaultOpen = false, onOpenChange, children }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedKind, setSelectedKind] = useState<TournamentKind | null>(record?.kind ?? null);
   const [formData, setFormData] = useState<BasicInfoState>(emptyBasicInfo);
@@ -169,15 +171,40 @@ const CreateTournamentModal = ({ mode = "create", record, onSuccess, children }:
       tournamentEnd: dateTimeLocalValue(16),
     };
     if (record) {
+      const editTimeline = {
+        registrationStart: record.rawTimeline?.registrationStart || defaultTimeline.registrationStart,
+        registrationEnd: record.rawTimeline?.registrationEnd || defaultTimeline.registrationEnd,
+        tournamentStart: record.rawTimeline?.tournamentStart || defaultTimeline.tournamentStart,
+        tournamentEnd: record.rawTimeline?.tournamentEnd || defaultTimeline.tournamentEnd,
+      };
       setSelectedKind(record.kind);
       setFormData({
         ...emptyBasicInfo,
         name: record.name,
-        description: record.format,
+        description: record.description || "",
+        prizes: record.prizes || "",
+        location: record.rawLocation?.detail || record.venue || "",
         organizer: organizerName,
       });
-      setTimeLine(defaultTimeline);
-      setRuleRefs([createEmptyTournamentRule()]);
+      setTimeLine(editTimeline);
+      setOperations(record.operations || emptyOperations);
+      setRuleRefs([{
+        ...createEmptyTournamentRule(record.sport),
+        sport: record.sport,
+        categoryRuleId: record.categoryRuleId || "",
+        categoryName: record.format,
+        itemName: record.name,
+        itemDescription: record.description || "",
+        feePerAthlete: record.feeEntry || 0,
+        maxTeams: record.registration.max || record.teamsCount || 0,
+        registrationStart: editTimeline.registrationStart,
+        registrationEnd: editTimeline.registrationEnd,
+        tournamentStart: editTimeline.tournamentStart,
+        tournamentEnd: editTimeline.tournamentEnd,
+        location: record.rawLocation?.detail || record.venue || "",
+        prizes: record.prizes || "",
+        operations: record.operations || emptyOperations,
+      }]);
       return;
     }
     setSelectedKind(null);
@@ -191,7 +218,15 @@ const CreateTournamentModal = ({ mode = "create", record, onSuccess, children }:
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) initializeForm();
     setIsOpen(nextOpen);
+    onOpenChange?.(nextOpen);
   };
+
+  useEffect(() => {
+    if (defaultOpen) {
+      queueMicrotask(() => handleOpenChange(true));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultOpen]);
 
   const title = useMemo(() => {
     if (isEditing) return `Sửa ${record?.kind === "multi" ? "hội thao" : "giải đấu"}`;

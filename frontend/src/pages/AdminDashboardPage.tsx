@@ -59,7 +59,6 @@ const AdminDashboardPage = () => {
         <div>
           <p className="text-[10px] font-bold uppercase text-white/60">Admin</p>
           <h1 className="text-2xl font-extrabold uppercase">Tổng quan hệ thống</h1>
-          <p className="mt-1 text-sm font-semibold text-white/70">Dữ liệu tổng hợp từ database, không dùng mock.</p>
         </div>
         <Button variant="secondary" onClick={() => void fetchData()} disabled={loading}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Tải lại

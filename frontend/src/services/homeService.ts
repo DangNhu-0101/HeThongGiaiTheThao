@@ -2,9 +2,17 @@ import api from "@/libs/axios";
 import type { HomeDataResponse } from "@/types/api";
 import type { Match, Sport, Tournament } from "@/types/tournament";
 import { readMatchSourceLabels } from "@/utils/matchSourceLabels";
-import { buildSportsFromTournaments, getBackendTournaments } from "./backendAdapters";
+import { buildSportsFromTournaments, getBackendTournaments, slugifySport } from "./backendAdapters";
+import { getSportAssetKey, getSportImage } from "@/utils/sportAssets";
 
 type ApiList<T = unknown> = T[] | { data?: T[]; success?: boolean; message?: string };
+type PublicStats = HomeDataResponse["stats"];
+
+type ApiEnvelope<T> = {
+  success?: boolean;
+  data?: T;
+  message?: string;
+};
 
 const asArray = <T>(payload: ApiList<T>): T[] => {
   if (Array.isArray(payload)) return payload;
@@ -53,20 +61,27 @@ const mapSportTemplates = (payload: unknown, tournaments: Tournament[]): Sport[]
   tournaments.forEach((tournament) => {
     tournament.sportType.forEach((name) => {
       const cleanName = cleanSportName(name);
-      if (cleanName) tournamentCounts.set(cleanName, (tournamentCounts.get(cleanName) || 0) + 1);
+      const key = getSportAssetKey(cleanName);
+      if (cleanName && key) tournamentCounts.set(key, (tournamentCounts.get(key) || 0) + 1);
     });
   });
 
+  const seen = new Set<string>();
   const sports = asArray(payload as ApiList).map((value, index) => {
     const raw = asRecord(value);
     const name = cleanSportName(raw.sportType || raw.name || raw.displayName);
     if (!name) return null;
+    const slug = slugifySport(raw.slug || raw.sportType || raw.name || raw.displayName || name);
+    const key = getSportAssetKey(name || slug);
+    if (seen.has(key)) return null;
+    seen.add(key);
     return {
       _id: String(raw._id || raw.id || `sport-${index + 1}`),
       name,
+      slug,
       iconUrl: String(raw.iconUrl || raw.icon || ""),
-      imageUrl: String(raw.imageUrl || raw.image || raw.banner || ""),
-      eventCount: tournamentCounts.get(name) || 0,
+      imageUrl: String(raw.imageUrl || raw.image || raw.banner || "") || getSportImage(raw.slug, raw.sportType, raw.name, name),
+      eventCount: tournamentCounts.get(key) || 0,
     } satisfies Sport;
   }).filter(Boolean) as Sport[];
 
@@ -131,27 +146,28 @@ const getUpcomingMatches = async (tournaments: Tournament[]) => {
   return matches.filter((match) => match.startTime === nearestTime).slice(0, 6);
 };
 
+const getPublicStats = async (): Promise<PublicStats> => {
+  const response = await api.get<ApiEnvelope<PublicStats>>("/tournaments/public-stats");
+  if (!response.data?.data) throw new Error(response.data?.message || "Khong the tai thong ke he thong");
+  return response.data.data;
+};
+
 export const homeService = {
   async getHomeData(): Promise<HomeDataResponse> {
     const tournaments = sortTournamentsForHome(await getBackendTournaments({ limit: 100, includeCompleted: true }));
-    const [sportsResponse, upcomingMatches] = await Promise.all([
-      api.get<ApiList>("/rules/templates").then((response) => mapSportTemplates(response.data, tournaments)),
+    const [sportsResponse, upcomingMatches, publicStats] = await Promise.all([
+      api.get<ApiList>("/rules/sports").then((response) => mapSportTemplates(response.data, tournaments)),
       getUpcomingMatches(tournaments),
+      getPublicStats(),
     ]);
 
     const sports = sportsResponse.length > 0 ? sportsResponse : buildSportsFromTournaments(tournaments);
-    const totalTeams = tournaments.reduce((sum, item) => sum + Number(item.registeredTeams || 0), 0);
 
     return {
       tournaments: tournaments.slice(0, 6),
       matches: upcomingMatches,
       sports,
-      stats: {
-        ongoingTournaments: tournaments.filter((item) => item.status === "ongoing").length,
-        totalTeams,
-        totalSports: sports.length,
-        totalAthletesOrRegistrations: totalTeams,
-      },
+      stats: publicStats,
     };
   },
 };

@@ -329,7 +329,7 @@ const propagateWinnerToDependentMatches = async (sourceMatch, winnerId, session)
             const error = new Error('Dependency slot already has a different participant');
             error.status = 409;
             error.title = 'Xung dot slot knockout';
-            error.clientMessage = `Slot ${slotIndex + 1} cua trận ${target.name} da co doi khac, khong the tu dong gán đội thạng ${sourceCode}.`;
+            error.clientMessage = `Slot ${slotIndex + 1} của trận ${target.name} đã có đội khác, không thể tự động gán đội thắng ${sourceCode}.`;
             throw error;
         }
 
@@ -418,7 +418,7 @@ const resolveMatchDependencyParticipants = async (match, session) => {
             const error = new Error('Dependency slot already has a different participant');
             error.status = 409;
             error.title = 'Xung dot slot knockout';
-            error.clientMessage = `Slot ${slotIndex + 1} cua trận ${match.name} da co doi khac, khong the gán đội thạng ${sourceKey}.`;
+            error.clientMessage = `Slot ${slotIndex + 1} của trận ${match.name} đã có đội khác, không thể gán đội thắng ${sourceKey}.`;
             throw error;
         }
         if (!currentId) {
@@ -1030,7 +1030,7 @@ const assertNoScheduleConflicts = async (match, session) => {
                 ok: false,
                 status: 409,
                 title: 'Trùng lịch trọng tài',
-                message: `${duplicatedReferee.name || 'Trọng tài'} da duoc phan cong o trận ${other.name} trong cung khung gio. Vui lòng chon trọng tài khac.`,
+                message: `${duplicatedReferee.name || 'Trọng tài'} đã được phân công ở trận ${other.name} trong cùng khung giờ. Vui lòng chọn trọng tài khác.`,
             };
         }
     }
@@ -1081,7 +1081,7 @@ const assertMatchReadyForScheduling = async (match, session, schedulingNow = fal
         return {
             ok: false,
             status: 409,
-            title: 'Thời gian trận đấu khong hop le',
+            title: 'Thời gian trận đấu không hợp lệ',
             message: `Thời gian trận đấu phải sau các trận ở stage trước. Trận nguồn chưa kết thúc trước thời gian bắt đầu trận này (${latestAllowedStart.toISOString()}).`,
         };
     }
@@ -1531,11 +1531,11 @@ export const updateMatch = async (req, res) => {
             }
             if (match.status === 'completed' && status !== 'completed') {
                 await session.abortTransaction();
-                return res.status(409).json({ success: false, title: 'Trận đã hoan thanh', message: 'Không thể rollback trạng thái trận da hoan thanh tai man hinh nay.' });
+                return res.status(409).json({ success: false, title: 'Trận đã hoàn thành', message: 'Không thể rollback trạng thái trận đã hoàn thành tại màn hình này.' });
             }
             if (status === 'completed' && !winnerParticipantId) {
                 await session.abortTransaction();
-                return res.status(400).json({ success: false, title: 'Can xac nhan kết quả', message: 'Muốn hoan thanh trận đấu, hay dung chuc nang Ket thuc & dong bo BXH de kiểm tra điểm theo thể thức.' });
+                return res.status(400).json({ success: false, title: 'Cần xác nhận kết quả', message: 'Muốn hoàn thành trận đấu, hãy dùng chức năng Kết thúc & đồng bộ BXH để kiểm tra điểm theo thể thức.' });
             }
             match.status = status;
         }
@@ -1569,11 +1569,11 @@ export const updateMatch = async (req, res) => {
         if (winnerParticipantId) {
             if (match.status === 'completed') {
                 await session.abortTransaction();
-                return res.status(409).json({ success: false, title: 'Trận đã hoan thanh', message: 'Trận đã hoan thanh nen khong the nhap lai kết quả.' });
+                return res.status(409).json({ success: false, title: 'Trận đã hoàn thành', message: 'Trận đã hoàn thành nên không thể nhập lại kết quả.' });
             }
             if (match.status !== 'live') {
                 await session.abortTransaction();
-                return res.status(409).json({ success: false, title: 'Chưa thể ket thuc tran', message: 'Chi co trận dang dien ra moi duoc phep xac nhan kết quả.' });
+                return res.status(409).json({ success: false, title: 'Chưa thể kết thúc trận', message: 'Chỉ có trận đang diễn ra mới được phép xác nhận kết quả.' });
             }
             const participant = await Participant.findById(winnerParticipantId).session(session);
             if (!participant) {
@@ -1721,16 +1721,16 @@ export const updateLiveMatchScore = async (req, res) => {
             await session.abortTransaction();
             return res.status(409).json({
                 success: false,
-                title: 'Trận đã hoan thanh',
-                message: 'Trận đã hoan thanh nen khong the cập nhật điểm tai man hinh nhap kết quả.',
+                title: 'Trận đã hoàn thành',
+                message: 'Trận đã hoàn thành nên không thể cập nhật điểm tại màn hình nhập kết quả.',
             });
         }
         if (match.status !== 'live') {
             await session.abortTransaction();
             return res.status(409).json({
                 success: false,
-                title: 'Chưa thể nhap điểm',
-                message: 'Chi co trận dang dien ra moi duoc phep nhap hoac cập nhật điểm.',
+                title: 'Chưa thể nhập điểm',
+                message: 'Chỉ có trận đang diễn ra mới được phép nhập hoặc cập nhật điểm.',
             });
         }
 
@@ -1784,16 +1784,16 @@ export const completeMatch = async (req, res) => {
             await session.abortTransaction();
             return res.status(409).json({
                 success: false,
-                title: 'Trận đã hoan thanh',
-                message: 'Trận đã hoan thanh nen khong the nhap lai kết quả.',
+                title: 'Trận đã hoàn thành',
+                message: 'Trận đã hoàn thành nên không thể nhập lại kết quả.',
             });
         }
         if (match.status !== 'live') {
             await session.abortTransaction();
             return res.status(409).json({
                 success: false,
-                title: 'Chưa thể ket thuc tran',
-                message: 'Chi co trận dang dien ra moi duoc phep xac nhan kết quả.',
+                title: 'Chưa thể kết thúc trận',
+                message: 'Chỉ có trận đang diễn ra mới được phép xác nhận kết quả.',
             });
         }
 
@@ -2057,7 +2057,16 @@ const collectFormatMatchPlans = (config) => {
     return plans;
 };
 
-const sourceLabelForMatchPlan = (plan) => String(plan?.matchCode || plan?.sourceLabel || plan?.label || 'Winner');
+const loserKeyForMatchCode = (matchCode) => {
+    const number = String(matchCode || '').trim().match(/^M(\d+)$/i)?.[1];
+    return number ? `L${number}` : '';
+};
+
+const sourceLabelForMatchPlan = (plan, output = 'WINNER') => {
+    const matchCode = String(plan?.matchCode || plan?.sourceLabel || plan?.label || '').trim();
+    if (String(output || '').toUpperCase() === 'LOSER') return loserKeyForMatchCode(matchCode) || matchCode;
+    return matchCode;
+};
 
 const normalizeSlotLabel = (slot, fallbackIndex) => {
     const label = String(slot?.sourceLabel || slot?.label || '').trim();
@@ -2080,7 +2089,7 @@ const participantIdsForPlan = (plan) => {
     return ids;
 };
 
-const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, session, options = {}) => {
+export const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, session, options = {}) => {
     const perm = await checkTournamentItemPermission(tournamentItemId, userId);
     if (!perm.allowed) return { ok: false, status: 403, message: perm.message };
     const item = await TournamentItem.findById(tournamentItemId).session(session);
@@ -2106,6 +2115,9 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
     }
 
     const stageRuleByFormatId = new Map();
+    const structureStageIds = [];
+    const structureBracketIds = [];
+    const structureGroupIds = [];
     for (const [stageIndex, stageConfig] of config.stages.entries()) {
         const number = Number(stageConfig.order || stageIndex + 1);
         const stageRule = await StageRule.findOneAndUpdate(
@@ -2121,6 +2133,7 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
             { new: true, upsert: true, session },
         );
         stageRuleByFormatId.set(stageConfig.id, stageRule);
+        structureStageIds.push(stageRule._id);
 
         for (const branch of Array.isArray(stageConfig.brackets) ? stageConfig.brackets : []) {
             if (branch.type !== 'group') continue;
@@ -2132,6 +2145,7 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
                 totalTeamsIn: Number(branch.totalTeamsIn || stageConfig.input?.teams || 2),
                 group: [],
             }], { session }).then(items => items[0]);
+            structureBracketIds.push(bracket._id);
             const assignments = assignmentMapForStage(stageConfig);
             const groups = Array.isArray(branch.groups) && branch.groups.length ? branch.groups : [{ name: branch.name || 'Bảng A', numberOfTeams: branch.totalTeamsIn || 2 }];
             for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
@@ -2145,6 +2159,7 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
                     status: 'pending',
                     matches: [],
                 }], { session }).then(items => items[0]);
+                structureGroupIds.push(group._id);
                 bracket.group.push(group._id);
                 const teamIds = Array.from({ length: Math.max(1, Number(groupConfig.numberOfTeams) || 1) }, (_, slotIndex) => {
                     const slotId = `${stageConfig.id}:${branch.id}:group-${groupIndex + 1}:slot-${slotIndex + 1}`;
@@ -2193,6 +2208,7 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
             totalTeamsIn: Number(plan.branch.totalTeamsIn || 2),
             group: [],
         }], { session }).then(items => items[0]);
+        structureBracketIds.push(bracket._id);
         const participantIds = participantIdsForPlan(plan);
         const match = await Match.create([{
             tournamentItemId,
@@ -2213,6 +2229,8 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
     }
 
     const incomingSlotIndexByTarget = new Map();
+    const claimedTargetSlots = new Set();
+    const claimedSourceOutputs = new Set();
     for (const stageConfig of config.stages) {
         for (const branch of Array.isArray(stageConfig.brackets) ? stageConfig.brackets : []) {
             for (const connection of Array.isArray(branch.flowConnections) ? branch.flowConnections : []) {
@@ -2220,19 +2238,42 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
                 const target = createdByNodeId.get(connection.target);
                 if (!source || !target) continue;
                 const targetKey = String(connection.target);
-                const slotIndex = incomingSlotIndexByTarget.get(targetKey) || 0;
-                incomingSlotIndexByTarget.set(targetKey, slotIndex + 1);
+                const targetPlan = planByNodeId.get(connection.target);
+                const targetSlotKey = String(connection.targetSlotId || connection.targetSlot || '');
+                const explicitSlot = Number(connection.targetSlot);
+                const explicitSlotById = Number.isFinite(explicitSlot)
+                    ? explicitSlot
+                    : (targetPlan?.slots || []).findIndex((slot) => String(slot.id || '') === targetSlotKey) + 1;
+                const fallbackSlotIndex = incomingSlotIndexByTarget.get(targetKey) || 0;
+                const slotIndex = explicitSlotById === 1 || explicitSlotById === 2 ? explicitSlotById - 1 : fallbackSlotIndex;
+                if (slotIndex < 0 || slotIndex > 1) {
+                    throw new Error(`Match flow khong hop le: tran ${target.name} chi duoc co 2 slot dau vao.`);
+                }
+                const claimedTargetSlotKey = `${targetKey}:${slotIndex}`;
+                if (claimedTargetSlots.has(claimedTargetSlotKey)) {
+                    throw new Error(`Match flow khong hop le: slot ${slotIndex + 1} cua tran ${target.name} nhan nhieu hon mot nguon.`);
+                }
+                claimedTargetSlots.add(claimedTargetSlotKey);
+                incomingSlotIndexByTarget.set(targetKey, Math.max(fallbackSlotIndex, slotIndex + 1));
+
+                const output = String(connection.output || 'WINNER').toUpperCase() === 'LOSER' ? 'LOSER' : 'WINNER';
+                const sourceOutputKey = `${connection.source}:${output}`;
+                if (claimedSourceOutputs.has(sourceOutputKey)) {
+                    throw new Error(`Match flow khong hop le: ket qua ${output} cua tran ${source.name} duoc noi den nhieu tran.`);
+                }
+                claimedSourceOutputs.add(sourceOutputKey);
+
                 const sourcePlan = planByNodeId.get(connection.source);
-                const sourceLabel = String(connection.label || sourceLabelForMatchPlan(sourcePlan) || source.name || '').trim();
+                const sourceLabel = String(connection.label || sourceLabelForMatchPlan(sourcePlan, output) || source.name || '').trim();
                 const labels = Array.isArray(target.formatSlotLabels) ? [...target.formatSlotLabels] : [];
                 labels[slotIndex] = sourceLabel;
                 target.formatSlotLabels = [labels[0] || 'Seed 1', labels[1] || 'Seed 2'];
-                target.previousMatches.push({ matchId: source._id, position: 'WINNER' });
+                target.previousMatches.push({ matchId: source._id, position: output });
                 const slotSources = Array.isArray(target.slotSources) ? [...target.slotSources] : [];
                 const existingSourceIndex = slotSources.findIndex((slot) => Number(slot?.slotIndex) === slotIndex);
                 const slotSource = {
                     slotIndex,
-                    sourceType: 'winnerOfMatch',
+                    sourceType: output === 'LOSER' ? 'loserOfMatch' : 'winnerOfMatch',
                     sourceMatchId: source._id,
                     sourceMatchCode: source.name,
                     sourceStageId: source.stageId?._id || source.stageId || null,
@@ -2246,13 +2287,35 @@ const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, sessio
                 }
                 target.slotSources = slotSources;
                 await target.save({ session });
-                source.nextMatchId = target._id;
+                if (output === 'LOSER') {
+                    source.nextLoserMatchId = target._id;
+                } else {
+                    source.nextMatchId = target._id;
+                }
                 await source.save({ session });
             }
         }
     }
 
-    return { ok: true };
+    await TournamentItem.findByIdAndUpdate(
+        tournamentItemId,
+        {
+            $set: {
+                'structure.stage': structureStageIds,
+                'structure.bracket': structureBracketIds,
+                'structure.group': structureGroupIds,
+            },
+        },
+        { session },
+    );
+
+    return {
+        ok: true,
+        stages: structureStageIds.length,
+        brackets: structureBracketIds.length,
+        groups: structureGroupIds.length,
+        matches: createdByNodeId.size,
+    };
 };
 
 export const syncMatchesFromFormat = async (req, res) => {

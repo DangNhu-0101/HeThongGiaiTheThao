@@ -25,16 +25,18 @@ const SponsorDialog = ({ isOpen, onClose, onSave, editingSponsor, packages }: Pr
   );
 
   useEffect(() => {
-    if (editingSponsor) {
-      setFormData({
-        name: editingSponsor.name,
-        logoUrl: editingSponsor.logoUrl,
-        tier: editingSponsor.tier,
-        status: editingSponsor.status,
-      });
-    } else {
-      setFormData({ name: "", logoUrl: "", tier: packages[0]?.name || "", status: "Active" });
-    }
+    queueMicrotask(() => {
+      if (editingSponsor) {
+        setFormData({
+          name: editingSponsor.name,
+          logoUrl: editingSponsor.logoUrl,
+          tier: editingSponsor.tier,
+          status: editingSponsor.status,
+        });
+      } else {
+        setFormData({ name: "", logoUrl: "", tier: packages[0]?.name || "", status: "Active" });
+      }
+    });
   }, [editingSponsor, isOpen, packages]);
 
   if (!isOpen) return null;

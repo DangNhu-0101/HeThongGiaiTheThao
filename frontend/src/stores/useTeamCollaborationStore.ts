@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/libs/axios";
 import { teamCollaborationService } from "@/services/teamCollaborationService";
 import type {
   MemberFee,
@@ -33,9 +34,18 @@ interface State {
   cancelInvitation: (id: string) => Promise<void>;
   requestJoin: (teamId: string, tournamentId: string, player: PlayerProfileSummary) => Promise<void>;
   cancelJoinRequest: (id: string) => Promise<void>;
-  reviewJoinRequest: (id: string, decision: "accept" | "reject") => Promise<void>;
+  reviewJoinRequest: (id: string, decision: "accept" | "reject", reason?: string) => Promise<void>;
+  reviewFee: (teamId: string, playerId: string, decision: "approve" | "reject", reason?: string) => Promise<void>;
+  cancelFee: (teamId: string, playerId: string) => Promise<void>;
   markRead: (id: string) => void;
-  submitFee: (teamId: string, playerId: string, receipt: string) => Promise<void>;
+  submitFee: (teamId: string, playerId: string, payload: {
+    receiptImage: string;
+    amountPaid?: number;
+    transferDate?: string;
+    method?: string;
+    transactionCode?: string;
+    note?: string;
+  }) => Promise<void>;
 }
 
 export const useTeamCollaborationStore = create<State>((set, get) => ({
@@ -52,11 +62,9 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
   searchPlayers: async (tournamentId, keyword) => {
     set({ loading: true });
     try {
-      const players = await teamCollaborationService.searchPlayers(tournamentId, keyword);
-      set({ players });
+      set({ players: await teamCollaborationService.searchPlayers(tournamentId, keyword) });
     } catch (error) {
       console.error("Không thể tìm vận động viên:", error);
-
       set({ players: [] });
     } finally {
       set({ loading: false });
@@ -65,8 +73,7 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
 
   fetchInvitations: async (teamId) => {
     try {
-      const invitations = await teamCollaborationService.getInvitations(teamId);
-      set({ invitations });
+      set({ invitations: await teamCollaborationService.getInvitations(teamId) });
     } catch (error) {
       console.error("Không thể tải lời mời:", error);
       set({ invitations: [] });
@@ -75,8 +82,7 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
 
   fetchMyInvitations: async () => {
     try {
-      const invitations = await teamCollaborationService.getMyInvitations();
-      set({ invitations });
+      set({ invitations: await teamCollaborationService.getMyInvitations() });
     } catch (error) {
       console.error("Không thể tải lời mời nhận được:", error);
       set({ invitations: [] });
@@ -85,8 +91,7 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
 
   fetchSentInvitations: async () => {
     try {
-      const sentInvitations = await teamCollaborationService.getSentInvitations();
-      set({ sentInvitations });
+      set({ sentInvitations: await teamCollaborationService.getSentInvitations() });
     } catch (error) {
       console.error("Không thể tải lời mời đã gửi:", error);
       set({ sentInvitations: [] });
@@ -116,10 +121,10 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
           type: "request_result" as const,
           title: item.status === "accepted" ? "Yêu cầu gia nhập đã được chấp nhận" : item.status === "rejected" ? "Yêu cầu gia nhập đã bị từ chối" : "Yêu cầu gia nhập đã gửi",
           message: item.status === "pending"
-            ? `Bạn đã đăng ký gia nhập ${item.player.teamName || "đội"} thành công, đang chờ đội trưởng duyệt.`
+            ? `Bạn đã gửi yêu cầu gia nhập ${item.player.teamName || "đội"} và đang chờ đội trưởng duyệt.`
             : `Trạng thái yêu cầu của bạn: ${item.status}.`,
           href: item.teamId ? `/teams/${item.teamId}` : undefined,
-          read: item.status === "pending",
+          read: item.status !== "pending",
           createdAt: item.createdAt,
         })),
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -131,8 +136,7 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
 
   fetchJoinRequests: async (teamId) => {
     try {
-      const joinRequests = await teamCollaborationService.getJoinRequests(teamId);
-      set({ joinRequests });
+      set({ joinRequests: await teamCollaborationService.getJoinRequests(teamId) });
     } catch (error) {
       console.error("Không thể tải yêu cầu gia nhập:", error);
       set({ joinRequests: [] });
@@ -141,8 +145,7 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
 
   fetchMyJoinRequests: async () => {
     try {
-      const sentJoinRequests = await teamCollaborationService.getMyJoinRequests();
-      set({ sentJoinRequests });
+      set({ sentJoinRequests: await teamCollaborationService.getMyJoinRequests() });
     } catch (error) {
       console.error("Không thể tải yêu cầu đã gửi:", error);
       set({ sentJoinRequests: [] });
@@ -151,8 +154,7 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
 
   fetchFees: async (teamId) => {
     try {
-      const fees = await teamCollaborationService.getMemberFees(teamId);
-      set({ fees });
+      set({ fees: await teamCollaborationService.getMemberFees(teamId) });
     } catch (error) {
       console.error("Không thể tải lệ phí đội:", error);
       set({ fees: [] });
@@ -162,23 +164,10 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
   invitePlayer: async (teamId, tournamentId, player) => {
     try {
       const invitation = await teamCollaborationService.invite(teamId, player.userId, "Mời bạn tham gia đội");
-      set((state) => ({
-        sentInvitations: [invitation, ...state.sentInvitations],
-        invitations: [invitation, ...state.invitations],
-        notifications: [{
-          id: `sent-invitation-${invitation.id}`,
-          type: "team_invitation",
-          title: `Đã mời ${player.name}`,
-          message: `${player.name} đã nhận được lời mời tham gia đội.`,
-          href: `/teams/${teamId}`,
-          read: false,
-          createdAt: new Date().toISOString(),
-        }, ...state.notifications],
-      }));
+      set((state) => ({ sentInvitations: [invitation, ...state.sentInvitations], invitations: [invitation, ...state.invitations] }));
       toast.success(`Đã mời ${player.name}`);
     } catch (error) {
-      console.error("Không thể gửi lời mời:", error);
-      toast.error("Không thể gửi lời mời.");
+      toast.error(getApiErrorMessage(error, "Không thể gửi lời mời."));
     }
     void tournamentId;
   },
@@ -186,63 +175,40 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
   acceptInvitation: async (id) => {
     try {
       await teamCollaborationService.acceptInvitation(id);
-      set((state) => ({
-        invitations: state.invitations.map((item) => item.id === id ? { ...item, status: "accepted" } : item),
-        notifications: state.notifications.map((item) => item.actionId === id ? { ...item, read: true, title: "Bạn đã chấp nhận lời mời" } : item),
-      }));
+      set((state) => ({ invitations: state.invitations.map((item) => item.id === id ? { ...item, status: "accepted" } : item) }));
       toast.success("Đã chấp nhận lời mời tham gia đội");
     } catch (error) {
-      console.error("Không thể chấp nhận lời mời:", error);
-      toast.error("Không thể chấp nhận lời mời.");
+      toast.error(getApiErrorMessage(error, "Không thể chấp nhận lời mời."));
     }
   },
 
   rejectInvitation: async (id) => {
     try {
       await teamCollaborationService.rejectInvitation(id);
-      set((state) => ({
-        invitations: state.invitations.map((item) => item.id === id ? { ...item, status: "rejected" } : item),
-        notifications: state.notifications.map((item) => item.actionId === id ? { ...item, read: true, title: "Bạn đã từ chối lời mời" } : item),
-      }));
+      set((state) => ({ invitations: state.invitations.map((item) => item.id === id ? { ...item, status: "rejected" } : item) }));
       toast.success("Đã từ chối lời mời");
     } catch (error) {
-      console.error("Không thể từ chối lời mời:", error);
-      toast.error("Không thể từ chối lời mời.");
+      toast.error(getApiErrorMessage(error, "Không thể từ chối lời mời."));
     }
   },
 
   cancelInvitation: async (id) => {
     try {
       await teamCollaborationService.cancelInvitation(id);
-      set((state) => ({
-        sentInvitations: state.sentInvitations.map((item) => item.id === id ? { ...item, status: "cancelled" } : item),
-      }));
+      set((state) => ({ sentInvitations: state.sentInvitations.map((item) => item.id === id ? { ...item, status: "cancelled" } : item) }));
       toast.success("Đã thu hồi lời mời");
     } catch (error) {
-      console.error("Không thể thu hồi lời mời:", error);
-      toast.error("Không thể thu hồi lời mời.");
+      toast.error(getApiErrorMessage(error, "Không thể thu hồi lời mời."));
     }
   },
 
   requestJoin: async (teamId, tournamentId, player) => {
     try {
       const request = await teamCollaborationService.requestToJoin(teamId, "Tôi muốn gia nhập đội");
-      set((state) => ({
-        sentJoinRequests: [request, ...state.sentJoinRequests],
-        notifications: [{
-          id: `sent-join-request-${request.id}`,
-          type: "join_request",
-          title: "Bạn đăng ký gia nhập thành công",
-          message: "Yêu cầu của bạn đã được gửi đến đội trưởng và đang chờ duyệt.",
-          href: `/teams/${teamId}`,
-          read: false,
-          createdAt: new Date().toISOString(),
-        }, ...state.notifications],
-      }));
+      set((state) => ({ sentJoinRequests: [request, ...state.sentJoinRequests] }));
       toast.success("Đã gửi yêu cầu gia nhập đội");
     } catch (error) {
-      console.error("Không thể gửi yêu cầu gia nhập:", error);
-      toast.error("Không thể gửi yêu cầu gia nhập đội.");
+      toast.error(getApiErrorMessage(error, "Không thể gửi yêu cầu gia nhập đội."));
     }
     void tournamentId;
     void player;
@@ -251,38 +217,24 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
   cancelJoinRequest: async (id) => {
     try {
       await teamCollaborationService.cancelJoinRequest(id);
-      set((state) => ({
-        sentJoinRequests: state.sentJoinRequests.map((item) => item.id === id ? { ...item, status: "cancelled" } : item),
-      }));
+      set((state) => ({ sentJoinRequests: state.sentJoinRequests.map((item) => item.id === id ? { ...item, status: "cancelled" } : item) }));
       toast.success("Đã rút yêu cầu gia nhập");
     } catch (error) {
-      console.error("Không thể rút yêu cầu gia nhập:", error);
-      toast.error("Không thể rút yêu cầu gia nhập.");
+      toast.error(getApiErrorMessage(error, "Không thể rút yêu cầu gia nhập."));
     }
   },
 
-  reviewJoinRequest: async (id, decision) => {
+  reviewJoinRequest: async (id, decision, reason) => {
     if (get().reviewingRequestIds[id]) return;
     set((state) => ({ reviewingRequestIds: { ...state.reviewingRequestIds, [id]: true } }));
     try {
-      await teamCollaborationService.reviewJoinRequest(id, decision);
-      const request = get().joinRequests.find((item) => item.id === id);
+      await teamCollaborationService.reviewJoinRequest(id, decision, reason);
       set((state) => ({
         joinRequests: state.joinRequests.map((item) => item.id === id ? { ...item, status: decision === "accept" ? "accepted" : "rejected" } : item),
-        notifications: [{
-          id: `review-join-request-${id}`,
-          type: "request_result",
-          title: decision === "accept" ? "Đã chấp nhận yêu cầu gia nhập" : "Đã từ chối yêu cầu gia nhập",
-          message: decision === "accept" ? `${request?.player.name || "Thành viên"} đã được thêm vào đội.` : "Yêu cầu gia nhập đã được cập nhật.",
-          href: request?.teamId ? `/teams/${request.teamId}` : undefined,
-          read: false,
-          createdAt: new Date().toISOString(),
-        }, ...state.notifications],
       }));
-      toast.success(decision === "accept" ? `Đã chấp nhận ${request?.player.name || "thành viên"}` : "Đã từ chối yêu cầu");
+      toast.success(decision === "accept" ? "Đã chấp nhận yêu cầu gia nhập" : "Đã từ chối yêu cầu gia nhập");
     } catch (error) {
-      console.error("Không thể duyệt yêu cầu gia nhập:", error);
-      toast.error("Không thể duyệt yêu cầu gia nhập đội.");
+      toast.error(getApiErrorMessage(error, "Không thể duyệt yêu cầu gia nhập đội."));
     } finally {
       set((state) => {
         const reviewingRequestIds = { ...state.reviewingRequestIds };
@@ -292,20 +244,38 @@ export const useTeamCollaborationStore = create<State>((set, get) => ({
     }
   },
 
+  reviewFee: async (teamId, playerId, decision, reason) => {
+    try {
+      const fee = await teamCollaborationService.reviewFee(teamId, playerId, decision, reason);
+      set((state) => ({ fees: state.fees.map((item) => item.playerId === fee.playerId ? fee : item) }));
+      toast.success(decision === "approve" ? "Đã xác nhận lệ phí" : "Đã từ chối xác nhận lệ phí");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể cập nhật lệ phí."));
+    }
+  },
+
+  cancelFee: async (teamId, playerId) => {
+    try {
+      const fee = await teamCollaborationService.cancelFee(teamId, playerId);
+      set((state) => ({ fees: state.fees.map((item) => item.playerId === fee.playerId ? fee : item) }));
+      toast.success("Đã hủy bằng chứng lệ phí.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể hủy bằng chứng lệ phí."));
+    }
+  },
+
   markRead: (id) => set((state) => ({
     notifications: state.notifications.map((item) => item.id === id ? { ...item, read: true } : item),
   })),
 
-  submitFee: async (teamId, playerId, receipt) => {
+  submitFee: async (teamId, playerId, payload) => {
     try {
-      const fee = await teamCollaborationService.submitFee(teamId, playerId, receipt);
-      set((state) => ({
-        fees: state.fees.map((item) => item.playerId === fee.playerId ? fee : item),
-      }));
-      toast.success("Đã gửi biên lai lệ phí");
+      const fee = await teamCollaborationService.submitFee(teamId, payload);
+      set((state) => ({ fees: state.fees.map((item) => item.playerId === fee.playerId ? fee : item) }));
+      toast.success("Đã gửi xác nhận lệ phí");
     } catch (error) {
-      console.error("Không thể gửi biên lai lệ phí:", error);
-      toast.error("Không thể gửi biên lai lệ phí.");
+      toast.error(getApiErrorMessage(error, "Không thể gửi xác nhận lệ phí."));
     }
+    void playerId;
   },
 }));

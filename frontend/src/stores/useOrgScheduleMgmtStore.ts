@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import { toast } from "sonner";
 import type {
   CapacityData,
@@ -13,6 +13,16 @@ import type {
 import { orgScheduleMgmtService } from "@/services/orgScheduleMgmtService";
 
 const MATCH_DURATION_MINUTES = 30;
+
+type ApiStoreError = Error & {
+  title?: string;
+  response?: {
+    data?: {
+      title?: string;
+      message?: string;
+    };
+  };
+};
 
 const minutesOfDay = (time?: string) => {
   if (!time) return null;
@@ -43,7 +53,7 @@ const applyConflicts = (matches: ScheduleMatchRecord[]): ScheduleMatchRecord[] =
     return {
       ...match,
       status,
-      conflictReason: hasConflict ? "Trung sân va gio" : undefined,
+      conflictReason: hasConflict ? "Trùng sân và giờ" : undefined,
     };
   });
 };
@@ -71,7 +81,7 @@ const validateScheduleUpdate = (
     if (otherStart === null || !windowsOverlap(start, otherStart)) continue;
 
     if (candidate.venue && match.venue === candidate.venue) {
-      throw Object.assign(new Error(`${venueName} da co trận ${match.code} tu ${match.time.slice(0, 5)} den ${String(Math.floor((otherStart + MATCH_DURATION_MINUTES) / 60)).padStart(2, "0")}:${String((otherStart + MATCH_DURATION_MINUTES) % 60).padStart(2, "0")}. Vui lòng chon thời gian hoac sân khac.`), {
+      throw Object.assign(new Error(`${venueName} đã có trận ${match.code} từ ${match.time.slice(0, 5)} đến ${String(Math.floor((otherStart + MATCH_DURATION_MINUTES) / 60)).padStart(2, "0")}:${String((otherStart + MATCH_DURATION_MINUTES) % 60).padStart(2, "0")}. Vui lòng chọn thời gian hoặc sân khác.`), {
         title: "Trung lịch thi đấu",
       });
     }
@@ -79,8 +89,8 @@ const validateScheduleUpdate = (
     const duplicatedRefereeId = refereeIds.find((id) => (match.refereeIds || []).includes(id));
     if (duplicatedRefereeId) {
       const refereeName = referees.find((referee) => referee.id === duplicatedRefereeId)?.name || "Trọng tài";
-      throw Object.assign(new Error(`${refereeName} da duoc phan cong o trận ${match.code} trong cung khung gio. Vui lòng chon trọng tài khac.`), {
-        title: "Trung lich trọng tài",
+      throw Object.assign(new Error(`${refereeName} đã được phân công ở trận ${match.code} trong cùng khung giờ. Vui lòng chọn trọng tài khác.`), {
+        title: "Trùng lịch trọng tài",
       });
     }
   }
@@ -91,10 +101,10 @@ const buildStats = (matches: ScheduleMatchRecord[]): ScheduleStat[] => {
   const conflicts = matches.filter((match) => match.status === "Conflict").length;
   const assignedReferees = new Set(matches.flatMap((match) => match.refereeIds || [])).size;
   return [
-    { id: "total", label: "Tong tran", value: matches.length, iconType: "total", color: "text-blue-600 bg-blue-100" },
+    { id: "total", label: "Tổng trận", value: matches.length, iconType: "total", color: "text-blue-600 bg-blue-100" },
     { id: "scheduled", label: "Đã xếp lịch", value: scheduled, iconType: "scheduled", color: "text-green-600 bg-green-100" },
     { id: "unscheduled", label: "Chưa xếp", value: matches.length - scheduled - conflicts, iconType: "unscheduled", color: "text-amber-600 bg-amber-100" },
-    { id: "conflict", label: "Xung dot", value: conflicts, iconType: "conflict", color: "text-red-600 bg-red-100" },
+    { id: "conflict", label: "Xung đột", value: conflicts, iconType: "conflict", color: "text-red-600 bg-red-100" },
     { id: "referee", label: "Trọng tài", value: assignedReferees, iconType: "referee", color: "text-purple-600 bg-purple-100" },
   ];
 };
@@ -214,9 +224,9 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
     const candidate = { ...current, ...updates };
     try {
       validateScheduleUpdate(id, candidate, previousMatches, get().venues, get().referees);
-    } catch (error: any) {
-      toast.error(error?.title || "Không thể luu phan cong", {
-        description: error?.message || "Dữ liệu lịch thi đấu chua hop le.",
+    } catch (error: unknown) {
+      toast.error((error as ApiStoreError).title || "Không thể lưu phân công", {
+        description: (error as ApiStoreError).message || "Dữ liệu lịch thi đấu chưa hợp lệ.",
       });
       throw error;
     }
@@ -230,12 +240,12 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       await orgScheduleMgmtService.updateMatchAssignment(id, { ...updated, ...updates });
       toast.success("Đã lưu thành công!");
     } catch (error) {
-      const message = (error as any)?.response?.data?.message || (error as Error)?.message || "Co lỗi xay ra khi luu dữ liệu. Vui lòng thử lại.";
-      const title = (error as any)?.response?.data?.title || "Không thể luu phan cong";
+      const message = (error as ApiStoreError).response?.data?.message || (error as Error)?.message || "Có lỗi xảy ra khi lưu dữ liệu. Vui lòng thử lại.";
+      const title = (error as ApiStoreError).response?.data?.title || "Không thể lưu phân công";
       const rolledBack = applyConflicts(previousMatches);
       set({ matches: rolledBack, stats: buildStats(rolledBack) });
       toast.error(title, { description: message });
-      console.error("Lỗi luu lịch thi đấu:", error);
+      console.error("Lỗi lưu lịch thi đấu:", error);
       throw error;
     } finally {
       set((state) => ({ savingMatchIds: state.savingMatchIds.filter((matchId) => matchId !== id) }));
@@ -282,10 +292,10 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
           selectedMatchId: null,
         });
       }
-      toast.success("Đã xếp lịch tu dong thành công!");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.title || "Không thể xếp lịch tu dong", {
-        description: error?.response?.data?.message || "Co lỗi xay ra khi xếp lịch. Vui lòng thử lại.",
+      toast.success("Đã xếp lịch tự động thành công!");
+    } catch (error: unknown) {
+      toast.error((error as ApiStoreError).response?.data?.title || "Không thể xếp lịch tự động", {
+        description: (error as ApiStoreError).response?.data?.message || "Có lỗi xảy ra khi xếp lịch. Vui lòng thử lại.",
       });
     }
   },
@@ -296,7 +306,7 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       .filter((match) => match.stageId === stageId)
       .sort((a, b) => (a.order || 0) - (b.order || 0) || a.code.localeCompare(b.code));
     if (venues.length === 0 || stageMatches.length === 0) {
-      toast.error("Không thể phan sân nhanh", { description: "Can co sân thi dau va danh sach trận truoc khi phan san." });
+      toast.error("Không thể phân sân nhanh", { description: "Cần có sân thi đấu và danh sách trận trước khi phân sân." });
       return;
     }
 
@@ -316,9 +326,9 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         validateScheduleUpdate(match.id, candidate, nextMatches, venues, get().referees);
         nextMatches = nextMatches.map((item) => item.id === match.id ? candidate : item);
       });
-    } catch (error: any) {
-      toast.error(error?.title || "Không thể phan sân nhanh", {
-        description: error?.message || "Lich phan sân bi trung khung gio.",
+    } catch (error: unknown) {
+      toast.error((error as ApiStoreError).title || "Không thể phân sân nhanh", {
+        description: (error as ApiStoreError).message || "Lịch phân sân bị trùng khung giờ.",
       });
       throw error;
     }
@@ -330,12 +340,12 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         const updated = applied.find((item) => item.id === match.id);
         return updated ? orgScheduleMgmtService.updateMatchAssignment(match.id, updated) : Promise.resolve();
       }));
-      toast.success("Đã phân sân nhanh cho stage hien tai.");
-    } catch (error: any) {
+      toast.success("Đã phân sân nhanh cho stage hiện tại.");
+    } catch (error: unknown) {
       const rolledBack = applyConflicts(previousMatches);
       set({ matches: rolledBack, stats: buildStats(rolledBack) });
-      toast.error("Không thể luu phan sân nhanh", {
-        description: error?.response?.data?.message || "Dữ liệu da duoc khoi phuc. Vui lòng thử lại.",
+      toast.error("Không thể lưu phân sân nhanh", {
+        description: (error as ApiStoreError).response?.data?.message || "Dữ liệu đã được khôi phục. Vui lòng thử lại.",
       });
       throw error;
     }
@@ -347,12 +357,12 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       .filter((match) => match.stageId === stageId)
       .sort((a, b) => `${a.date || ""} ${a.time || ""}`.localeCompare(`${b.date || ""} ${b.time || ""}`) || (a.order || 0) - (b.order || 0));
     if (referees.length === 0) {
-      toast.error("Không thể phan cong trọng tài", { description: "Chưa có trọng tài kha dung cho giai nay." });
+      toast.error("Không thể phân công trọng tài", { description: "Chưa có trọng tài khả dụng cho giải này." });
       return;
     }
     const missingSchedule = stageMatches.find((match) => !isScheduled(match));
     if (missingSchedule) {
-      toast.error("Can xep sân va gio truoc", {
+      toast.error("Cần xếp sân và giờ trước", {
         description: `Trận ${missingSchedule.code} chưa có đủ sân, ngày và giờ. Hãy xếp lịch tự động/phân sân trước khi phân công trọng tài.`,
       });
       return;
@@ -364,8 +374,8 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       stageMatches.forEach((match) => {
         const referee = referees.find((item) => !findRefereeConflict(item.id, match, nextMatches));
         if (!referee) {
-          throw Object.assign(new Error(`Không cón trọng tài ranh cho trận ${match.code} luc ${match.time} ngay ${match.date}.`), {
-            title: "Xung dot trọng tài",
+          throw Object.assign(new Error(`Không còn trọng tài rảnh cho trận ${match.code} lúc ${match.time} ngày ${match.date}.`), {
+            title: "Xung đột trọng tài",
           });
         }
         const candidate = {
@@ -377,9 +387,9 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         validateScheduleUpdate(match.id, candidate, nextMatches, get().venues, referees);
         nextMatches = nextMatches.map((item) => item.id === match.id ? candidate : item);
       });
-    } catch (error: any) {
-      toast.error(error?.title || "Không thể phan cong trọng tài", {
-        description: error?.message || "Co xung dot trọng tài trong cung khung gio.",
+    } catch (error: unknown) {
+      toast.error((error as ApiStoreError).title || "Không thể phân công trọng tài", {
+        description: (error as ApiStoreError).message || "Có xung đột trọng tài trong cùng khung giờ.",
       });
       throw error;
     }
@@ -391,12 +401,12 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         const updated = applied.find((item) => item.id === match.id);
         return updated ? orgScheduleMgmtService.updateMatchAssignment(match.id, { refereeIds: updated.refereeIds }) : Promise.resolve();
       }));
-      toast.success("Đã phân cong trọng tài nhanh.");
-    } catch (error: any) {
+      toast.success("Đã phân công trọng tài nhanh.");
+    } catch (error: unknown) {
       const rolledBack = applyConflicts(previousMatches);
       set({ matches: rolledBack, stats: buildStats(rolledBack) });
-      toast.error("Không thể luu phan cong trọng tài", {
-        description: error?.response?.data?.message || "Dữ liệu da duoc khoi phuc. Vui lòng thử lại.",
+      toast.error("Không thể lưu phân công trọng tài", {
+        description: (error as ApiStoreError).response?.data?.message || "Dữ liệu đã được khôi phục. Vui lòng thử lại.",
       });
       throw error;
     }
@@ -410,9 +420,9 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         matches: state.matches.map((match) => match.stageId === stageId ? { ...match, publishStatus: "published" } : match),
       }));
       toast.success("Đã công bố lịch thi đấu.");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.title || "Không thể công bố lich", {
-        description: error?.response?.data?.message || "Hay kiểm tra xung dot san/gio roi thử lại.",
+    } catch (error: unknown) {
+      toast.error((error as ApiStoreError).response?.data?.title || "Không thể công bố lịch", {
+        description: (error as ApiStoreError).response?.data?.message || "Hãy kiểm tra xung đột sân/giờ rồi thử lại.",
       });
     }
   },
@@ -432,11 +442,11 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         needsGroupSetup: data.needsGroupSetup,
         selectedMatchId: null,
       });
-      toast.success("Đã công bố tat ca trận da xếp lịch.");
+      toast.success("Đã công bố tất cả trận đã xếp lịch.");
       window.dispatchEvent(new CustomEvent("tournament-schedule-published", { detail: { tournamentItemId } }));
-    } catch (error: any) {
-      toast.error("Chưa thể công bố lich", {
-        description: error?.response?.data?.message || "Vui lòng thử lại sau.",
+    } catch (error: unknown) {
+      toast.error("Chưa thể công bố lịch", {
+        description: (error as ApiStoreError).response?.data?.message || "Vui lòng thử lại sau.",
       });
       throw error;
     }
@@ -460,10 +470,12 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         selectedMatchId: null,
       });
       toast.success("Đã sinh trận vòng bảng.");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.title || "Không thể sinh tran", {
-        description: error?.response?.data?.message || "Vui lòng kiểm tra danh sach doi va cấu hình stage.",
+    } catch (error: unknown) {
+      toast.error((error as ApiStoreError).response?.data?.title || "Không thể sinh trận", {
+        description: (error as ApiStoreError).response?.data?.message || "Vui lòng kiểm tra danh sách đội và cấu hình stage.",
       });
     }
   },
 }));
+
+

@@ -26,6 +26,13 @@ const userSchema = new mongoose.Schema({
         ref: "Role"
     }],
     avatar: { type: String, default: '' },
+    fullName: { type: String, default: '', trim: true },
+    birthDate: { type: Date, default: null },
+    gender: { type: String, enum: ['male', 'female', 'other', ''], default: '' },
+    address: { type: String, default: '', trim: true },
+    bio: { type: String, default: '', trim: true, maxlength: 1000 },
+    isDefaultGenerated: { type: Boolean, default: false },
+    mustChangePassword: { type: Boolean, default: false },
     status: {
         type: String,
         enum: ['actived', 'inactive', 'banned'],

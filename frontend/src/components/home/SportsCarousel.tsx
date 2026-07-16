@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
-import heroImage from "@/assets/hero.png";
 import type { Sport } from "@/types/tournament";
 import { Button } from "@/components/ui/button";
+import { getSportAssetKey, getSportImage } from "@/utils/sportAssets";
 
 interface SportsCarouselProps {
   sports: Sport[];
@@ -17,23 +17,33 @@ const SportsCarousel = ({ sports, loading = false, error, onRetry }: SportsCarou
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  const uniqueSports = useMemo(() => {
+    const seen = new Set<string>();
+    return sports.filter((sport) => {
+      const key = getSportAssetKey(sport.slug || sport.name);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [sports]);
+
   const checkScroll = () => {
     if (!carouselRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
-    setCanScrollLeft(scrollLeft > 0);
-    setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth);
+    setCanScrollLeft(scrollLeft > 2);
+    setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 2);
   };
 
   useEffect(() => {
     checkScroll();
     window.addEventListener("resize", checkScroll);
     return () => window.removeEventListener("resize", checkScroll);
-  }, [sports, loading]);
+  }, [uniqueSports.length, loading]);
 
   const scroll = (direction: "left" | "right") => {
     const node = carouselRef.current;
     if (!node) return;
-    const firstCard = node.firstElementChild as HTMLElement | null;
+    const firstCard = node.querySelector<HTMLElement>("[data-sport-card]");
     node.scrollBy({
       left: (direction === "left" ? -1 : 1) * (firstCard ? firstCard.offsetWidth + 20 : 320),
       behavior: "smooth",
@@ -50,11 +60,11 @@ const SportsCarousel = ({ sports, loading = false, error, onRetry }: SportsCarou
           </h2>
         </div>
 
-        <div className="hidden gap-2 sm:flex">
-          <Button variant="outline" size="icon" onClick={() => scroll("left")} disabled={!canScrollLeft} className="rounded-full" aria-label="Cuộn sang trái">
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => scroll("left")} disabled={!canScrollLeft} className="rounded-full" aria-label="Chuyển sang môn trước">
             <ChevronLeft className="size-5" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => scroll("right")} disabled={!canScrollRight} className="rounded-full" aria-label="Cuộn sang phải">
+          <Button variant="outline" size="icon" onClick={() => scroll("right")} disabled={!canScrollRight} className="rounded-full" aria-label="Chuyển sang môn tiếp theo">
             <ChevronRight className="size-5" />
           </Button>
         </div>
@@ -73,28 +83,29 @@ const SportsCarousel = ({ sports, loading = false, error, onRetry }: SportsCarou
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{error}</p>
           <Button onClick={onRetry} className="mt-5">Thử lại</Button>
         </div>
-      ) : sports.length === 0 ? (
+      ) : uniqueSports.length === 0 ? (
         <div className="summer-panel rounded-2xl p-10 text-center">
           <Trophy className="mx-auto size-10 text-primary" />
           <h3 className="mt-4 text-xl font-bold text-foreground">Chưa có môn thi đấu</h3>
           <p className="mt-2 text-sm text-muted-foreground">Danh sách môn sẽ được cập nhật từ cấu hình hệ thống.</p>
         </div>
       ) : (
-        <div className="relative -mx-2 px-2">
+        <div className="relative overflow-hidden">
           <div
             ref={carouselRef}
             onScroll={checkScroll}
-            className="beautiful-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4"
+            className="flex snap-x snap-mandatory gap-5 overflow-x-hidden scroll-smooth pb-4"
           >
-            {sports.map((sport) => (
+            {uniqueSports.map((sport) => (
               <Link
                 key={sport._id}
-                to={`/tournaments?sport=${encodeURIComponent(sport.name)}`}
-                className="group w-[min(78vw,20rem)] shrink-0 snap-start focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/20"
+                data-sport-card
+                to={`/tournaments?sport=${encodeURIComponent(sport.slug || sport.name)}`}
+                className="group w-[min(78vw,20rem)] shrink-0 snap-start focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/20 sm:w-[18rem] lg:w-[20rem]"
               >
                 <div className="relative h-[21rem] overflow-hidden rounded-2xl border border-border bg-header shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[var(--shadow-soft)]">
                   <img
-                    src={sport.imageUrl || heroImage}
+                    src={sport.imageUrl || getSportImage(sport.slug, sport.name)}
                     alt={`Môn ${sport.name}`}
                     loading="lazy"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { AlertTriangle, Table2 } from "lucide-react";
 import GroupStandingsTable from "./GroupStandingsTable";
 import { useStandingsStore } from "@/stores/useStandingsStore";
@@ -41,7 +41,7 @@ const StandingsTab = ({ tournamentId }: { tournamentId: string }) => {
           <Table2 className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-3 font-bold text-foreground">Chưa có bảng xếp hạng</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Khi cấu hình vòng bảng da co doi hoac bảng xếp hạng duoc công bố, dữ liệu se hien thi tai day.
+            Khi cấu hình vòng bảng đã có đội hoặc bảng xếp hạng được công bố, dữ liệu sẽ hiển thị tại đây.
           </p>
         </div>
       </div>
@@ -53,7 +53,7 @@ const StandingsTab = ({ tournamentId }: { tournamentId: string }) => {
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h2 className="text-lg font-black uppercase text-foreground">Bảng xếp hạng</h2>
         <p className="mt-1 text-sm font-semibold text-muted-foreground">
-          Hien thi standings da công bố; neu chua co điểm so, he thong dung danh sach doi da gan vao bang trong cấu hình thể thức.
+          Hiển thị standings đã công bố; nếu chưa có điểm số, hệ thống dùng danh sách đội đã gán vào bảng trong cấu hình thể thức.
         </p>
       </div>
       <div>
@@ -66,3 +66,4 @@ const StandingsTab = ({ tournamentId }: { tournamentId: string }) => {
 };
 
 export default StandingsTab;
+

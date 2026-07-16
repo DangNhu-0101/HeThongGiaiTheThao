@@ -10,7 +10,21 @@ export type CompetitionMethodCode =
 
 export type TeamSelectionMode = "WINNER" | "LOSER" | "TOP_RANKS" | "MANUAL";
 export type BracketType = "group" | "knockout" | "swiss" | "custom";
-export type RankingCriterion = "points" | "pointDiff" | "headToHead" | "draw";
+export type RankingCriterion =
+  | "points"
+  | "pointsPerMatch"
+  | "pointDiff"
+  | "pointDiffPerMatch"
+  | "wins"
+  | "winRate"
+  | "pointsFor"
+  | "pointsAgainst"
+  | "headToHead"
+  | "draw"
+  | "setDiff"
+  | "goalDiff"
+  | "skill"
+  | "seed";
 
 export interface StageTeamSelection {
   mode: TeamSelectionMode;
@@ -32,7 +46,7 @@ export interface StageBracketConfig {
   name: string;
   type: BracketType;
   totalTeamsIn: number;
-  groups?: Array<{ name: string; numberOfTeams: number }>;
+  groups?: Array<{ id?: string; name: string; numberOfTeams: number }>;
   groupIds: string[];
   selection: StageTeamSelection;
   flowSlots?: Array<{
@@ -40,8 +54,12 @@ export interface StageBracketConfig {
     label: string;
     sourceLabel?: string;
     sourceStageId?: string;
+    sourceMatchId?: string;
+    sourceResult?: "WINNER" | "LOSER";
     sourceGroupName?: string;
     sourceRank?: number;
+    resolvedTeamId?: string;
+    resolutionStatus?: "PENDING" | "RESOLVED" | "STALE";
   }>;
   flowNodePositions?: Record<string, { x: number; y: number }>;
   flowConnections?: Array<{
@@ -49,18 +67,33 @@ export interface StageBracketConfig {
     source: string;
     target: string;
     label?: string;
+    output?: "WINNER" | "LOSER";
+    targetSlot?: 1 | 2;
+    targetSlotId?: string;
+    sourceStageId?: string;
+    targetStageId?: string;
   }>;
   flowConnectionRoutes?: Record<string, { bendX?: number; bendY?: number }>;
   flowDeletedMatchIds?: string[];
   flowStandaloneMatches?: Array<{
     id: string;
     matchCode: string;
+    title?: string;
+    roundName?: string;
+    isFinal?: boolean;
+    isThirdPlace?: boolean;
+    inputKeys?: string[];
+    winnerKey?: string;
+    loserKey?: string;
     x?: number;
     y?: number;
     seedSlots?: Array<{
       id: string;
       label: string;
       sourceLabel?: string;
+      sourceStageId?: string;
+      sourceMatchId?: string;
+      sourceResult?: "WINNER" | "LOSER";
     }>;
   }>;
 }
@@ -73,14 +106,28 @@ export interface StageSeedAssignment {
   sourceType: "PARTICIPANT";
   stageId: string;
   branchId?: string;
+  groupId?: string;
   nodeId?: string;
   groupName?: string;
   slotLabel?: string;
+  seed?: number;
+  skillScore?: number;
 }
 
 export interface StageWildcardConfig {
   enabled: boolean;
   selection: StageTeamSelection;
+  slots?: number;
+  sourceStageIds?: string[];
+  criteria?: Array<{
+    type: string;
+    priority: number;
+  }>;
+  resolvedSlots?: Array<{
+    key: string;
+    participantId?: string;
+    resolutionStatus?: "PENDING" | "RESOLVED" | "STALE";
+  }>;
 }
 
 export interface StageScoringConfig {
@@ -106,13 +153,17 @@ export interface CompetitionStageConfig {
   rankingCriteria?: RankingCriterion[];
   luckyCriteria?: RankingCriterion[];
   seedAssignments?: StageSeedAssignment[];
+  placementMethod?: "MANUAL" | "SKILL";
+  placementStrategy?: string;
+  placedAt?: string;
+  placedBy?: string;
   note?: string;
 }
 
 export interface CompetitionFormatRecord {
   id: string;
   sourceKind?: "categoryRule" | "categoryTemplate" | "local";
-  selectedType?: "preset" | "custom";
+  selectedType?: "preset" | "template" | "custom";
   presetId?: string;
   presetSource?: string;
   categoryTemplateId?: string;
@@ -134,7 +185,7 @@ export interface CompetitionFormatRecord {
 
 export interface CompetitionFormatUpsertPayload {
   tournamentItemId?: string;
-  selectedType?: "preset" | "custom";
+  selectedType?: "preset" | "template" | "custom";
   presetId?: string;
   presetSource?: string;
   name: string;

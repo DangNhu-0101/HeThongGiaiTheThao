@@ -11,6 +11,7 @@ const playerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    avatar: { type: String, default: '' },
     birthDate: {
         type: Date,
         required: true
@@ -24,6 +25,11 @@ const playerSchema = new mongoose.Schema({
         type:Number,
         required:true
     },
+    jerseyNumber: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    email: { type: String, default: '' },
+    address: { type: String, default: '' },
+    note: { type: String, default: '' },
     sports: [{
         category: { type: String },
         level: { type: String },

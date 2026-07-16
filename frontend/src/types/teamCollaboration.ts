@@ -1,16 +1,19 @@
 export type TeamActionStatus = "pending" | "accepted" | "rejected" | "expired" | "cancelled";
-export type FeeStatus = "unpaid" | "pending" | "paid" | "exempted";
+export type FeeStatus = "unpaid" | "pending" | "paid" | "rejected" | "exempted";
 
 export interface PlayerProfileSummary {
   id: string;
   userId: string;
   name: string;
   avatar: string;
+  email?: string;
+  phone?: string;
   gender?: string;
   birthDate?: string;
   skill: number;
   sport: string;
   level: string;
+  position?: string;
   experience: string;
   teamId?: string;
   teamName?: string;
@@ -42,10 +45,20 @@ export interface TeamJoinRequest {
 export interface MemberFee {
   playerId: string;
   playerName: string;
+  playerAvatar?: string;
+  playerEmail?: string;
+  playerPhone?: string;
   amount: number;
+  amountPaid?: number;
   status: FeeStatus;
   paidAt?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
   receiptImage?: string;
+  method?: string;
+  transactionCode?: string;
+  note?: string;
+  rejectReason?: string;
 }
 
 export interface TeamNotification {

@@ -8,10 +8,30 @@ import TournamentItem from '../models/tournamentItem.js';
 import Match from '../models/matches.js';
 import Court from '../models/courts.js';
 import TournamentReferee from '../models/tournamentReferees.js';
+import { buildAdminReportPdf } from '../services/pdf/templates/adminReportTemplate.js';
+import { safePdfFileName } from '../services/pdf/pdfExportService.js';
 
 const monthKey = (date) => {
     const value = date ? new Date(date) : new Date();
     return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
+};
+
+export const getAdminReportsPdf = async (req, res) => {
+    try {
+        const report = await buildAdminReportsData();
+        const buffer = await buildAdminReportPdf({
+            report,
+            adminName: req.user?.username || req.user?.email || 'Quản trị viên',
+        });
+        const date = new Date().toISOString().slice(0, 10);
+        const fileName = `bao-cao-quan-tri-${safePdfFileName(date)}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        return res.send(buffer);
+    } catch (error) {
+        console.error('[admin.reports.pdf] failed', error);
+        return res.status(500).json({ success: false, message: error.message || 'Không thể xuất báo cáo admin PDF' });
+    }
 };
 
 const viMonth = (key) => {
@@ -55,6 +75,55 @@ const buildMonthlySeries = async (Model, dateField = 'createdAt', valueName = 'v
     ]);
     const counts = new Map(rows.map((row) => [`${row._id.year}-${String(row._id.month).padStart(2, '0')}`, row.count]));
     return months.map((key) => ({ month: viMonth(key), [valueName]: counts.get(key) || 0 }));
+};
+
+const buildAdminReportsData = async () => {
+    const months = lastMonthKeys(6);
+    const [
+        athletes,
+        teams,
+        tournaments,
+        matches,
+        completedMatches,
+        courts,
+        referees,
+        trend,
+        matchStatusRows,
+    ] = await Promise.all([
+        Player.countDocuments(),
+        Participant.countDocuments(),
+        Tournament.countDocuments(),
+        Match.countDocuments(),
+        Match.countDocuments({ status: { $in: ['completed', 'walkover', 'forfeited'] } }),
+        Court.countDocuments(),
+        TournamentReferee.countDocuments(),
+        buildMonthlySeries(Player, 'createdAt', 'athletes', months),
+        Match.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    ]);
+
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#6366f1', '#ef4444', '#14b8a6'];
+    const distribution = matchStatusRows.map((row, index) => ({
+        name: statusLabel(row._id),
+        value: row.count,
+        color: colors[index % colors.length],
+    }));
+
+    return {
+        stats: [
+            { id: 'athletes', label: 'Vận động viên', value: athletes, trend: 'Từ database', isPositive: true, iconType: 'athletes' },
+            { id: 'teams', label: 'Đội tham gia', value: teams, trend: `${tournaments} giải đấu`, isPositive: true, iconType: 'teams' },
+            { id: 'matches', label: 'Trận đấu', value: matches, trend: `${completedMatches} đã hoàn thành`, isPositive: true, iconType: 'revenue' },
+        ],
+        trend,
+        distribution,
+        exports: [
+            { id: 'general', name: 'Báo cáo tổng quát', description: `${athletes} VĐV, ${teams} đội, ${matches} trận`, format: 'PDF', size: 'Theo dữ liệu hiện tại' },
+        ],
+        resources: {
+            courts,
+            referees,
+        },
+    };
 };
 
 export const getAdminDashboard = async (req, res) => {
@@ -114,7 +183,7 @@ export const getAdminDashboard = async (req, res) => {
                 id: String(org._id),
                 name: org.name,
                 email: org.contactEmail || org.ownerId?.email || '',
-                plan: 'Co ban',
+                plan: 'Cơ bản',
                 status: org.status === 'pending' ? 'Chờ duyệt' : org.status === 'actived' ? 'Hoạt động' : 'Đình chỉ',
                 tournamentsCount,
                 usersCount: org.ownerId ? 1 : 0,
@@ -164,6 +233,12 @@ export const getAdminDashboard = async (req, res) => {
 
 export const getAdminReports = async (req, res) => {
     try {
+        const data = await buildAdminReportsData();
+        return res.json({
+            success: true,
+            data,
+        });
+
         const months = lastMonthKeys(6);
         const [
             athletes,

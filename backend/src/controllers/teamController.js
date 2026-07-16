@@ -7,11 +7,15 @@ import User from '../models/users.js';
 import Role from '../models/roles.js';
 import Invitation from '../models/invitations.js';
 import TeamJoinRequest from '../models/teamJoinRequests.js';
+import Notification from '../models/notifications.js';
+import KnockoutResult from '../models/knockoutResults.js';
 import { checkPermission } from '../utils/tournamentHelper.js';
 
 import {
     buildImportTemplateBuffer,
     buildLoginWorkbookBuffer,
+    buildDefaultAccountWorkbookBuffer,
+    buildTeamAthleteWorkbookBuffer,
     parseImportRows,
     buildImportGroups,
     slugifyUsername,
@@ -26,6 +30,7 @@ const buildMemberFees = (lineup = [], amount = 0) => lineup
     .map(item => ({
         playerId: item.Player,
         amount: Number(amount || 0),
+        amountPaid: 0,
         status: amount > 0 ? 'unpaid' : 'exempted'
     }));
 
@@ -55,6 +60,7 @@ const syncParticipantMembersAndFees = (participant, amount = 0) => {
         return feeByPlayer.get(key) || {
             playerId,
             amount: Number(amount || 0),
+            amountPaid: 0,
             status: amount > 0 ? 'unpaid' : 'exempted'
         };
     });
@@ -66,6 +72,14 @@ const ensureParticipantFees = async (participant) => {
     if (!participant) return participant;
     const tournamentItem = await TournamentItem.findById(participant.tournamentItemId);
     syncParticipantMembersAndFees(participant, Number(tournamentItem?.feeEntry || 0));
+    if (participant.paymentStatus === 'exempted') {
+        for (const fee of participant.memberFees || []) {
+            fee.status = 'exempted';
+            fee.amountPaid = 0;
+            fee.receiptImage = '';
+            fee.rejectReason = '';
+        }
+    }
     await participant.save();
     return participant;
 };
@@ -114,6 +128,17 @@ const isRegistrationOpen = (tournamentItem) => {
     return now >= new Date(registrationStart) && now <= new Date(registrationEnd);
 };
 
+const getTeamSizeLimit = (tournamentItem) => {
+    const slots = tournamentItem?.categoryRule?.playerSlotsPerTeam;
+    return Number(slots?.max || tournamentItem?.maxPlayers || 0);
+};
+
+const canAcceptMoreMembers = (participant, tournamentItem) => {
+    const maxMembers = getTeamSizeLimit(tournamentItem);
+    if (!maxMembers) return true;
+    return (participant.lineup || []).length < maxMembers;
+};
+
 /**
  * Kiểm tra user có phải thành viên của participant không (dùng Player._id)
  */
@@ -124,6 +149,34 @@ const isMemberOfParticipant = (participant, playerId) => {
 const isCaptainOfParticipant = (participant, playerId) => {
     const captain = participant.lineup?.[0]?.Player;
     return Boolean(captain && playerId && captain.toString() === playerId.toString());
+};
+
+const createTeamInvitationNotification = async ({ receiverId, participant, invitation, session }) => {
+    await Notification.create([{
+        userId: receiverId,
+        title: 'Lời mời tham gia đội',
+        message: `Bạn được mời tham gia đội ${participant.name}.`,
+        type: 'team-invitation',
+        href: '/my-teams',
+        actionKind: 'team-invitation',
+        actionId: invitation._id,
+    }], { session });
+};
+
+const safeFileName = (value = 'giai-dau') => value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || 'giai-dau';
+
+const findParticipantByIdOrSlug = (idOrSlug) => {
+    if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+        return Participant.findById(idOrSlug);
+    }
+    return Participant.findOne({ slug: idOrSlug });
 };
 
 /**
@@ -146,6 +199,12 @@ const checkParticipantPermission = async (participant, userId, playerId) => {
         return { allowed: true, message: '' };
     }
     return { allowed: false, message: 'You do not have permission to perform this action on this participant' };
+};
+
+const resolvePlayerProfileId = async (req) => {
+    if (req.profile?._id) return req.profile._id;
+    const player = await Player.findOne({ userId: req.user?._id }).select('_id').lean();
+    return player?._id || null;
 };
 
 // ==================== CREATE PARTICIPANT ====================
@@ -308,6 +367,7 @@ export const createParticipant = async (req, res) => {
                 message: `You are invited to join team ${participant.name}`
             });
             await invitation.save({ session });
+            await createTeamInvitationNotification({ receiverId: inviteeUserId, participant, invitation, session });
         }
 
         await session.commitTransaction();
@@ -334,6 +394,11 @@ export const getParticipantsByTournament = async (req, res) => {
             .populate({
                 path: 'lineup.Player',
                 select: 'name gender birthDate skill userId avatar username status sports',
+                populate: { path: 'userId', select: 'username email phoneNumber avatar' }
+            })
+            .populate({
+                path: 'memberFees.playerId',
+                select: 'name avatar email phone userId',
                 populate: { path: 'userId', select: 'username email phoneNumber avatar' }
             })
             .sort({ createdAt: -1 })
@@ -515,7 +580,9 @@ export const importParticipantsByOrganization = async (req, res) => {
                     phoneNumber: accountPhone,
                     hashedPassword,
                     roles: [playerRole._id],
-                    status: 'actived'
+                    status: 'actived',
+                    isDefaultGenerated: true,
+                    mustChangePassword: true
                 }], { session }).then(items => items[0]);
 
                 const player = await Player.create([{
@@ -598,7 +665,33 @@ export const updateParticipantReview = async (req, res) => {
         }
 
         if (registrationStatus !== undefined) participant.registrationStatus = registrationStatus;
-        if (paymentStatus !== undefined) participant.paymentStatus = paymentStatus;
+        if (paymentStatus !== undefined) {
+            participant.paymentStatus = paymentStatus;
+            if (paymentStatus === 'exempted') {
+                participant.registrationStatus = 'approved';
+                participant.reviewedBy = userId;
+                participant.reviewedAt = new Date();
+                syncParticipantMembersAndFees(participant, Number(tournamentItem?.feeEntry || 0));
+                for (const fee of participant.memberFees || []) {
+                    fee.status = 'exempted';
+                    fee.amountPaid = 0;
+                    fee.receiptImage = '';
+                    fee.submittedAt = null;
+                    fee.reviewedAt = new Date();
+                    fee.reviewedBy = userId;
+                    fee.rejectReason = '';
+                }
+            } else if (paymentStatus === 'unpaid') {
+                syncParticipantMembersAndFees(participant, Number(tournamentItem?.feeEntry || 0));
+                for (const fee of participant.memberFees || []) {
+                    if (fee.status === 'exempted') {
+                        fee.status = fee.amount > 0 ? 'unpaid' : 'exempted';
+                        fee.reviewedAt = null;
+                        fee.reviewedBy = null;
+                    }
+                }
+            }
+        }
         await participant.save();
 
         const populated = await Participant.findById(participant._id).populate('lineup.Player', 'name gender birthDate skill');
@@ -622,6 +715,16 @@ export const createJoinRequest = async (req, res) => {
         const participant = await Participant.findById(participantId);
         if (!participant || participant.type !== 'team') {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
+        }
+        const tournamentItem = await TournamentItem.findById(participant.tournamentItemId).populate('categoryRule');
+        if (!tournamentItem) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy nội dung giải' });
+        }
+        if (!canAcceptMoreMembers(participant, tournamentItem)) {
+            return res.status(400).json({ success: false, message: 'Đội đã đủ thành viên' });
+        }
+        if (!isRegistrationOpen(tournamentItem)) {
+            return res.status(400).json({ success: false, message: 'Thời gian đăng ký đã đóng' });
         }
         if (participant.lineup.some(item => item.Player?.toString() === playerProfile._id.toString())) {
             return res.status(409).json({ success: false, message: 'Bạn đã là thành viên đội này' });
@@ -701,16 +804,13 @@ export const getParticipantJoinRequests = async (req, res) => {
         if (!participant) return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
 
         const perm = await checkParticipantPermission(participant, req.user._id, req.profile?._id);
-        if (!perm.allowed) {
-            await session.abortTransaction();
-            return res.status(403).json({ success: false, message: perm.message });
-        }
         if (!perm.allowed) return res.status(403).json({ success: false, message: perm.message });
 
         const requests = await TeamJoinRequest.find({ participantId, status: 'pending' })
             .sort({ createdAt: -1 })
             .populate('participantId', 'name logo tournamentItemId')
-            .populate('requesterPlayerId', 'name gender birthDate skill');
+            .populate('requesterId', 'username email phoneNumber avatar')
+            .populate('requesterPlayerId', 'name gender birthDate skill avatar sports phone email jerseyNumber');
         return res.status(200).json({ success: true, data: requests });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -762,7 +862,11 @@ export const reviewJoinRequest = async (req, res) => {
             return res.status(400).json({ success: false, message: sizeCheck.message });
         }
 
-        const tournamentItem = await TournamentItem.findById(participant.tournamentItemId).session(session);
+        const tournamentItem = await TournamentItem.findById(participant.tournamentItemId).populate('categoryRule').session(session);
+        if (!canAcceptMoreMembers(participant, tournamentItem)) {
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: 'Đội đã đủ thành viên' });
+        }
         const alreadyInTeam = participant.lineup.some(item => toIdString(item.Player) === request.requesterPlayerId.toString());
         if (!alreadyInTeam) participant.lineup.push({ Player: request.requesterPlayerId });
         syncParticipantMembersAndFees(participant, Number(tournamentItem?.feeEntry || 0));
@@ -784,7 +888,7 @@ export const linkPlayerAccount = async (req, res) => {
         const { playerId } = req.params;
         const { userId, tournamentItemId } = req.body;
         if (!mongoose.Types.ObjectId.isValid(playerId) || !mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ success: false, message: 'ID khong hop le' });
+            return res.status(400).json({ success: false, message: 'ID không hợp lệ' });
         }
 
         const player = await Player.findById(playerId);
@@ -805,8 +909,15 @@ export const linkPlayerAccount = async (req, res) => {
         const linked = await Player.findOne({ _id: { $ne: player._id }, userId: user._id });
         if (linked) return res.status(409).json({ success: false, message: 'Tài khoản nay da lien ket voi vận động viên khac' });
 
+        const previousUserId = player.userId;
         player.userId = user._id;
         await player.save();
+        if (previousUserId && previousUserId.toString() !== user._id.toString()) {
+            const previousUser = await User.findById(previousUserId);
+            if (previousUser?.isDefaultGenerated) {
+                await User.deleteOne({ _id: previousUser._id, isDefaultGenerated: true });
+            }
+        }
         const populated = await Player.findById(player._id).populate('userId', 'username email phoneNumber avatar').lean();
         return res.status(200).json({ success: true, message: 'Đã liên kết tài khoản', data: populated });
     } catch (error) {
@@ -818,11 +929,26 @@ export const linkPlayerAccount = async (req, res) => {
 export const getParticipantFees = async (req, res) => {
     try {
         const participant = await Participant.findById(req.params.participantId)
-            .populate('memberFees.playerId', 'name gender birthDate skill')
-            .populate('lineup.Player', 'name gender birthDate skill');
+            .populate({
+                path: 'memberFees.playerId',
+                select: 'name gender birthDate skill avatar email phone userId',
+                populate: { path: 'userId', select: 'username email phoneNumber avatar' }
+            })
+            .populate({
+                path: 'lineup.Player',
+                select: 'name gender birthDate skill avatar email phone userId',
+                populate: { path: 'userId', select: 'username email phoneNumber avatar' }
+            });
         if (!participant) return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
+        const playerProfileId = await resolvePlayerProfileId(req);
+        const perm = await checkParticipantPermission(participant, req.user._id, playerProfileId);
+        if (!perm.allowed) return res.status(403).json({ success: false, message: 'Bạn không có quyền xem lệ phí của đội này' });
         await ensureParticipantFees(participant);
-        const refreshed = await Participant.findById(participant._id).populate('memberFees.playerId', 'name gender birthDate skill');
+        const refreshed = await Participant.findById(participant._id).populate({
+            path: 'memberFees.playerId',
+            select: 'name gender birthDate skill avatar email phone userId',
+            populate: { path: 'userId', select: 'username email phoneNumber avatar' }
+        });
         return res.status(200).json({ success: true, data: refreshed.memberFees });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -832,15 +958,94 @@ export const getParticipantFees = async (req, res) => {
 export const submitParticipantFee = async (req, res) => {
     try {
         const { participantId } = req.params;
-        const { receiptImage = '' } = req.body;
+        const { receiptImage = '', amountPaid, transferDate, method = '', transactionCode = '', note = '' } = req.body;
         const participant = await Participant.findById(participantId);
         if (!participant) return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
         await ensureParticipantFees(participant);
         const playerId = req.profile?._id?.toString();
         const fee = participant.memberFees.find(item => item.playerId?.toString() === playerId);
         if (!fee) return res.status(403).json({ success: false, message: 'Bạn không thuộc đội này' });
+        if (!receiptImage) return res.status(400).json({ success: false, message: 'Vui lòng tải ảnh chuyển khoản' });
+        if (!['unpaid', 'rejected'].includes(fee.status)) {
+            return res.status(400).json({ success: false, message: 'Khoản lệ phí này không ở trạng thái có thể gửi xác nhận' });
+        }
         fee.receiptImage = receiptImage;
+        fee.amountPaid = Number(amountPaid || fee.amount || 0);
+        fee.paidAt = transferDate ? new Date(transferDate) : new Date();
+        fee.submittedAt = new Date();
+        fee.method = method;
+        fee.transactionCode = transactionCode;
+        fee.note = note;
+        fee.rejectReason = '';
         fee.status = 'pending';
+        await participant.save();
+        return res.status(200).json({ success: true, data: fee });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const cancelParticipantFeeReceipt = async (req, res) => {
+    try {
+        const { participantId, playerId } = req.params;
+        const participant = await Participant.findById(participantId);
+        if (!participant) return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
+        await ensureParticipantFees(participant);
+        const requesterPlayerId = req.profile?._id?.toString();
+        if (!requesterPlayerId || requesterPlayerId !== playerId) {
+            return res.status(403).json({ success: false, message: 'Bạn chỉ được hủy bằng chứng của chính mình' });
+        }
+        const fee = participant.memberFees.find(item => item.playerId?.toString() === playerId);
+        if (!fee) return res.status(404).json({ success: false, message: 'Không tìm thấy khoản lệ phí của thành viên' });
+        if (!['pending', 'rejected'].includes(fee.status)) {
+            return res.status(400).json({ success: false, message: 'Chỉ hủy được bằng chứng đang chờ duyệt hoặc bị từ chối' });
+        }
+        fee.status = 'unpaid';
+        fee.amountPaid = 0;
+        fee.receiptImage = '';
+        fee.paidAt = null;
+        fee.submittedAt = null;
+        fee.reviewedAt = null;
+        fee.reviewedBy = null;
+        fee.method = '';
+        fee.transactionCode = '';
+        fee.note = '';
+        fee.rejectReason = '';
+        await participant.save();
+        return res.status(200).json({ success: true, data: fee });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const reviewParticipantFee = async (req, res) => {
+    try {
+        const { participantId, playerId } = req.params;
+        const { decision, reason = '' } = req.body;
+        if (!['approve', 'reject'].includes(decision)) {
+            return res.status(400).json({ success: false, message: 'Quyết định không hợp lệ' });
+        }
+        const participant = await Participant.findById(participantId);
+        if (!participant) return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
+        const tournamentItem = await TournamentItem.findById(participant.tournamentItemId);
+        if (!tournamentItem) return res.status(404).json({ success: false, message: 'Không tìm thấy nội dung giải' });
+        const perm = await checkPermission(req.user._id, tournamentItem.organization);
+        if (!perm.allowed) return res.status(403).json({ success: false, message: 'Bạn không có quyền duyệt lệ phí của đội này' });
+        await ensureParticipantFees(participant);
+        const fee = participant.memberFees.find(item => item.playerId?.toString() === playerId);
+        if (!fee) return res.status(404).json({ success: false, message: 'Không tìm thấy khoản lệ phí của thành viên' });
+        if (fee.status !== 'pending') {
+            return res.status(400).json({ success: false, message: 'Chỉ duyệt được khoản đang chờ xác nhận' });
+        }
+        fee.status = decision === 'approve' ? 'paid' : 'rejected';
+        fee.reviewedAt = new Date();
+        fee.reviewedBy = req.user._id;
+        fee.rejectReason = decision === 'reject' ? reason : '';
+        if (decision === 'approve' && !fee.amountPaid) fee.amountPaid = Number(fee.amount || 0);
+        if (decision === 'approve' && !fee.paidAt) fee.paidAt = new Date();
+        const allSettled = (participant.memberFees || []).every(item => ['paid', 'exempted'].includes(item.status));
+        if (allSettled) participant.paymentStatus = 'paid';
+        if (decision === 'reject' && participant.paymentStatus === 'paid') participant.paymentStatus = 'unpaid';
         await participant.save();
         return res.status(200).json({ success: true, data: fee });
     } catch (error) {
@@ -851,8 +1056,9 @@ export const submitParticipantFee = async (req, res) => {
 export const getParticipant = async (req, res) => {
     try {
         const { id } = req.params;
-        const participant = await Participant.findById(id)
-            .populate('lineup.Player', 'name gender birthDate skill userId avatar username')
+        const query = findParticipantByIdOrSlug(id);
+        const participant = await query
+            .populate('lineup.Player', 'name gender birthDate skill userId avatar username sports jerseyNumber phone email address note status')
             .populate('tournamentItemId', 'name sportType feeEntry paymentQR paymentConfig')
             .lean();
         if (!participant) {
@@ -861,6 +1067,189 @@ export const getParticipant = async (req, res) => {
         return res.status(200).json({ success: true, data: participant });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getPublicParticipant = async (req, res) => {
+    try {
+        const { idOrSlug } = req.params;
+        const participant = await findParticipantByIdOrSlug(idOrSlug)
+            .populate('lineup.Player', 'name gender birthDate skill avatar sports status jerseyNumber userId')
+            .populate({
+                path: 'tournamentItemId',
+                select: 'name sportType status timeLine location banner logo description feeEntry paymentQR paymentConfig maxTeams prizes categoryRule',
+                populate: { path: 'categoryRule', select: 'playerSlotsPerTeam name' }
+            })
+            .lean();
+        if (!participant) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đội' });
+        }
+        const tournamentItem = participant.tournamentItemId || {};
+        const maxMembers = getTeamSizeLimit(tournamentItem);
+        const achievements = await KnockoutResult.find({
+            tournamentItemId: tournamentItem._id,
+            $or: [
+                { championParticipantId: participant._id },
+                { runnerUpParticipantId: participant._id }
+            ]
+        })
+            .populate('tournamentItemId', 'name sportType timeLine')
+            .populate('finalMatchId', 'name status scheduledTime')
+            .sort({ determinedAt: -1 })
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                ...participant,
+                publicMeta: {
+                    currentMembers: participant.lineup?.length || 0,
+                    maxMembers,
+                    isFull: Boolean(maxMembers && (participant.lineup?.length || 0) >= maxMembers),
+                    registrationOpen: isRegistrationOpen(tournamentItem),
+                    canRequestJoin: participant.type === 'team'
+                        && participant.registrationStatus === 'approved'
+                        && isRegistrationOpen(tournamentItem)
+                        && (!maxMembers || (participant.lineup?.length || 0) < maxMembers),
+                },
+                achievements: achievements.map((item) => {
+                    const isChampion = String(item.championParticipantId) === String(participant._id);
+                    return {
+                        _id: item._id,
+                        title: isChampion ? 'Quán quân' : 'Á quân',
+                        type: isChampion ? 'champion' : 'runner-up',
+                        tournamentName: item.tournamentItemId?.name || tournamentItem.name || '',
+                        sportType: item.tournamentItemId?.sportType || tournamentItem.sportType || '',
+                        season: item.tournamentItemId?.timeLine?.tournamentStart
+                            ? new Date(item.tournamentItemId.timeLine.tournamentStart).getFullYear()
+                            : new Date(item.determinedAt || item.createdAt).getFullYear(),
+                        achievedAt: item.determinedAt || item.createdAt,
+                        badgeImage: '',
+                    };
+                })
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updatePlayerByOrganization = async (req, res) => {
+    try {
+        const { playerId } = req.params;
+        const { tournamentItemId } = req.body;
+        if (!mongoose.Types.ObjectId.isValid(playerId)) {
+            return res.status(400).json({ success: false, message: 'Mã vận động viên không hợp lệ' });
+        }
+
+        const participantQuery = { 'lineup.Player': playerId };
+        if (tournamentItemId && mongoose.Types.ObjectId.isValid(tournamentItemId)) participantQuery.tournamentItemId = tournamentItemId;
+        const participant = await Participant.findOne(participantQuery).populate('tournamentItemId');
+        if (!participant) return res.status(404).json({ success: false, message: 'Không tìm thấy đội của vận động viên' });
+
+        const item = participant.tournamentItemId;
+        const perm = item ? await checkPermission(req.user._id, item.organization) : { allowed: false };
+        if (!perm.allowed) return res.status(403).json({ success: false, message: perm.message || 'Bạn không có quyền sửa vận động viên này' });
+
+        const player = await Player.findById(playerId);
+        if (!player) return res.status(404).json({ success: false, message: 'Không tìm thấy vận động viên' });
+
+        const allowed = ['name', 'avatar', 'birthDate', 'gender', 'skill', 'jerseyNumber', 'phone', 'email', 'address', 'note', 'status', 'sports'];
+        for (const field of allowed) {
+            if (req.body[field] !== undefined) player[field] = req.body[field];
+        }
+        if (!player.name?.trim()) return res.status(400).json({ success: false, message: 'Họ và tên là bắt buộc' });
+        if (!['male', 'female', 'other'].includes(player.gender)) return res.status(400).json({ success: false, message: 'Giới tính không hợp lệ' });
+        if (player.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(player.email)) return res.status(400).json({ success: false, message: 'Email không đúng định dạng' });
+        await player.save();
+
+        const populated = await Player.findById(player._id).populate('userId', 'username email phoneNumber avatar fullName').lean();
+        return res.status(200).json({ success: true, message: 'Đã cập nhật vận động viên', data: populated });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const exportDefaultAccounts = async (req, res) => {
+    try {
+        const { tournamentItemId } = req.params;
+        const tournamentItem = await TournamentItem.findById(tournamentItemId);
+        if (!tournamentItem) return res.status(404).json({ success: false, message: 'Không tìm thấy giải đấu' });
+        const perm = await checkPermission(req.user._id, tournamentItem.organization);
+        if (!perm.allowed) return res.status(403).json({ success: false, message: perm.message || 'Bạn không có quyền xuất tài khoản' });
+
+        const participants = await Participant.find({ tournamentItemId })
+            .populate({
+                path: 'lineup.Player',
+                select: 'name userId',
+                populate: { path: 'userId', select: 'username email status isDefaultGenerated mustChangePassword' }
+            })
+            .lean();
+
+        const rows = participants.flatMap((participant) => (participant.lineup || []).map((lineup) => {
+            const player = lineup.Player || {};
+            const user = player.userId || {};
+            return {
+                athleteName: player.name || '',
+                teamName: participant.name,
+                username: user.username || '',
+                email: user.email || '',
+                password: user.isDefaultGenerated && user.mustChangePassword ? makeImportPassword() : '',
+                status: user.status === 'actived' ? 'Đang hoạt động' : 'Không hoạt động',
+                note: user.isDefaultGenerated
+                    ? (user.mustChangePassword ? 'Tài khoản mặc định, người dùng cần đổi mật khẩu.' : 'Tài khoản mặc định đã đổi mật khẩu hoặc đã bị vô hiệu hóa.')
+                    : 'Tài khoản người dùng thật hoặc chưa có tài khoản mặc định.',
+            };
+        })).filter((row) => row.athleteName || row.username || row.email);
+
+        if (!rows.length) return res.status(404).json({ success: false, message: 'Không có tài khoản vận động viên để xuất' });
+
+        const buffer = await buildDefaultAccountWorkbookBuffer(rows);
+        const date = new Date().toISOString().slice(0, 10);
+        const fileName = `danh-sach-tai-khoan-van-dong-vien-${safeFileName(tournamentItem.name)}-${date}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        return res.send(Buffer.from(buffer));
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const exportTeamAthleteList = async (req, res) => {
+    try {
+        const { tournamentItemId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(tournamentItemId)) {
+            return res.status(400).json({ success: false, message: 'ID nội dung giải không hợp lệ' });
+        }
+        const tournamentItem = await TournamentItem.findById(tournamentItemId);
+        if (!tournamentItem) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy nội dung giải' });
+        }
+        const perm = await checkPermission(req.user._id, tournamentItem.organization);
+        if (!perm.allowed) return res.status(403).json({ success: false, message: perm.message });
+
+        const teams = await Participant.find({ tournamentItemId })
+            .populate({
+                path: 'lineup.Player',
+                select: 'name gender birthDate skill status email',
+                populate: { path: 'userId', select: 'username email' }
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        if (!teams.length) {
+            return res.status(404).json({ success: false, message: 'Chưa có đội hoặc vận động viên để xuất danh sách' });
+        }
+
+        const buffer = await buildTeamAthleteWorkbookBuffer(teams);
+        const date = new Date().toISOString().slice(0, 10);
+        const fileName = `danh-sach-doi-vdv-${safeFileName(tournamentItem.name)}-${date}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        return res.send(buffer);
+    } catch (error) {
+        console.error('exportTeamAthleteList error:', error);
+        return res.status(500).json({ success: false, message: error.message || 'Không thể xuất danh sách đội và vận động viên' });
     }
 };
 
@@ -1094,6 +1483,7 @@ export const sendParticipantInvitation = async (req, res) => {
             message: message || `You are invited to join team ${participant.name}`
         });
         await invitation.save({ session });
+        await createTeamInvitationNotification({ receiverId, participant, invitation, session });
 
         await session.commitTransaction();
         return res.status(201).json({ success: true, data: invitation });

@@ -5,6 +5,8 @@ import Footer from "@/components/layout/Footer";
 import PublicHero from "@/components/layout/PublicHero";
 import { useHomeStore } from "@/stores/useHomeStore";
 
+const heroImage = "https://images.unsplash.com/photo-1547347298-4074fc3086f0?auto=format&fit=crop&w=1800&q=80";
+
 const values = [
   {
     icon: Trophy,
@@ -38,9 +40,10 @@ const AboutPage = () => {
       <main className="page-fade">
         <PublicHero
           eyebrow="Về chúng tôi"
-          title="TMS - nền tảng quản lý giải đấu thể thao chuyên nghiệp"
-          description="Chúng tôi xây dựng TMS để giúp ban tổ chức vận hành giải đấu nhanh hơn, minh bạch hơn và mang đến trải nghiệm tốt hơn cho vận động viên."
-          imageAlt="Cộng đồng thể thao"
+          title="Nền tảng quản lý giải đấu thể thao chuyên nghiệp"
+          description="Chúng tôi xây dựng hệ thống để giúp ban tổ chức vận hành giải đấu nhanh hơn, minh bạch hơn và mang đến trải nghiệm tốt hơn cho vận động viên."
+          imageSrc={heroImage}
+          imageAlt="Đội thể thao cùng nhau trước trận đấu"
           stats={[
             { value: tournaments.length, label: "Giải đấu", description: "Đang được tổ chức" },
             { value: teamCount, label: "Đội tham gia", description: "Từ dữ liệu đăng ký" },
@@ -88,7 +91,7 @@ const AboutPage = () => {
             <Medal className="size-10 text-primary" />
             <h2 className="mt-4 text-2xl font-extrabold">Đồng hành cùng ban tổ chức và cộng đồng vận động viên</h2>
             <p className="mt-3 max-w-4xl text-sm leading-7 text-muted-foreground">
-              TMS hướng đến một hệ sinh thái nơi thông tin giải đấu dễ tiếp cận, quy trình đăng ký rõ ràng và mỗi trận đấu đều được ghi nhận chính xác.
+              Hệ thống hướng đến một hệ sinh thái nơi thông tin giải đấu dễ tiếp cận, quy trình đăng ký rõ ràng và mỗi trận đấu đều được ghi nhận chính xác.
             </p>
           </div>
         </section>

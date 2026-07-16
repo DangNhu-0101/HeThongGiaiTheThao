@@ -13,14 +13,39 @@ export const validateImageFile = (file: File, maxSizeMb = 5) => {
 };
 
 export const uploadService = {
+  validateImageFile,
   async image(file: File) {
     const error = validateImageFile(file);
     if (error) throw new Error(error);
     const formData = new FormData();
     formData.append("image", file);
-    const response = await api.post<{ data: { url: string; path: string } }>("/uploads/image", formData, {
+    const response = await api.post<{ data: { url: string; path: string; name?: string; mimeType?: string; size?: number } }>("/uploads/image", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data.data.url;
+  },
+  async images(files: File[]) {
+    files.forEach((file) => {
+      const error = validateImageFile(file);
+      if (error) throw new Error(error);
+    });
+    const formData = new FormData();
+    files.forEach((file) => formData.append("images", file));
+    const response = await api.post<{ data: Array<{ url: string; path: string; name: string; mimeType: string; size: number }> }>("/uploads/images", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.data;
+  },
+  async contactImages(files: File[]) {
+    files.forEach((file) => {
+      const error = validateImageFile(file);
+      if (error) throw new Error(error);
+    });
+    const formData = new FormData();
+    files.forEach((file) => formData.append("images", file));
+    const response = await api.post<{ data: Array<{ url: string; path: string; name: string; mimeType: string; size: number }> }>("/uploads/contact-images", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.data;
   },
 };

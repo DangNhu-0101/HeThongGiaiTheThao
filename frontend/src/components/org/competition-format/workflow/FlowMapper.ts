@@ -44,7 +44,7 @@ const ensureTwoSeedSlots = (
   });
 };
 
-const winnerLabelForNode = (node?: FlowNodeModel) => node?.matchCode || "Winner";
+const winnerLabelForNode = (node?: FlowNodeModel) => node?.matchCode || "M?";
 
 const mergeIncomingSlots = (
   node: FlowNodeModel,
@@ -315,6 +315,21 @@ export const mapStagesToFlow = (stages: CompetitionStageConfig[]) => {
     return { ...edge, targetSlot: (slotIndex + 1) as 1 | 2 };
   });
 
+  let changed = true;
+  while (changed) {
+    changed = false;
+    slottedEdges.forEach((edge) => {
+      const source = nodes.find((node) => node.id === edge.source);
+      const target = nodes.find((node) => node.id === edge.target);
+      if (!source || !target || source.kind !== "match" || target.kind !== "match") return;
+      const nextOrder = source.stageOrder + 1;
+      if (target.stageOrder < nextOrder) {
+        target.stageOrder = nextOrder;
+        changed = true;
+      }
+    });
+  }
+
   nodes.forEach((node) => {
     if (node.kind !== "match") return;
     const incoming = incomingEdgesByTarget.get(node.id) || [];
@@ -323,12 +338,16 @@ export const mapStagesToFlow = (stages: CompetitionStageConfig[]) => {
       : ensureTwoSeedSlots(node.id, node.seedSlots);
   });
 
-  const columns: Omit<FlowStageColumn, "x" | "width" | "height">[] = stages.map((stage) => ({
-    id: `stage-column-${stage.order}`,
-    title: stage.name || `Stage ${stage.order}`,
-    order: stage.order,
-  }));
+  const columnOrders = Array.from(new Set(nodes.map((node) => node.stageOrder))).sort((a, b) => a - b);
+  const columns: Omit<FlowStageColumn, "x" | "width" | "height">[] = columnOrders.map((order, index) => {
+    const stage = stages.find((item) => item.order === order);
+    const firstNode = nodes.find((node) => node.stageOrder === order);
+    return {
+      id: `stage-column-${order}`,
+      title: stage?.name || firstNode?.stageName || `Stage ${index + 1}`,
+      order,
+    };
+  });
 
   return layoutFlow(nodes, columns, slottedEdges);
 };
-

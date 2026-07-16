@@ -60,14 +60,21 @@ const PROFILE_CONFIG = {
     }
 };
 
+const normalizeRoleName = (value) => String(value || '').trim().toLowerCase();
+
 const roleAliases = {
-    org: ['org', 'organization'],
-    organization: ['org', 'organization']
+    admin: ['admin', 'administrator', 'superadmin', 'super-admin'],
+    org: ['org', 'organization', 'organizer'],
+    organization: ['org', 'organization', 'organizer'],
+    player: ['player', 'athlete'],
+    referee: ['referee'],
+    coach: ['coach']
 };
 
 const roleMatches = (userRole, allowedRole) => {
-    const acceptedRoles = roleAliases[allowedRole] || [allowedRole];
-    return acceptedRoles.includes(userRole);
+    const normalizedAllowedRole = normalizeRoleName(allowedRole);
+    const acceptedRoles = roleAliases[normalizedAllowedRole] || [normalizedAllowedRole];
+    return acceptedRoles.includes(normalizeRoleName(userRole));
 };
 
 export const protectedRoute = (...args) => {
@@ -106,7 +113,7 @@ export const protectedRoute = (...args) => {
                 } catch (err) {
                     const refreshedUserId = await resolveUserIdFromRefreshToken(req, res);
                     if (!refreshedUserId) {
-                        return res.status(401).json({ success: false, message: 'Token khong hop le hoac da het han', code: 'TOKEN_EXPIRED' });
+                        return res.status(401).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn', code: 'TOKEN_EXPIRED' });
                     }
                     decoded = { userId: refreshedUserId };
                 }
@@ -125,7 +132,7 @@ export const protectedRoute = (...args) => {
                 return res.status(404).json({ success: false, message: 'Người dùng không tồn tại' });
             }
 
-            const userRoleNames = user.roles.map(role => role.name);
+            const userRoleNames = user.roles.map(role => normalizeRoleName(role.name));
             const isAdmin = userRoleNames.includes('admin');
 
             // 4. Kiểm tra role

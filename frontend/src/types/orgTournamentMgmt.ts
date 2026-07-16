@@ -44,6 +44,34 @@ export interface TournamentOperationsState {
   sponsorTiers: SponsorTierState[];
 }
 
+export interface TournamentItemSummary {
+  id: string;
+  name: string;
+  description?: string;
+  sportType?: string;
+  format?: string;
+  competitionFormat?: string;
+  status?: string;
+  logo?: string;
+  banner?: string;
+  paymentQR?: string;
+  feeEntry?: number;
+  maxTeams?: number;
+  registeredTeams?: number;
+  prizes?: string;
+  location?: {
+    city?: string;
+    district?: string;
+    detail?: string;
+  };
+  timeLine?: {
+    registrationStart?: string;
+    registrationEnd?: string;
+    tournamentStart?: string;
+    tournamentEnd?: string;
+  };
+}
+
 export interface TournamentRecord {
   id: string;
   tournamentItemId?: string;
@@ -52,6 +80,28 @@ export interface TournamentRecord {
   season: string;
   format: string;
   sport: string;
+  competitionType?: string;
+  venue?: string;
+  registrationDeadline?: string;
+  feeEntry?: number;
+  coverImage?: string;
+  published?: boolean;
+  description?: string;
+  prizes?: string;
+  rawLocation?: {
+    city?: string;
+    district?: string;
+    detail?: string;
+  };
+  rawTimeline?: {
+    registrationStart?: string;
+    registrationEnd?: string;
+    tournamentStart?: string;
+    tournamentEnd?: string;
+  };
+  operations?: TournamentOperationsState;
+  rawTournamentItems?: TournamentItemSummary[];
+  categoryRuleId?: string;
   status: 'Live' | 'Registration Open' | 'Draft' | 'Completed';
   registration: {
     current: number;

@@ -24,20 +24,20 @@ export const sendPasswordResetCode = async ({ to, code, ttlMinutes }) => {
     await transporter.sendMail({
         from,
         to,
-        subject: 'Ma xac minh dat lai mật khẩu TMS',
+        subject: 'Mã xác minh mật khẩu TMS',
         text: [
-            'Ban dang yeu cau dat lai mật khẩu cho he thong TMS.',
-            `Ma xac minh cua ban la: ${code}`,
-            `Ma nay co hieu luc trong ${ttlMinutes} phut va chi su dung mot lan.`,
-            'Neu ban khong yeu cau thao tac nay, hay bo qua email nay.',
+            'Bạn đang yêu cầu xác minh thao tác mật khẩu cho hệ thống TMS.',
+            `Mã xác minh của bạn là: ${code}`,
+            `Mã này có hiệu lực trong ${ttlMinutes} phút và chỉ sử dụng một lần.`,
+            'Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email này.',
         ].join('\n'),
         html: `
             <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a">
-                <h2>Dat lai mật khẩu TMS</h2>
-                <p>Ma xac minh cua ban:</p>
+                <h2>Xác minh mật khẩu TMS</h2>
+                <p>Mã xác minh của bạn:</p>
                 <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
-                <p>Ma co hieu luc trong <strong>${ttlMinutes} phut</strong> va chi su dung mot lan.</p>
-                <p>Neu ban khong yeu cau thao tac nay, hay bo qua email nay.</p>
+                <p>Mã có hiệu lực trong <strong>${ttlMinutes} phút</strong> và chỉ sử dụng một lần.</p>
+                <p>Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email này.</p>
             </div>
         `,
     });

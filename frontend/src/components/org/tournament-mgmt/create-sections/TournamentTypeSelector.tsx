@@ -1,4 +1,4 @@
-import { Layers, Trophy } from "lucide-react";
+﻿import { Layers, Trophy } from "lucide-react";
 import { cn } from "@/libs/utils";
 import type { TournamentKind } from "@/types/orgTournamentMgmt";
 
@@ -10,14 +10,14 @@ interface Props {
 const options: Array<{ kind: TournamentKind; title: string; description: string; icon: typeof Trophy }> = [
   {
     kind: "multi",
-    title: "Hoi thao nhìeu mon",
-    description: "Tao mot su kien lon gom nhìeu mon, moi mon co cấu hình luat rieng.",
+    title: "Hội thao nhiều môn",
+    description: "Tạo một sự kiện lớn gồm nhiều môn, mỗi môn có cấu hình luật riêng.",
     icon: Layers,
   },
   {
     kind: "single",
-    title: "Giải đấu 1 mon",
-    description: "Tao nhanh mot giai doc lap cho mot mon thi dau.",
+    title: "Giải đấu 1 môn",
+    description: "Tạo nhanh một giải độc lập cho một môn thi đấu.",
     icon: Trophy,
   },
 ];
@@ -55,3 +55,4 @@ const TournamentTypeSelector = ({ value, onChange }: Props) => {
 };
 
 export default TournamentTypeSelector;
+

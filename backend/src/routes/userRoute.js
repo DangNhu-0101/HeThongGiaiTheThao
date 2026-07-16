@@ -6,6 +6,9 @@ import {
     getProfile,
     editProfile,
     changePassword,
+    requestChangePasswordOtp,
+    verifyChangePasswordOtp,
+    confirmChangePassword,
     searchUsers,
     requestRole,
     createPlayerProfile,
@@ -20,6 +23,9 @@ router.get('/me', protectedRoute(), authMe);
 router.get('/profile', protectedRoute(), getProfile);
 router.put('/profile', protectedRoute(), editProfile);
 router.put('/change-password', protectedRoute(), changePassword);
+router.post('/change-password/request-otp', protectedRoute(), requestChangePasswordOtp);
+router.post('/change-password/verify-otp', protectedRoute(), verifyChangePasswordOtp);
+router.post('/change-password/confirm', protectedRoute(), confirmChangePassword);
 router.get('/search', protectedRoute(), searchUsers);
 router.post('/request-role', protectedRoute(), requestRole);
 router.post('/create-player', protectedRoute(), createPlayerProfile);

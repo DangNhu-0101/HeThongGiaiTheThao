@@ -1,7 +1,7 @@
 [
   {
-    "_id": "sport_rule_football_v1",
-    "sportType": "Football",
+    "_id": "sport_rule_soccer_v1",
+    "sportType": "Soccer",
     "configType": "sportRule",
     "label": "Luật thi đấu - Bóng đá",
     "version": 1,

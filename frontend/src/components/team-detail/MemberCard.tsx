@@ -2,6 +2,9 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TeamMember } from "@/types/Team";
 
+const isImage = (value?: string) =>
+  Boolean(value && /^(https?:\/\/|data:image\/|blob:|\/?uploads\/)/i.test(value));
+
 const MemberCard = ({
   member,
   canRemove = false,
@@ -18,9 +21,7 @@ const MemberCard = ({
     <div className="group flex min-w-0 flex-col rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-lg">
       <div className="mb-4 flex items-start gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary text-xl font-black text-secondary-foreground shadow-inner transition-transform group-hover:scale-105">
-          {avatar.startsWith("data:image") || avatar.startsWith("http")
-            ? <img src={avatar} alt={member.name} className="h-full w-full object-cover" />
-            : avatar}
+          {isImage(avatar) ? <img src={avatar} alt={member.name} className="h-full w-full object-cover" /> : avatar}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -32,6 +33,7 @@ const MemberCard = ({
             }`}>
               {member.role}
             </span>
+            {member.position ? <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">{member.position}</span> : null}
             {canRemove && (
               <Button
                 size="icon-sm"
@@ -48,21 +50,19 @@ const MemberCard = ({
       </div>
 
       <div className="mt-auto grid grid-cols-3 gap-2 border-t border-border py-3">
-        <div className="rounded-lg bg-muted/30 py-2 text-center">
-          <div className="text-lg font-bold text-foreground">{member.stats.matches}</div>
-          <div className="text-[10px] font-semibold uppercase text-muted-foreground">Trận</div>
-        </div>
-        <div className="rounded-lg bg-muted/30 py-2 text-center">
-          <div className="text-lg font-bold text-foreground">{member.stats.wins}</div>
-          <div className="text-[10px] font-semibold uppercase text-muted-foreground">Thắng</div>
-        </div>
-        <div className="rounded-lg border border-accent/20 bg-accent/10 py-2 text-center">
-          <div className="text-lg font-bold text-accent-foreground">{member.stats.rating}</div>
-          <div className="text-[10px] font-semibold uppercase text-accent-foreground">Hạng</div>
-        </div>
+        <Metric label="Trận" value={String(member.stats.matches)} />
+        <Metric label="Thắng" value={String(member.stats.wins)} />
+        <Metric label="Kỹ năng" value={member.stats.rating} accent />
       </div>
     </div>
   );
 };
+
+const Metric = ({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) => (
+  <div className={`rounded-lg py-2 text-center ${accent ? "border border-accent/20 bg-accent/10" : "bg-muted/30"}`}>
+    <div className={`text-lg font-bold ${accent ? "text-accent-foreground" : "text-foreground"}`}>{value}</div>
+    <div className={`text-[10px] font-semibold uppercase ${accent ? "text-accent-foreground" : "text-muted-foreground"}`}>{label}</div>
+  </div>
+);
 
 export default MemberCard;

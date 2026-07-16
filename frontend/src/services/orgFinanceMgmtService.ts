@@ -1,6 +1,8 @@
 import type { FeeProgressData, SponsorPackage, SponsorRecord } from "@/types/orgFinanceMgmt";
 import api from "@/libs/axios";
 import { getBackendSponsors } from "./backendAdapters";
+import { calculateFeeProgress } from "./orgFinanceCalculator";
+import type { Participant } from "@/types/participant";
 
 const emptyFeeProgress = (): FeeProgressData => ({
   collectedAmount: 0,
@@ -31,11 +33,15 @@ export const orgFinanceMgmtService = {
   async getFinanceData(tournamentItemId?: string): Promise<{ feeProgress: FeeProgressData; sponsors: SponsorRecord[]; sponsorPackages: SponsorPackage[] }> {
     try {
       if (!tournamentItemId) return { feeProgress: emptyFeeProgress(), sponsors: [], sponsorPackages: [] };
-      const [finance, sponsorPackages] = await Promise.all([
+      const [finance, sponsorPackages, participantsResponse, tournamentResponse] = await Promise.all([
         getBackendSponsors(tournamentItemId),
         getSponsorPackages(tournamentItemId),
+        api.get<{ data: Participant[] }>(`/participants/tournament/${tournamentItemId}`),
+        api.get(`/tournaments/single/${tournamentItemId}`),
       ]);
-      return { ...finance, sponsorPackages };
+      const tournament = asRecord(tournamentResponse.data);
+      const feePerPlayer = Number(tournament.feeEntry || asRecord(tournament.paymentConfig).feePerAthlete || 0);
+      return { ...finance, feeProgress: calculateFeeProgress(participantsResponse.data.data || [], feePerPlayer), sponsorPackages };
     } catch (error) {
       console.error("Không thể tải thông tin tài trợ từ backend.", error);
       return { feeProgress: emptyFeeProgress(), sponsors: [], sponsorPackages: [] };
