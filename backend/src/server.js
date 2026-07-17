@@ -1,4 +1,4 @@
-// server.js
+
 import path from 'path';
 import express from 'express';
 import dotenv from 'dotenv';
@@ -72,31 +72,38 @@ app.use('/api/news', newsRoutes);
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
-app.get('/', (req, res) => {
-    res.send('Hệ thống Quản lý Giải đấu đang hoạt động bình thường');
+
+// Phục vụ giao diện Frontend
+const frontendDistPath = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendDistPath));
+
+// Mọi route không khớp với API ở trên sẽ được đẩy về file index.html của React
+app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
+
 // Kết nối DB và khởi động server
 connectDB().then(async () => {
     try {
         const roleCount = await mongoose.model('Role').countDocuments();
         if (roleCount === 0) {
             await initRoles();
-            console.log('✅ Roles initialized');
+            console.log(' Roles initialized');
         } else {
-            console.log('✅ Roles already exist, skipping init.');
+            console.log(' Roles already exist, skipping init.');
         }
     } catch (error) {
-        console.warn('⚠️ Không thể kiểm tra roles, bỏ qua init:', error.message);
+        console.warn(' Không thể kiểm tra roles, bỏ qua init:', error.message);
     }
 
     app.listen(PORT, () => {
-        console.log(`🚀 Server started on port: ${PORT}`);
-        console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(` Server started on port: ${PORT}`);
+        console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log('=== SERVER FILE LOADED ===');
         startMatchStatusScheduler();
     });
 }).catch((error) => {
-    console.error("❌ Kết nối Database thất bại:", error);
+    console.error(" Kết nối Database thất bại:", error);
     process.exit(1);
 });
 
