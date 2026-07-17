@@ -68,21 +68,21 @@ app.use('/api/participants', participantRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/news', newsRoutes);
 
-// Route health check
+
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Phục vụ giao diện Frontend
+
 const frontendDistPath = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDistPath));
 
-// Mọi route không khớp với API ở trên sẽ được đẩy về file index.html của React
-app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendDistPath, 'index.html'));
+app.get('*', (req, res) => { 
+    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
-// Kết nối DB và khởi động server
+
+
 connectDB().then(async () => {
     try {
         const roleCount = await mongoose.model('Role').countDocuments();
@@ -107,4 +107,3 @@ connectDB().then(async () => {
     process.exit(1);
 });
 
-export default app;
