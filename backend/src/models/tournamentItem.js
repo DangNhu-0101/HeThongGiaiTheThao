@@ -22,6 +22,30 @@ const tournamentItemSchema = new mongoose.Schema({
     },
     feeEntry: { type: Number, default: 0 },
     paymentQR: { type: String, default: '' },
+    registrationConfig: {
+        mode: { type: String, enum: ['system', 'external'], default: 'system' },
+        formUrl: { type: String, default: '' },
+        zaloGroupUrl: { type: String, default: '' },
+        maxRegistrations: { type: Number, default: 0 },
+        instructions: { type: String, default: '' },
+        supportContacts: { type: String, default: '' }
+    },
+    paymentConfig: {
+        feeIncludes: { type: mongoose.Schema.Types.Mixed, default: [] },
+        bankName: { type: String, default: '' },
+        accountName: { type: String, default: '' },
+        accountNumber: { type: String, default: '' },
+        transferContent: { type: String, default: '' },
+        instructions: { type: String, default: '' },
+        refundPolicy: { type: String, default: '' }
+    },
+    mediaConfig: {
+        consent: { type: Boolean, default: false },
+        usageTerms: { type: String, default: '' },
+        logoUrl: { type: String, default: '' },
+        bannerUrls: { type: [String], default: [] },
+        paymentQRUrl: { type: String, default: '' }
+    },
     prizes: { type: String, trim: true, default: '' },
     location: {
         city: { type: String, default: '' },
@@ -31,6 +55,8 @@ const tournamentItemSchema = new mongoose.Schema({
     galaConfig: {
         hasGala: { type: Boolean, default: false },
         time: { type: Date, default: null },
+        start: { type: Date, default: null },
+        end: { type: Date, default: null },
         venue: { type: String, default: '' },
         description: { type: String, default: '' }
     },

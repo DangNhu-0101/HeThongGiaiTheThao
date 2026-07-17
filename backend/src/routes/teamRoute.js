@@ -42,7 +42,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ========== CREATE ==========
-router.post('/', protectedRoute('player', { profile: true }), createParticipant);
+router.post('/', protectedRoute('player'), createParticipant);
 router.post('/organization', protectedRoute('admin', 'org', 'organization', { profile: true }), createParticipantByOrganization);
 router.post('/organization/import', protectedRoute('admin', 'org', 'organization', { profile: true }), upload.single('file'), importParticipantsByOrganization);
 router.get('/organization/import-template', protectedRoute('admin', 'org', 'organization', { profile: true }), downloadOrganizationImportTemplate);
@@ -80,10 +80,10 @@ router.delete('/:participantId/fees/:playerId/receipt', protectedRoute('player',
 router.patch('/:participantId/fees/:playerId/review', protectedRoute(), reviewParticipantFee);
 
 // ========== INVITATIONS ==========
-router.post('/:participantId/invitations', protectedRoute('player', { profile: true }), sendParticipantInvitation);
-router.put('/invitations/:invitationId/accept', protectedRoute('player', { profile: true }), acceptParticipantInvitation);
-router.put('/invitations/:invitationId/reject', protectedRoute('player', { profile: true }), rejectParticipantInvitation);
-router.delete('/invitations/:invitationId/cancel', protectedRoute('player', { profile: true }), cancelParticipantInvitation);
-router.get('/:participantId/invitations', protectedRoute('player', { profile: true }), getParticipantInvitations);
+router.post('/:participantId/invitations', protectedRoute('player'), sendParticipantInvitation);
+router.put('/invitations/:invitationId/accept', protectedRoute('player'), acceptParticipantInvitation);
+router.put('/invitations/:invitationId/reject', protectedRoute('player'), rejectParticipantInvitation);
+router.delete('/invitations/:invitationId/cancel', protectedRoute('player'), cancelParticipantInvitation);
+router.get('/:participantId/invitations', protectedRoute('player'), getParticipantInvitations);
 
 export default router;

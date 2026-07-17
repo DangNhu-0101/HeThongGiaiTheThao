@@ -13,6 +13,12 @@ import { initialsFromSource, readMatchSourceLabels } from "@/utils/matchSourceLa
 
 type ApiList<T = unknown> = T[] | { data?: T[]; success?: boolean };
 
+export interface QuickRefereeAssignmentResult {
+  successCount: number;
+  failedCount: number;
+  failures: Array<{ matchId: string; matchName: string; reason: string }>;
+}
+
 const stageColors = [
   "bg-blue-50 text-blue-700 border-blue-200",
   "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -31,6 +37,27 @@ const toTimeInput = (value: unknown) => {
   const date = value ? new Date(String(value)) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+};
+
+const timeAfterMinutes = (value: unknown, minutes: number) => {
+  const date = value ? new Date(String(value)) : null;
+  if (!date || Number.isNaN(date.getTime())) return "";
+  date.setMinutes(date.getMinutes() + Math.max(1, minutes));
+  return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+};
+
+const minutesOfDay = (time?: string) => {
+  if (!time) return null;
+  const [hour, minute] = time.slice(0, 5).split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+};
+
+const durationFromTimes = (start?: string, end?: string) => {
+  const startMinutes = minutesOfDay(start);
+  const endMinutes = minutesOfDay(end);
+  if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) return null;
+  return endMinutes - startMinutes;
 };
 
 const buildScheduledTime = (date?: string, time?: string) => {
@@ -126,6 +153,12 @@ const mapReferee = (item: unknown): ScheduleReferee | null => {
   };
 };
 
+const readEntityId = (item: unknown) => {
+  if (typeof item === "string" || typeof item === "number") return String(item);
+  const raw = asRecord(item);
+  return String(raw._id || raw.id || "");
+};
+
 const mapVenue = (item: unknown): VenueColumn | null => {
   const raw = asRecord(item);
   const id = String(raw._id || raw.id || "");
@@ -155,14 +188,33 @@ export const orgScheduleMgmtService = {
       const [stagesResponse, courtsResponse, matchesResponse, refereeResponse] = await Promise.all([
         api.get<ApiList>("/stages/tournament-item/" + tournamentItemId),
         api.get<ApiList>("/courts/tournament-item/" + tournamentItemId).catch(() => ({ data: [] as unknown[] })),
-        api.get<ApiList>("/matches/tournament-item/" + tournamentItemId).catch(() => ({ data: [] as unknown[] })),
+        api.get<ApiList>("/matches/tournament-item/" + tournamentItemId),
         api.get<ApiList>("/tournament-referees/tournament-item/" + tournamentItemId).catch(() => ({ data: [] as unknown[] })),
       ]);
 
       const rawStages = asArray(stagesResponse.data);
       const rawMatches = dedupeMatchesByStageAndCode(asArray(matchesResponse.data));
       const venues = asArray(courtsResponse.data).map(mapVenue).filter((venue): venue is VenueColumn => Boolean(venue));
-      const referees = asArray(refereeResponse.data).map(mapReferee).filter((referee): referee is ScheduleReferee => Boolean(referee));
+      const referees = asArray(refereeResponse.data)
+        .map(mapReferee)
+        .filter((referee): referee is ScheduleReferee => referee !== null && referee.status !== "unavailable");
+      const refereeById = new Map(referees.map((referee) => [referee.id, referee]));
+      const inferredDurationByStage = new Map<string, number>();
+      const timesByStage = new Map<string, number[]>();
+      rawMatches.forEach((raw) => {
+        const stage = asRecord(raw.stageId);
+        const stageId = String(stage._id || raw.stageId || "");
+        const timestamp = raw.scheduledTime ? new Date(String(raw.scheduledTime)).getTime() : Number.NaN;
+        if (!stageId || !Number.isFinite(timestamp)) return;
+        timesByStage.set(stageId, [...(timesByStage.get(stageId) || []), timestamp]);
+      });
+      timesByStage.forEach((timestamps, stageId) => {
+        const uniqueTimes = [...new Set(timestamps)].sort((a, b) => a - b);
+        const gaps = uniqueTimes.slice(1)
+          .map((timestamp, index) => (timestamp - uniqueTimes[index]) / 60000)
+          .filter((minutes) => Number.isFinite(minutes) && minutes > 0);
+        inferredDurationByStage.set(stageId, gaps.length > 0 ? Math.max(1, Math.min(...gaps)) : 30);
+      });
 
       const stageMeta = new Map<string, ScheduleStageOption>();
       rawStages.forEach((stage, index) => {
@@ -189,8 +241,15 @@ export const orgScheduleMgmtService = {
           publishStatus: "draft" as const,
         };
         const court = asRecord(raw.courtId);
-        const rawReferees = Array.isArray(raw.refereeIds) ? raw.refereeIds.map(asRecord) : [];
+        const rawReferees = Array.isArray(raw.refereeIds) ? raw.refereeIds : [];
+        const persistedRefereeIds = rawReferees.map(readEntityId).filter(Boolean);
+        const refereeRecords = persistedRefereeIds
+          .map((id) => refereeById.get(id) || null)
+          .filter((referee): referee is ScheduleReferee => Boolean(referee));
+        const refereeIds = refereeRecords.map((referee) => referee.id);
+        const refereeName = refereeRecords.map((referee) => referee.name).filter(Boolean).join(", ");
         const scheduledTime = raw.scheduledTime;
+        const durationMinutes = Math.max(1, Number(raw.durationMinutes || inferredDurationByStage.get(stageOption.id) || 30));
         const pair = readPairFromMatch(raw);
         const publishStatus = raw.scheduleStatus === "published" ? "published" : "draft";
         const record = {
@@ -205,11 +264,13 @@ export const orgScheduleMgmtService = {
           teamB: pair.teamB,
           date: toDateInput(scheduledTime),
           time: toTimeInput(scheduledTime),
+          endTime: timeAfterMinutes(scheduledTime, durationMinutes),
+          durationMinutes,
           venue: String(court._id || raw.courtId || ""),
           order: Number(raw.scheduleOrder || index + 1),
-          referee: rawReferees.map((referee) => String(referee.name || "")).filter(Boolean).join(", "),
-          refereeIds: rawReferees.map((referee) => String(referee._id || referee.id || "")).filter(Boolean),
-          referees: rawReferees.map(mapReferee).filter((referee): referee is ScheduleReferee => Boolean(referee)),
+          referee: refereeName,
+          refereeIds,
+          referees: refereeRecords,
           assistant: "",
           status: raw.status === "live" ? "Live" : scheduledTime ? "Scheduled" : "Unscheduled",
           publishStatus,
@@ -238,7 +299,7 @@ export const orgScheduleMgmtService = {
       };
     } catch (error) {
       console.error("Không thể tải lịch thi đấu từ BE.", error);
-      return emptyData();
+      throw error;
     }
   },
 
@@ -250,12 +311,25 @@ export const orgScheduleMgmtService = {
   async updateMatchAssignment(matchId: string, updates: Partial<ScheduleMatchRecord>) {
     if (isGeneratedMatchId(matchId)) return;
     const scheduledTime = buildScheduledTime(updates.date, updates.time);
+    const explicitDuration = durationFromTimes(updates.time, updates.endTime);
     const payload: Record<string, unknown> = {};
     if ("date" in updates || "time" in updates) payload.scheduledTime = scheduledTime || null;
+    if ("endTime" in updates || explicitDuration !== null) payload.durationMinutes = explicitDuration ?? updates.durationMinutes ?? null;
+    else if ("durationMinutes" in updates) payload.durationMinutes = updates.durationMinutes;
     if ("venue" in updates) payload.courtId = updates.venue || null;
-    if ("refereeIds" in updates) payload.refereeIds = updates.refereeIds || [];
     if ("order" in updates) payload.scheduleOrder = updates.order;
-    await api.put(`/matches/${matchId}`, payload);
+    if (Object.keys(payload).length > 0) await api.put(`/matches/${matchId}`, payload);
+  },
+
+  async updateMatchReferees(matchId: string, refereeIds: string[]) {
+    if (isGeneratedMatchId(matchId)) return;
+    const response = await api.patch(`/matches/${matchId}/referees`, { refereeIds });
+    return response.data;
+  },
+
+  async quickAssignStageReferees(stageId: string): Promise<QuickRefereeAssignmentResult> {
+    const response = await api.post(`/matches/stage/${stageId}/assign-referees`);
+    return response.data.data as QuickRefereeAssignmentResult;
   },
 
   async autoScheduleStage(stageId: string, startAt: string, intervalMinutes: number) {

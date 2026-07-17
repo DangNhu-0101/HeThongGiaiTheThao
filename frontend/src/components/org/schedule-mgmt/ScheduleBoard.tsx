@@ -25,13 +25,35 @@ const timeFromMinutes = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
 const nextDropTime = (matches: ScheduleMatchRecord[], venueId: string, date: string) => {
-  const laneTimes = matches
+  const laneEndTimes = matches
     .filter((match) => match.venue === venueId && match.date === date && match.time)
-    .map((match) => minutesOfDay(match.time))
+    .map((match) => {
+      const start = minutesOfDay(match.time);
+      return start === null ? null : start + Math.max(1, Number(match.durationMinutes || MATCH_DURATION_MINUTES));
+    })
     .filter((value): value is number => value !== null);
-  if (laneTimes.length === 0) return "08:00";
-  return timeFromMinutes(Math.max(...laneTimes) + MATCH_DURATION_MINUTES);
+  if (laneEndTimes.length === 0) return "08:00";
+  return timeFromMinutes(Math.max(...laneEndTimes));
 };
+
+const endTimeOf = (match: ScheduleMatchRecord) => {
+  if (match.endTime) return match.endTime.slice(0, 5);
+  const start = minutesOfDay(match.time);
+  if (start === null) return "";
+  return timeFromMinutes(start + Math.max(1, Number(match.durationMinutes || MATCH_DURATION_MINUTES)));
+};
+
+const compareScheduleTime = (a: ScheduleMatchRecord, b: ScheduleMatchRecord) => {
+  const aStart = minutesOfDay(a.time) ?? Number.MAX_SAFE_INTEGER;
+  const bStart = minutesOfDay(b.time) ?? Number.MAX_SAFE_INTEGER;
+  return aStart - bStart
+    || (a.order || 0) - (b.order || 0)
+    || (a.stageOrder || 0) - (b.stageOrder || 0)
+    || a.code.localeCompare(b.code, "vi");
+};
+
+const hasSchedule = (match: Pick<ScheduleMatchRecord, "date" | "time" | "venue">) =>
+  Boolean(match.date && match.time && match.venue);
 
 const formatDateLabel = (value: string) => {
   const date = value ? new Date(`${value}T00:00:00`) : null;
@@ -42,6 +64,8 @@ const formatDateLabel = (value: string) => {
 const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, onMove }: Props) => {
   const sortedVenues = venues.filter((venue) => venue.id).sort((a, b) => a.name.localeCompare(b.name));
   const readMatchId = (event: DragEvent) => event.dataTransfer.getData(matchMime);
+  const refereeLabel = (match: ScheduleMatchRecord) =>
+    match.referee || (match.referees || []).map((referee) => referee.name).filter(Boolean).join(", ");
 
   const renderCard = (match: ScheduleMatchRecord, venueName?: string) => (
     <article
@@ -61,9 +85,14 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
       }`}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-black uppercase ${match.stageColorClass || "bg-primary/10 text-primary border-primary/20"}`}>
-          {match.code}
-        </span>
+        <div className="min-w-0 space-y-1">
+          <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-black uppercase ${match.stageColorClass || "bg-primary/10 text-primary border-primary/20"}`}>
+            {match.code}
+          </span>
+          <div className="truncate text-[10px] font-black uppercase text-muted-foreground" title={match.stageName || match.round}>
+            {match.stageName || match.round || "Stage"}
+          </div>
+        </div>
         <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" />
       </div>
 
@@ -80,7 +109,7 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-muted-foreground">
         <span className="flex items-center gap-1 rounded bg-accent/10 px-1.5 py-0.5 text-accent-foreground">
-          <Clock className="h-3 w-3" /> {match.time || "Chưa có giờ"}
+          <Clock className="h-3 w-3" /> {match.time ? `${match.time.slice(0, 5)}-${endTimeOf(match)}` : "Chưa có giờ"}
         </span>
         <span className="flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
           <MapPin className="h-3 w-3" /> {venueName || "Chưa xếp sân"}
@@ -89,11 +118,14 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
           {match.status === "Live" ? "Đang diễn ra" : match.publishStatus === "published" ? "Published" : "Draft"}
         </span>
       </div>
-      {match.referee && (
-        <div className="mt-2 truncate rounded bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700" title={match.referee}>
-          Trọng tài: {match.referee}
-        </div>
-      )}
+      <div
+        className={`mt-2 truncate rounded px-2 py-1 text-[10px] font-bold ${
+          refereeLabel(match) ? "bg-blue-50 text-blue-700" : "bg-muted text-muted-foreground"
+        }`}
+        title={refereeLabel(match) || "Chưa phân công"}
+      >
+        Trọng tài: {refereeLabel(match) || "Chưa phân công"}
+      </div>
 
       {match.status === "Conflict" && (
         <div className="mt-2 flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">
@@ -109,14 +141,14 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-sm font-black uppercase text-foreground">{formatDateLabel(selectedDate)}</h3>
             <span className="rounded-full bg-background px-2 py-1 text-[10px] font-bold text-muted-foreground">
-              {matches.filter((match) => match.date === selectedDate && match.status !== "Unscheduled").length} trận
+              {matches.filter((match) => match.date === selectedDate && hasSchedule(match)).length} trận
             </span>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-1 beautiful-scrollbar">
             {sortedVenues.map((venue) => {
               const laneMatches = matches
-                .filter((match) => match.venue === venue.id && match.date === selectedDate && match.status !== "Unscheduled")
-                .sort((a, b) => (a.order || 0) - (b.order || 0) || (a.time || "").localeCompare(b.time || ""));
+                .filter((match) => match.venue === venue.id && match.date === selectedDate && hasSchedule(match))
+                .sort(compareScheduleTime);
         return (
           <div
             key={`${selectedDate}-${venue.id}`}
@@ -157,7 +189,7 @@ const ScheduleBoard = ({ venues, matches, selectedDate, selectedId, onSelect, on
             })}
           </div>
         </section>
-      {matches.filter((match) => match.date === selectedDate && match.status !== "Unscheduled").length === 0 && (
+      {matches.filter((match) => match.date === selectedDate && hasSchedule(match)).length === 0 && (
         <div className="flex min-h-60 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center text-xs font-bold text-muted-foreground">
           Chưa có trận nào đã được xếp lịch trong ngày đã chọn.
         </div>

@@ -25,6 +25,7 @@ export type WorkloadLevel = 'Low' | 'Med' | 'High' | 'Over';
 export interface OrgRefereeRecord {
   id: string;
   name: string;
+  phoneNumber?: string;
   avatar: string;
   refId: string;
   qualification: string; // VD: Cấp Quốc gia, Cấp Khu vực

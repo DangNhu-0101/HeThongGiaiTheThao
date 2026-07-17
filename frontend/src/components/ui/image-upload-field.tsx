@@ -3,6 +3,7 @@ import { ImagePlus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizeUploadUrl } from "@/libs/axios";
 import { uploadService, validateImageFile } from "@/services/uploadService";
 
 interface Props {
@@ -22,6 +23,7 @@ export const ImageUploadField = ({
 }: Props) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const imageSrc = normalizeUploadUrl(value);
 
   const readImage = async (file?: File) => {
     if (!file) return;
@@ -45,8 +47,8 @@ export const ImageUploadField = ({
     <div className="space-y-2">
       <Label>{label}</Label>
       <div className="relative flex min-h-32 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted/20">
-        {value ? (
-          <img src={value} alt={label} className="h-32 w-full object-contain p-2" />
+        {imageSrc ? (
+          <img src={imageSrc} alt={label} className="h-32 w-full object-contain p-2" />
         ) : (
           <div className="flex flex-col items-center gap-2 p-5 text-center text-muted-foreground">
             <ImagePlus className="h-6 w-6 text-primary" />

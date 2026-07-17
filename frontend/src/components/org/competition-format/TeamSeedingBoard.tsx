@@ -14,6 +14,16 @@ interface Props {
 
 const teamMime = "application/x-format-seed-team";
 
+const errorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === "object") {
+    const response = "response" in error ? error.response : undefined;
+    const data = response && typeof response === "object" && "data" in response ? response.data : undefined;
+    if (data && typeof data === "object" && "message" in data) return String(data.message || fallback);
+    if ("message" in error) return String(error.message || fallback);
+  }
+  return fallback;
+};
+
 const assignmentFor = (stage: CompetitionStageConfig, slotId: string) =>
   (stage.seedAssignments || []).find((assignment) => assignment.slotId === slotId);
 
@@ -165,7 +175,7 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
       if (result.notes?.length) toast.info(result.notes.join("\n"));
     } catch (error) {
       console.error(error);
-      toast.error("Không thể xem trước phương án xếp đội.");
+      toast.error(errorMessage(error, "Không thể xem trước phương án xếp đội."));
     } finally {
       setPreviewing(false);
     }
@@ -180,7 +190,7 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
       })
       .catch((error) => {
         console.error(error);
-        toast.error("Chưa thể lưu phương án xếp đội.");
+        toast.error(errorMessage(error, "Chưa thể lưu phương án xếp đội."));
       });
   };
 
@@ -189,24 +199,24 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
   }
 
   return (
-    <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-      <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
-        <div className="mb-4">
+    <section className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-4">
+      <aside className="rounded-lg border border-border bg-card p-3 shadow-sm xl:p-4">
+        <div className="mb-3 xl:mb-4">
           <h2 className="text-sm font-bold uppercase text-foreground">Danh sách đội</h2>
-          <p className="mt-1 text-xs font-semibold text-muted-foreground">Kéo đội thật vào slot đầu vào. Slot kết quả như A1/M1/L1 sẽ bị khóa logic.</p>
+          <p className="mt-1 hidden text-xs font-semibold text-muted-foreground sm:block">Kéo đội thật vào slot đầu vào. Slot kết quả như A1/M1/L1 sẽ bị khóa logic.</p>
         </div>
         <select
           value={selectedStage.id}
           onChange={(event) => setSelectedStageId(event.target.value)}
-          className="mb-3 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-bold"
+          className="mb-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-bold xl:mb-3"
         >
           {stages.map((stage) => <option key={stage.id} value={stage.id}>Stage {stage.order} - {stage.name}</option>)}
         </select>
-        <div className="mb-3 flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground">
+        <div className="mb-2 flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground xl:mb-3">
           <span>Chưa gán</span>
           <span>{availableTeams.length}/{teams.length}</span>
         </div>
-        <div className="mb-4 rounded-lg border border-border bg-muted/20 p-3">
+        <div className="mb-3 rounded-lg border border-border bg-muted/20 p-2.5 xl:mb-4 xl:p-3">
           <label className="mb-2 block text-[11px] font-black uppercase text-muted-foreground">Tự động xếp đội</label>
           <select
             value={criterion}
@@ -238,7 +248,7 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
             <p className="mt-2 text-[11px] font-semibold text-muted-foreground">Đã tự đặt {previewAssignments.length} đội vào bản nháp. Có thể kéo tay để sửa, bấm Áp dụng để lưu thật.</p>
           )}
         </div>
-        <div className="max-h-[620px] space-y-2 overflow-y-auto beautiful-scrollbar pr-1">
+        <div className="max-h-36 space-y-2 overflow-y-auto beautiful-scrollbar pr-1 sm:max-h-44 xl:max-h-[620px]">
           {loading ? (
             <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs font-bold text-muted-foreground">Đang tải đội...</div>
           ) : availableTeams.length ? availableTeams.map((team) => (
@@ -261,7 +271,7 @@ const TeamSeedingBoard = ({ tournamentItemId, stages, onChangeStage }: Props) =>
         </div>
       </aside>
 
-      <main className="min-h-0 overflow-y-auto rounded-lg border border-border bg-muted/20 p-4 beautiful-scrollbar">
+      <main className="min-h-[58vh] overflow-y-auto rounded-lg border border-border bg-muted/20 p-3 beautiful-scrollbar xl:min-h-0 xl:p-4">
         {isGroupStage ? (
           <GroupSeeding stage={selectedStage} onDropTeam={dropTeam} onClear={clearSlot} />
         ) : (

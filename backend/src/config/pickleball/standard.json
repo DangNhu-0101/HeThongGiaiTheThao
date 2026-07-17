@@ -54,7 +54,7 @@
       "templateName": "pickleball_round_robin_playoff_v2",
       "name": "Vòng tròn - loại trực tiếp",
       "slug": "round-robin-playoff",
-      "description": "Giai đoạn đầu thi đấu vòng tròn, giai đoạn sau loại trực tiếp hoặc nhánh thắng - nhánh thua.",
+      "description": "Giai đoạn đầu thi đấu vòng tròn, giai đoạn sau loại trực tiếp.",
       "version": "2.0",
       "language": "vi",
       "categoryCodes": ["S_OPEN", "MS", "WS", "D_OPEN", "MD", "WD", "XD"],

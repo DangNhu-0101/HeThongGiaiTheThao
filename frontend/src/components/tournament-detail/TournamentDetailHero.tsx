@@ -4,6 +4,14 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import type { TournamentDetail } from "@/types/tournament";
 
+const formatDateTime = (date: Date) => date.toLocaleString("vi-VN", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 const TournamentDetailHero = ({ detail }: { detail: TournamentDetail }) => {
   const registeredTeams = Math.min(detail.registeredTeams, detail.maxTeams);
   const remainingSlots = Math.max(0, detail.maxTeams - registeredTeams);
@@ -15,6 +23,7 @@ const TournamentDetailHero = ({ detail }: { detail: TournamentDetail }) => {
   const progress = Math.min(100, (registeredTeams / Math.max(1, detail.maxTeams)) * 100);
   const usesExternalRegistration = detail.registrationMode === "external" && Boolean(detail.registrationFormUrl);
   const banner = detail.banner?.trim();
+  const location = [detail.location.detail].filter(Boolean).join(", ") || "Chưa cập nhật";
 
   return (
     <section className="relative isolate overflow-hidden bg-primary-dark text-white">
@@ -36,8 +45,8 @@ const TournamentDetailHero = ({ detail }: { detail: TournamentDetail }) => {
           <p className="max-w-2xl text-lg font-medium leading-8 text-white/84">{detail.description}</p>
 
           <div className="flex flex-wrap gap-6 pt-4 text-sm font-medium text-white/82">
-            <div className="flex items-center gap-2"><Calendar className="size-4 text-primary-light" /> Từ {new Date(detail.timeLine.tournamentStart).toLocaleDateString("vi-VN")}</div>
-            <div className="flex items-center gap-2"><MapPin className="size-4 text-primary-light" /> {detail.location.district}</div>
+            <div className="flex items-center gap-2"><Calendar className="size-4 text-primary-light" /> Từ {formatDateTime(new Date(detail.timeLine.tournamentStart))}</div>
+            <div className="flex items-center gap-2"><MapPin className="size-4 text-primary-light" /> {location}</div>
             <div className="flex items-center gap-2"><Users className="size-4 text-primary-light" /> {detail.maxTeams} đội</div>
             <div className="flex items-center gap-2"><Trophy className="size-4 text-primary-light" /> {detail.organizer}</div>
           </div>
@@ -52,9 +61,7 @@ const TournamentDetailHero = ({ detail }: { detail: TournamentDetail }) => {
                 Đăng ký trên hệ thống
               </Button>
             ))}
-            <Button variant="outline" className="h-12 border-white/24 bg-white/10 px-8 text-base text-white hover:bg-white hover:text-primary-dark">
-              Theo dõi giải đấu
-            </Button>
+          
           </div>
         </div>
 
@@ -70,7 +77,7 @@ const TournamentDetailHero = ({ detail }: { detail: TournamentDetail }) => {
             <p className="text-xs leading-5 text-white/78">
               {registrationClosed
                 ? "Đăng ký đã đóng"
-                : `Còn lại ${remainingSlots} suất - Đóng cổng: ${new Date(detail.timeLine.registrationEnd).toLocaleDateString("vi-VN")}`}
+                : `Còn lại ${remainingSlots} suất - Đóng cổng: ${formatDateTime(new Date(detail.timeLine.registrationEnd))}`}
             </p>
           </div>
         </div>

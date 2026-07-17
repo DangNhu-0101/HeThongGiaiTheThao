@@ -112,7 +112,7 @@ export const getAllTournaments = async (req, res) => {
         if (status) filter.status = { $in: status.split(',') };
         if (organizerId) filter.organization = { $in: organizerId.split(',') };
         const tournaments = await Tournament.find(filter)
-            .populate('organization', 'name logo email')
+            .populate('organization', 'name username fullName logo email')
             .populate('tournamnetItem')
             .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
             .skip((parseInt(page) - 1) * parseInt(limit))
@@ -137,7 +137,7 @@ export const getAllSingleSportTournaments = async (req, res) => {
         const limitNum = parseInt(limit);
 
         const tournaments = await TournamentItem.find(filter)
-            .populate('organization', 'name logo email')
+            .populate('organization', 'name username fullName logo email')
             .populate({
                 path: 'categoryRule',
                 populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
@@ -172,7 +172,7 @@ export const getOpenRegistrationTournamentItems = async (req, res) => {
         };
 
         const items = await TournamentItem.find(filter)
-            .populate('organization', 'name logo email')
+            .populate('organization', 'name username fullName logo email')
             .populate('tournamentId', 'name')
             .populate({
                 path: 'categoryRule',
@@ -194,7 +194,7 @@ export const getSingleSportTournamentsByOrganization = async (req, res) => {
         if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
         const hasAdmin = user.roles.some(r => r.name === 'admin');
 
-        let filter = { tournamentId: null };
+        let filter = { tournamentId: null, status: { $ne: 'cancelled' } };
         if (!hasAdmin) {
             filter.organization = currentUser;
         } else if (req.query.organizationId) {
@@ -206,7 +206,7 @@ export const getSingleSportTournamentsByOrganization = async (req, res) => {
         if (sportType) filter.sportType = sportType;
 
         const tournaments = await TournamentItem.find(filter)
-            .populate('organization', 'name logo email')
+            .populate('organization', 'name username fullName logo email')
             .populate({
                 path: 'categoryRule',
                 populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
@@ -225,16 +225,16 @@ export const getTournamentByOrganization = async (req, res) => {
         const user = await User.findById(currentUser).populate('roles');
         if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
         const hasAdmin = user.roles.some(r => r.name === 'admin');
-        let filter = {};
+        let filter = { status: { $ne: 'cancelled' } };
         if (!hasAdmin) {
-            filter = { organization: currentUser };
+            filter.organization = currentUser;
         } else if (req.query.organizationId) {
-            filter = { organization: req.query.organizationId };
+            filter.organization = req.query.organizationId;
         }
         const { status } = req.query;
         if (status) filter.status = status;
         const tournaments = await Tournament.find(filter)
-            .populate('organization', 'name logo email')
+            .populate('organization', 'name username fullName logo email')
             .populate('tournamnetItem')
             .sort({ createdAt: -1 });
         res.json({ data: tournaments });
@@ -246,7 +246,7 @@ export const getTournamentByOrganization = async (req, res) => {
 export const getTournamentById = async (req, res) => {
     try {
         const tournament = await Tournament.findById(req.params.id)
-            .populate('organization', 'name logo email')
+            .populate('organization', 'name username fullName logo email')
             .populate({
                 path: 'tournamnetItem',
                 populate: {
@@ -269,7 +269,7 @@ export const getTournamentById = async (req, res) => {
 export const getSingleTournamentById = async (req, res) => {
     try {
         const item = await TournamentItem.findById(req.params.id)
-            .populate('organization', 'name logo email')
+            .populate('organization', 'name username fullName logo email')
             .populate({
                 path: 'categoryRule',
                 populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
@@ -372,7 +372,7 @@ export const updateSingleSportTournament = async (req, res) => {
 
         // Nếu có timeline trong updateData, validate
         if (updateData.registrationStart || updateData.registrationEnd || updateData.tournamentStart || updateData.tournamentEnd) {
-            const timelineResult = buildTimeline(updateData);
+            const timelineResult = buildTimeline(updateData, { allowPast: true });
             if (!timelineResult.success) {
                 return res.status(400).json({ message: timelineResult.errors.join('; ') });
             }
@@ -398,7 +398,7 @@ export const updateMultiSportTournament = async (req, res) => {
         if (!perm.allowed) return res.status(403).json({ message: perm.message });
 
         if (updateData.registrationStart || updateData.registrationEnd || updateData.tournamentStart || updateData.tournamentEnd) {
-            const timelineResult = buildTimeline(updateData);
+            const timelineResult = buildTimeline(updateData, { allowPast: true });
             if (!timelineResult.success) {
                 return res.status(400).json({ message: timelineResult.errors.join('; ') });
             }
@@ -492,7 +492,7 @@ export const exportSingleTournamentPdf = async (req, res) => {
         const userId = req.user._id;
 
         const item = await TournamentItem.findById(itemId)
-            .populate('organization', 'name logo email username')
+            .populate('organization', 'name username fullName logo email')
             .populate({
                 path: 'categoryRule',
                 populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']

@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+﻿import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Building2, CalendarDays, Camera, KeyRound, Loader2, Mail, Phone, ShieldCheck, Trash2, UserRound, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getApiErrorMessage } from "@/libs/axios";
+import { getApiErrorMessage, normalizeUploadUrl } from "@/libs/axios";
 import { getRoleLabel } from "@/libs/auth";
 import { authService } from "@/services/authService";
 import { uploadService } from "@/services/uploadService";
@@ -123,6 +123,7 @@ const ProfilePage = () => {
   }, [otpSent]);
 
   const displayName = form.fullName || form.username || "Tài khoản";
+  const avatarSrc = avatarPreview || normalizeUploadUrl(form.avatar);
   const roleLabels = useMemo(() => user?.roles.map(getRoleLabel).join(", ") || "Người dùng", [user?.roles]);
   const joinedAt = user?.createdAt ? new Date(user.createdAt).toLocaleDateString("vi-VN") : "Chưa cập nhật";
   const hasRole = (role: ProfileRole) => {
@@ -296,8 +297,8 @@ const ProfilePage = () => {
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
                 <div className="relative flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white/12 font-highlight text-4xl font-semibold text-accent">
-                  {avatarPreview || form.avatar ? (
-                    <img src={avatarPreview || form.avatar} alt={`Ảnh đại diện của ${displayName}`} className="h-full w-full object-cover" />
+                  {avatarSrc ? (
+                    <img src={avatarSrc} alt={`Ảnh đại diện của ${displayName}`} className="h-full w-full object-cover" />
                   ) : (
                     displayName.slice(0, 2).toUpperCase()
                   )}
@@ -349,8 +350,8 @@ const ProfilePage = () => {
               <h2 className="font-heading text-xl font-bold">Ảnh đại diện</h2>
               <div className="flex flex-col items-center rounded-2xl border border-dashed border-border bg-muted/35 p-5 text-center">
                 <div className="flex size-32 items-center justify-center overflow-hidden rounded-2xl bg-primary-dark font-highlight text-4xl font-semibold text-white">
-                  {avatarPreview || form.avatar ? (
-                    <img src={avatarPreview || form.avatar} alt="Xem trước ảnh đại diện" className="h-full w-full object-cover" />
+                  {avatarSrc ? (
+                    <img src={avatarSrc} alt="Xem trước ảnh đại diện" className="h-full w-full object-cover" />
                   ) : (
                     displayName.slice(0, 2).toUpperCase()
                   )}
@@ -359,7 +360,7 @@ const ProfilePage = () => {
                   <Camera className="size-4" /> Chọn ảnh
                   <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={onAvatarChange} />
                 </label>
-                {(avatarPreview || form.avatar) && (
+                {avatarSrc && (
                   <Button type="button" variant="outline" className="mt-3" onClick={() => { setAvatarFile(null); setAvatarPreview(""); updateForm("avatar", ""); }}>
                     <Trash2 className="size-4" /> Xóa ảnh
                   </Button>
@@ -569,3 +570,4 @@ const SummaryCard = ({ icon: Icon, label, value }: { icon: LucideIcon; label: st
 );
 
 export default ProfilePage;
+

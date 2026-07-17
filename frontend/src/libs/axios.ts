@@ -4,6 +4,16 @@ import { ACCESS_TOKEN_STORAGE_KEY, clearStoredSession } from "./auth";
 const BASE_URL = import.meta.env.VITE_API_URL
   || (import.meta.env.MODE === "development" ? "http://localhost:5001/api" : "/api");
 
+export const API_ORIGIN = BASE_URL.replace(/\/api\/?$/, "");
+
+export const normalizeUploadUrl = (value?: unknown) => {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/^(https?:\/\/|data:image\/|blob:)/i.test(url)) return url;
+  if (/^\/?uploads\//i.test(url)) return `${API_ORIGIN}/${url.replace(/^\/+/, "")}`;
+  return url;
+};
+
 const api = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,

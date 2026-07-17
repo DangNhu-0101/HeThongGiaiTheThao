@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Eye, MoreHorizontal, ShieldAlert, User } from "lucide-react";
+import { CheckCircle2, Eye, MoreHorizontal, ShieldAlert, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { OrgTeamRecord, TeamPaymentStatus } from "@/types/orgTeamMgmt";
+import type { OrgTeamRecord } from "@/types/orgTeamMgmt";
 
 interface Props {
   team: OrgTeamRecord;
   onToggleFree: (id: string) => void;
-  onPaymentStatusChange?: (id: string, paymentStatus: TeamPaymentStatus) => void;
   onReviewMemberFee?: (teamId: string, playerId: string, decision: "approve" | "reject") => void;
   onApprove?: (id: string) => void;
   onReject?: (id: string) => void;
@@ -14,6 +13,8 @@ interface Props {
   onDelete?: (id: string) => void;
   onViewPublic?: (team: OrgTeamRecord) => void;
 }
+
+type MemberFeeRecord = NonNullable<OrgTeamRecord["memberFees"]>[number];
 
 const statusStyle = (team: OrgTeamRecord, isFree: boolean) => {
   if (isFree) return "bg-indigo-50 text-indigo-700 border-indigo-200";
@@ -45,11 +46,38 @@ const statusLabel = (team: OrgTeamRecord, isFree: boolean) => {
   return "Tạm dừng";
 };
 
+const feeStatusLabel = (status: MemberFeeRecord["status"]) => {
+  if (status === "paid") return "Đã xác nhận";
+  if (status === "pending") return "Chờ duyệt";
+  if (status === "rejected") return "Bị từ chối";
+  if (status === "exempted") return "Miễn lệ phí";
+  return "Chưa xác nhận";
+};
+
+const feeStatusClass = (status: MemberFeeRecord["status"]) => {
+  if (status === "paid") return "border-green-200 bg-green-50 text-green-700";
+  if (status === "pending") return "border-orange-200 bg-orange-50 text-orange-700";
+  if (status === "rejected") return "border-red-200 bg-red-50 text-red-700";
+  if (status === "exempted") return "border-indigo-200 bg-indigo-50 text-indigo-700";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+};
+
+const formatCurrency = (value?: number) =>
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value || 0);
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "Chưa có";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Chưa có";
+  return date.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
+};
+
 const isImageAvatar = (value: string) =>
   /^(https?:\/\/|data:image\/|blob:|\/?uploads\/)/i.test(value.trim());
 
-const TeamMgmtCard = ({ team, onToggleFree, onPaymentStatusChange, onReviewMemberFee, onApprove, onReject, onUnapprove, onDelete, onViewPublic }: Props) => {
+const TeamMgmtCard = ({ team, onToggleFree, onReviewMemberFee, onApprove, onReject, onUnapprove, onDelete, onViewPublic }: Props) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [feeDialogOpen, setFeeDialogOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isFree = team.isFree || team.paymentStatus === "exempted";
   const visibleAvatars = team.avatars.filter(Boolean).slice(0, 5);
@@ -63,8 +91,8 @@ const TeamMgmtCard = ({ team, onToggleFree, onPaymentStatusChange, onReviewMembe
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const setPayment = (paymentStatus: TeamPaymentStatus) => {
-    onPaymentStatusChange?.(team.id, paymentStatus);
+  const openFeeDialog = () => {
+    setFeeDialogOpen(true);
     setMenuOpen(false);
   };
 
@@ -75,15 +103,12 @@ const TeamMgmtCard = ({ team, onToggleFree, onPaymentStatusChange, onReviewMembe
           <MoreHorizontal className="h-5 w-5" />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-border bg-card py-1 text-sm shadow-xl">
+          <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-card py-1 text-sm shadow-xl">
+            <button type="button" onClick={openFeeDialog} className="w-full px-4 py-2 text-left font-medium text-foreground hover:bg-muted">
+              Xem trạng thái lệ phí
+            </button>
             <button type="button" onClick={() => { onToggleFree(team.id); setMenuOpen(false); }} className="w-full px-4 py-2 text-left font-medium text-foreground hover:bg-muted">
               {isFree ? "Bỏ miễn phí" : "Được miễn phí"}
-            </button>
-            <button type="button" onClick={() => setPayment("paid")} className="w-full px-4 py-2 text-left font-medium text-foreground hover:bg-muted">
-              Đánh dấu đã đóng phí
-            </button>
-            <button type="button" onClick={() => setPayment("unpaid")} className="w-full px-4 py-2 text-left font-medium text-foreground hover:bg-muted">
-              Đánh dấu chưa đóng phí
             </button>
             {team.status === "Approved" && (
               <button type="button" onClick={() => { onUnapprove?.(team.id); setMenuOpen(false); }} className="w-full px-4 py-2 text-left font-medium text-foreground hover:bg-muted">
@@ -116,9 +141,9 @@ const TeamMgmtCard = ({ team, onToggleFree, onPaymentStatusChange, onReviewMembe
           <span className="flex items-center gap-1 whitespace-nowrap rounded-md bg-muted px-2 py-1">
             <User className="h-3 w-3" /> {team.playersCount} VĐV
           </span>
-          <span className={`rounded-md px-2 py-1 ${team.paymentStatus === "paid" ? "bg-green-50 text-green-700" : isFree ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"}`}>
+          <button type="button" onClick={openFeeDialog} className={`rounded-md px-2 py-1 text-left transition hover:ring-2 hover:ring-primary/20 ${team.paymentStatus === "paid" ? "bg-green-50 text-green-700" : isFree ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"}`} title="Xem trạng thái lệ phí">
             {paymentLabel(team)}
-          </span>
+          </button>
         </div>
 
         {receiptFees.length ? (
@@ -132,17 +157,15 @@ const TeamMgmtCard = ({ team, onToggleFree, onPaymentStatusChange, onReviewMembe
                   </a>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-bold">{fee.playerName}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {fee.status === "pending" ? "Chờ duyệt" : fee.status === "paid" ? "Đã xác nhận" : fee.status === "rejected" ? "Bị từ chối" : "Chưa xác nhận"}
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">{feeStatusLabel(fee.status)}</p>
                     {fee.rejectReason ? <p className="truncate text-[10px] text-red-600">{fee.rejectReason}</p> : null}
                   </div>
                   {fee.status === "pending" ? (
                     <div className="flex shrink-0 gap-1">
-                      <Button size="icon-sm" variant="ghost" className="text-green-700" onClick={() => onReviewMemberFee?.(team.id, fee.playerId, "approve")} title="Xác nhận đã đóng" aria-label="Xác nhận đã đóng">
+                      <Button size="icon-sm" variant="ghost" className="text-green-700" onClick={() => onReviewMemberFee?.(team.id, fee.playerId, "approve")} title="Duyệt bằng chứng" aria-label="Duyệt bằng chứng">
                         <CheckCircle2 className="h-4 w-4" />
                       </Button>
-                      <Button size="icon-sm" variant="ghost" className="text-red-600" onClick={() => onReviewMemberFee?.(team.id, fee.playerId, "reject")} title="Từ chối" aria-label="Từ chối">
+                      <Button size="icon-sm" variant="ghost" className="text-red-600" onClick={() => onReviewMemberFee?.(team.id, fee.playerId, "reject")} title="Từ chối bằng chứng" aria-label="Từ chối bằng chứng">
                         <ShieldAlert className="h-4 w-4" />
                       </Button>
                     </div>
@@ -201,6 +224,116 @@ const TeamMgmtCard = ({ team, onToggleFree, onPaymentStatusChange, onReviewMembe
         <span className={`rounded border px-2 py-0.5 text-[9px] font-bold uppercase ${statusStyle(team, isFree)}`}>
           {statusLabel(team, isFree)}
         </span>
+      </div>
+
+      {feeDialogOpen && (
+        <FeeStatusDialog
+          team={team}
+          onClose={() => setFeeDialogOpen(false)}
+          onReviewMemberFee={onReviewMemberFee}
+        />
+      )}
+    </div>
+  );
+};
+
+const FeeStatusDialog = ({
+  team,
+  onClose,
+  onReviewMemberFee,
+}: {
+  team: OrgTeamRecord;
+  onClose: () => void;
+  onReviewMemberFee?: (teamId: string, playerId: string, decision: "approve" | "reject") => void;
+}) => {
+  const fees = team.memberFees || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label="Trạng thái lệ phí">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-border p-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase text-muted-foreground">Trạng thái lệ phí</p>
+            <h3 className="truncate text-lg font-black text-foreground">{team.name}</h3>
+            <p className="truncate text-sm text-muted-foreground">{team.tournamentName}</p>
+          </div>
+          <Button type="button" size="icon-sm" variant="ghost" onClick={onClose} aria-label="Đóng">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {!fees.length ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-5 text-sm text-muted-foreground">
+              Chưa có dữ liệu thành viên để hiển thị lệ phí.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {fees.map((fee) => (
+                <div key={fee.playerId} className="grid gap-3 rounded-xl border border-border bg-background p-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                  <div className="min-w-0 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        {fee.playerName.trim().slice(0, 2).toUpperCase() || "VD"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="min-w-0 break-words font-bold text-foreground">{fee.playerName}</p>
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${feeStatusClass(fee.status)}`}>
+                            {feeStatusLabel(fee.status)}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                          <span>Cần đóng: <strong className="text-foreground">{formatCurrency(fee.amount)}</strong></span>
+                          <span>Đã xác nhận: <strong className="text-foreground">{formatCurrency(fee.amountPaid)}</strong></span>
+                          <span>Ngày gửi: <strong className="text-foreground">{formatDateTime(fee.submittedAt)}</strong></span>
+                          <span>Ngày duyệt: <strong className="text-foreground">{formatDateTime(fee.reviewedAt)}</strong></span>
+                        </div>
+                        {fee.rejectReason ? (
+                          <p className="mt-2 rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+                            Lý do từ chối: {fee.rejectReason}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {fee.status === "pending" ? (
+                      <div className="flex flex-wrap gap-2 pl-0 md:pl-[52px]">
+                        <Button size="sm" variant="outline" className="border-green-200 text-green-700 hover:bg-green-50" onClick={() => onReviewMemberFee?.(team.id, fee.playerId, "approve")}>
+                          <CheckCircle2 className="mr-1 h-4 w-4" /> Duyệt bằng chứng
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => onReviewMemberFee?.(team.id, fee.playerId, "reject")}>
+                          <ShieldAlert className="mr-1 h-4 w-4" /> Từ chối
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-muted/25 p-2">
+                    {fee.status === "paid" ? (
+                      <div className="flex h-36 flex-col items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 text-center text-xs font-bold text-green-700">
+                        <CheckCircle2 className="h-5 w-5" />
+                        Đã xác nhận
+                      </div>
+                    ) : fee.receiptImage ? (
+                      <a href={fee.receiptImage} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-md border border-border bg-card" title="Xem ảnh bằng chứng">
+                        <img src={fee.receiptImage} alt={`Ảnh bằng chứng lệ phí của ${fee.playerName}`} className="h-36 w-full object-cover transition group-hover:scale-[1.02]" />
+                      </a>
+                    ) : (
+                      <div className="flex h-36 items-center justify-center rounded-md border border-dashed border-border text-center text-xs text-muted-foreground">
+                        Chưa có bằng chứng
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end border-t border-border p-4">
+          <Button type="button" variant="outline" onClick={onClose}>Đóng</Button>
+        </div>
       </div>
     </div>
   );

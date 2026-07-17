@@ -9,6 +9,8 @@ import {
     getMatchesByGroup,
     getMatchById,
     updateMatch,
+    updateMatchReferees,
+    quickAssignStageReferees,
     autoResultMatch,
     updateLiveMatchScore,
     completeMatch,
@@ -40,8 +42,10 @@ router.post('/group-stage/generate', protectedRoute('admin', 'org', 'organizatio
 router.post('/tournament-item/:tournamentItemId/sync-from-format', protectedRoute('admin', 'org', 'organization', { profile: true }), syncMatchesFromFormat);
 router.post('/tournament-item/:tournamentItemId/publish-scheduled', protectedRoute('admin', 'org', 'organization', { profile: true }), publishScheduledMatchesByTournamentItem);
 router.post('/stage/:stageId/auto-schedule', protectedRoute('admin', 'org', 'organization', { profile: true }), autoScheduleStage);
+router.post('/stage/:stageId/assign-referees', protectedRoute('admin', 'org', 'organization', { profile: true }), quickAssignStageReferees);
 router.post('/stage/:stageId/publish', protectedRoute('admin', 'org', 'organization', { profile: true }), publishStageSchedule);
 router.put('/bulk', protectedRoute('admin', 'org', 'organization', { profile: true }), updateMatches);
+router.patch('/:id/referees', protectedRoute('admin', 'org', 'organization', { profile: true }), updateMatchReferees);
 router.put('/:id', protectedRoute('admin', 'org', 'organization', { profile: true }), updateMatch);
 router.patch('/:id/live-score', protectedRoute('admin', 'org', 'organization', { profile: true }), updateLiveMatchScore);
 router.post('/:id/auto-result', protectedRoute('admin', 'org', 'organization', { profile: true }), autoResultMatch);

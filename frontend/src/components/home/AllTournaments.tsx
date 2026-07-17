@@ -15,19 +15,39 @@ interface AllTournamentsProps {
 
 const statusInfo = (tournament: Tournament) => {
   const now = Date.now();
-  if (tournament.status === "ongoing") return { label: "LIVE", className: "bg-primary text-white" };
-  if (tournament.timeLine.registrationEnd?.getTime?.() >= now) return { label: "Mở đăng ký", className: "bg-emerald-600 text-white" };
+  const registrationStart = tournament.timeLine.registrationStart?.getTime?.() || 0;
+  const registrationEnd = tournament.timeLine.registrationEnd?.getTime?.() || 0;
+  const tournamentStart = tournament.timeLine.tournamentStart?.getTime?.() || 0;
+  const tournamentEnd = tournament.timeLine.tournamentEnd?.getTime?.() || 0;
+  const registeredTeams = Number(tournament.registeredTeams || 0);
+  const maxTeams = Number(tournament.maxTeams || 0);
+  const hasSlots = maxTeams <= 0 || registeredTeams < maxTeams;
+
+  if (registrationStart <= now && now <= registrationEnd && now < tournamentStart && hasSlots) {
+    return { label: "Mở đăng ký", className: "bg-emerald-600 text-white" };
+  }
+  if (registrationStart <= now && (!tournamentEnd || now <= tournamentEnd) && tournament.status !== "completed") {
+    return { label: "Đang diễn ra", className: "bg-primary text-white" };
+  }
   if (tournament.status === "upcoming") return { label: "Sắp diễn ra", className: "bg-blue-600 text-white" };
   return { label: "Đã hoàn tất", className: "bg-slate-600 text-white" };
 };
+
+const formatDateTime = (date: Date) => date.toLocaleString("vi-VN", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 const formatDateRange = (tournament: Tournament) => {
   const start = tournament.timeLine.tournamentStart;
   const end = tournament.timeLine.tournamentEnd;
   if (!start) return "Chưa cập nhật";
-  const startText = start.toLocaleDateString("vi-VN");
+  const startText = formatDateTime(start);
   if (!end) return startText;
-  return `${startText} - ${end.toLocaleDateString("vi-VN")}`;
+  return `${startText} - ${formatDateTime(end)}`;
 };
 
 const TournamentSkeleton = () => (
@@ -82,7 +102,9 @@ const AllTournaments = ({ tournaments, loading = false, error, onRetry }: AllTou
           {tournaments.map((tournament) => {
             const status = statusInfo(tournament);
             const sportName = tournament.sportType.find(Boolean) || "Thể thao";
-            const location = [tournament.location?.district, tournament.location?.city].filter(Boolean).join(", ") || "Chưa cập nhật";
+            const location = [tournament.location?.detail, tournament.location?.district, tournament.location?.city].filter(Boolean).join(", ") || "Chưa cập nhật";
+            const registeredTeams = Number(tournament.registeredTeams || 0);
+            const maxTeams = Number(tournament.maxTeams || 0);
 
             return (
               <article
@@ -117,12 +139,10 @@ const AllTournaments = ({ tournaments, loading = false, error, onRetry }: AllTou
                       <MapPin className="size-3.5 shrink-0 text-primary" />
                       <span className="truncate">{location}</span>
                     </span>
-                    {Number(tournament.registeredTeams || 0) > 0 && (
-                      <span className="flex min-w-0 items-center gap-2">
-                        <UsersRound className="size-3.5 shrink-0 text-primary" />
-                        <span>{Number(tournament.registeredTeams).toLocaleString("vi-VN")} đội tham gia</span>
-                      </span>
-                    )}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <UsersRound className="size-3.5 shrink-0 text-primary" />
+                      <span>{registeredTeams.toLocaleString("vi-VN")}{maxTeams > 0 ? `/${maxTeams.toLocaleString("vi-VN")}` : ""} đội tham gia</span>
+                    </span>
                   </div>
                   <div className="mt-auto flex justify-end border-t border-border pt-4">
                     <Link to={`/tournaments/${tournament._id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "text-xs")}>

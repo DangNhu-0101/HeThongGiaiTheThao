@@ -1,4 +1,5 @@
 import api from "@/libs/axios";
+import { teamPlacementService, type TeamPlacementStrategy } from "@/services/teamPlacementService";
 import type {
   BracketType,
   CompetitionFormatRecord,
@@ -326,6 +327,7 @@ const mapBracket = (value: unknown, stageIndex: number, branchIndex: number, inp
     flowConnectionRoutes: raw.flowConnectionRoutes && typeof raw.flowConnectionRoutes === "object"
       ? raw.flowConnectionRoutes as StageBracketConfig["flowConnectionRoutes"]
       : undefined,
+    flowConnectionsConfigured: raw.flowConnectionsConfigured === true,
     flowDeletedMatchIds: Array.isArray(raw.flowDeletedMatchIds) ? raw.flowDeletedMatchIds.map(String) : undefined,
     flowStandaloneMatches,
   };
@@ -751,6 +753,8 @@ export const competitionFormatService = {
       sportType: payload.sportType,
       description: payload.description,
       stageCount: payload.stageCount,
+      allowLockedSync: payload.allowLockedSync,
+      confirmSyncPlayed: payload.confirmSyncPlayed,
       config: {
         id: tournamentItemId,
         tournamentItemId,
@@ -768,14 +772,12 @@ export const competitionFormatService = {
     return [response];
   },
 
-  async previewTeamPlacement(tournamentItemId: string, stageId: string, strategy: "SNAKE_BALANCE" | "STRONG_VS_WEAK" | "CLOSE_SKILL" | "SEEDED_BRACKET" = "SNAKE_BALANCE") {
-    const response = await api.post(`/tournaments/${tournamentItemId}/team-placement/preview`, { stageId, strategy });
-    return response.data.data;
+  async previewTeamPlacement(tournamentItemId: string, stageId: string, strategy: TeamPlacementStrategy = "SNAKE_BALANCE") {
+    return teamPlacementService.preview(tournamentItemId, stageId, strategy);
   },
 
-  async confirmTeamPlacement(tournamentItemId: string, stageId: string, strategy: "SNAKE_BALANCE" | "STRONG_VS_WEAK" | "CLOSE_SKILL" | "SEEDED_BRACKET" = "SNAKE_BALANCE") {
-    const response = await api.post(`/tournaments/${tournamentItemId}/team-placement/confirm`, { stageId, strategy });
-    return response.data.data;
+  async confirmTeamPlacement(tournamentItemId: string, stageId: string, strategy: TeamPlacementStrategy = "SNAKE_BALANCE") {
+    return teamPlacementService.confirm(tournamentItemId, stageId, strategy);
   },
 
   async previewWildcard(tournamentItemId: string, stageId: string) {

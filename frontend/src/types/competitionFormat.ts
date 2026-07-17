@@ -60,6 +60,7 @@ export interface StageBracketConfig {
     sourceRank?: number;
     resolvedTeamId?: string;
     resolutionStatus?: "PENDING" | "RESOLVED" | "STALE";
+    reservedForWildcard?: boolean;
   }>;
   flowNodePositions?: Record<string, { x: number; y: number }>;
   flowConnections?: Array<{
@@ -74,6 +75,7 @@ export interface StageBracketConfig {
     targetStageId?: string;
   }>;
   flowConnectionRoutes?: Record<string, { bendX?: number; bendY?: number }>;
+  flowConnectionsConfigured?: boolean;
   flowDeletedMatchIds?: string[];
   flowStandaloneMatches?: Array<{
     id: string;
@@ -185,6 +187,8 @@ export interface CompetitionFormatRecord {
 
 export interface CompetitionFormatUpsertPayload {
   tournamentItemId?: string;
+  allowLockedSync?: boolean;
+  confirmSyncPlayed?: boolean;
   selectedType?: "preset" | "template" | "custom";
   presetId?: string;
   presetSource?: string;

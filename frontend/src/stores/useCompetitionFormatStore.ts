@@ -2,6 +2,18 @@ import { create } from "zustand";
 import { competitionFormatService } from "@/services/competitionFormatService";
 import type { CompetitionFormatStoreState } from "@/types/store";
 
+type FormatSyncConfirmError = {
+  response?: {
+    data?: {
+      code?: string;
+      data?: {
+        lockedMatchCount?: number;
+        resultCount?: number;
+      };
+    };
+  };
+};
+
 export const useCompetitionFormatStore = create<CompetitionFormatStoreState>((set, get) => ({
   formats: [],
   tournamentOptions: [],
@@ -61,7 +73,22 @@ export const useCompetitionFormatStore = create<CompetitionFormatStoreState>((se
     if (!tournamentItemId) throw new Error("Chưa chọn giải đấu");
     set({ saving: true });
     try {
-      await competitionFormatService.saveTournamentFormat(tournamentItemId, payload);
+      try {
+        await competitionFormatService.saveTournamentFormat(tournamentItemId, payload);
+      } catch (error) {
+        const apiError = error as FormatSyncConfirmError;
+        if (apiError.response?.data?.code !== "FORMAT_SYNC_CONFIRM_REQUIRED") throw error;
+        const lockedMatchCount = apiError.response.data.data?.lockedMatchCount || 0;
+        const resultCount = apiError.response.data.data?.resultCount || 0;
+        const accepted = window.confirm(
+          `Cấu hình mới ảnh hưởng tới ${lockedMatchCount} trận đã có lịch/trạng thái hoặc ${resultCount} kết quả. Bạn có muốn đồng bộ lại các trận liên quan theo cấu hình mới không?`,
+        );
+        if (!accepted) throw error;
+        await competitionFormatService.saveTournamentFormat(tournamentItemId, {
+          ...payload,
+          allowLockedSync: true,
+        });
+      }
       await get().selectTournamentItem(tournamentItemId);
     } finally {
       set({ saving: false });

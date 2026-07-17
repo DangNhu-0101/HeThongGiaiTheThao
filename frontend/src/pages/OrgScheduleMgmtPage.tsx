@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, CalendarClock, Clock, MapPinned, Rocket, Send, UserCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarClock, Clock, Rocket, Send  } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScheduleStats from "@/components/org/schedule-mgmt/ScheduleStats";
 import AssignmentEditor from "@/components/org/schedule-mgmt/AssignmentEditor";
@@ -23,6 +23,12 @@ const todayInputValue = () => {
   return `${year}-${month}-${day}`;
 };
 
+const hasSchedule = (match: { date?: string; time?: string; venue?: string }) =>
+  Boolean(match.date && match.time && match.venue);
+
+const isUnscheduledMatch = (match: { status?: string; date?: string; time?: string; venue?: string }) =>
+  match.status !== "Live" && !hasSchedule(match);
+
 const OrgScheduleMgmtPage = () => {
   const isMobile = useIsMobile();
   const selectedTournamentItemId = useOrgContextStore((state) => state.selectedTournamentItemId);
@@ -36,19 +42,20 @@ const OrgScheduleMgmtPage = () => {
     selectedMatchId,
     savingMatchIds,
     loading,
+    error,
     fetchData,
+    setSelectedStageId,
     setSelectedMatchId,
     updateMatchAssignment,
     moveMatchToVenue,
     moveMatchToUnscheduled,
     autoScheduleStage,
-    quickAssignVenues,
     quickAssignReferees,
     publishScheduledMatches,
   } = useOrgScheduleMgmtStore();
   const [autoOpen, setAutoOpen] = useState(false);
   const [autoStartAt, setAutoStartAt] = useState(defaultStartAt);
-  const [autoInterval, setAutoInterval] = useState(30);
+  const [autoDuration, setAutoDuration] = useState(30);
   const [scheduleDate, setScheduleDate] = useState(todayInputValue);
   const [unscheduledStageFilter, setUnscheduledStageFilter] = useState("");
   const [scheduledStageFilter, setScheduledStageFilter] = useState("");
@@ -74,30 +81,32 @@ const OrgScheduleMgmtPage = () => {
     [matches, selectedStageIdForMatches],
   );
   const selectedMatchAny = matches.find((match) => match.id === selectedMatchId);
-  const unscheduled = matches.filter((match) => match.status === "Unscheduled" && (!unscheduledStageFilter || match.stageId === unscheduledStageFilter));
+  const unscheduled = matches.filter((match) => isUnscheduledMatch(match) && (!unscheduledStageFilter || match.stageId === unscheduledStageFilter));
   const scheduledMatches = matches.filter((match) =>
-    match.status !== "Unscheduled"
+    hasSchedule(match)
     && match.date === scheduleDate
     && (!scheduledStageFilter || match.stageId === scheduledStageFilter)
   );
   const conflicts = stageMatches.filter((match) => match.status === "Conflict");
   const stageStats = useMemo(() => {
     const scheduled = stageMatches.filter((match) => match.status === "Scheduled" || match.status === "Live").length;
+    const stageUnscheduled = stageMatches.filter(isUnscheduledMatch).length;
     const assignedReferees = new Set(stageMatches.flatMap((match) => match.refereeIds || [])).size;
     return [
       { id: "total", label: "Tổng trận", value: stageMatches.length, iconType: "total" as const, color: "text-blue-600 bg-blue-100" },
       { id: "scheduled", label: "Đã xếp lịch", value: scheduled, iconType: "scheduled" as const, color: "text-green-600 bg-green-100" },
-      { id: "unscheduled", label: "Chưa xếp", value: unscheduled.length, iconType: "unscheduled" as const, color: "text-amber-600 bg-amber-100" },
+      { id: "unscheduled", label: "Chưa xếp", value: stageUnscheduled, iconType: "unscheduled" as const, color: "text-amber-600 bg-amber-100" },
       { id: "conflict", label: "Xung đột", value: conflicts.length, iconType: "conflict" as const, color: "text-red-600 bg-red-100" },
       { id: "referee", label: "Trọng tài", value: assignedReferees, iconType: "referee" as const, color: "text-purple-600 bg-purple-100" },
     ];
-  }, [conflicts.length, stageMatches, unscheduled.length]);
+  }, [conflicts.length, stageMatches]);
 
   const runAutoSchedule = async () => {
     if (!selectedStage?.id) return;
     setWorking(true);
     try {
-      await autoScheduleStage(selectedStage.id, autoStartAt, autoInterval);
+      await autoScheduleStage(selectedStage.id, autoStartAt, autoDuration);
+      await quickAssignReferees(selectedStage.id);
       setAutoOpen(false);
     } finally {
       setWorking(false);
@@ -111,16 +120,6 @@ const OrgScheduleMgmtPage = () => {
     setWorking(true);
     try {
       await publishScheduledMatches(selectedTournamentItemId);
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const runQuickVenueAssign = async () => {
-    if (!selectedStage?.id) return;
-    setWorking(true);
-    try {
-      await quickAssignVenues(selectedStage.id, scheduleDate);
     } finally {
       setWorking(false);
     }
@@ -144,6 +143,18 @@ const OrgScheduleMgmtPage = () => {
     return <RequireTournamentSelection description="Hãy chọn giải ở sidebar để quản lý lịch thi đấu và phân công của giải đó." />;
   }
 
+  if (error) {
+    return (
+      <div className="mx-auto max-w-[1600px] space-y-6 pb-12">
+        <HeaderPanel title="Trận & Lịch" subtitle="Không thể tải danh sách trận đấu từ hệ thống." />
+        <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center text-red-700 shadow-sm">
+          <AlertTriangle className="mx-auto h-8 w-8" />
+          <p className="mt-3 font-bold">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (needsGroupSetup) {
     return (
       <div className="mx-auto max-w-[1600px] space-y-6 pb-12">
@@ -154,14 +165,6 @@ const OrgScheduleMgmtPage = () => {
             Hãy vào trang Thể thức thi đấu, tab Gán đội / Seed để kéo đội vào bảng hoặc slot knockout, sau đó sinh trận thật rồi quay lại xếp lịch.
           </p>
         </div>
-      </div>
-    );
-  }
-
-  if (stageMatches.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center font-medium text-muted-foreground">
-        Chưa có trận đấu cho stage đang chọn.
       </div>
     );
   }
@@ -183,10 +186,11 @@ const OrgScheduleMgmtPage = () => {
 
       <div className="space-y-4">
         <StageToolbar
+          stages={stages}
           selectedStageId={selectedStage?.id || null}
           working={working}
+          onStageChange={setSelectedStageId}
           onAuto={() => setAutoOpen(true)}
-          onQuickVenues={runQuickVenueAssign}
           onQuickReferees={runQuickRefereeAssign}
           onPublish={publishCurrentStage}
         />
@@ -200,7 +204,16 @@ const OrgScheduleMgmtPage = () => {
         </div>
       )}
 
-      <div
+      {stageMatches.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center shadow-sm">
+          <h2 className="text-lg font-bold text-foreground">Stage này chưa có trận đấu</h2>
+          <p className="mt-2 text-sm font-semibold text-muted-foreground">
+            Hãy chọn stage khác ở thanh công cụ, hoặc quay lại Thể thức thi đấu để sinh trận cho stage này.
+          </p>
+        </div>
+      )}
+
+      {stageMatches.length > 0 && <div
         onDragOver={(event) => {
           if (event.dataTransfer.types.includes("application/x-schedule-match")) event.preventDefault();
         }}
@@ -243,13 +256,13 @@ const OrgScheduleMgmtPage = () => {
           ))}
           {unscheduled.length === 0 && (
             <div className="flex min-h-9 items-center px-2 text-xs font-bold text-muted-foreground">
-              Tất cả trận của stage này đã được xếp lịch.
+              Tất cả trận trong bộ lọc này đã được xếp lịch.
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
-      <div className="flex h-[760px] flex-col gap-6 lg:flex-row">
+      {stageMatches.length > 0 && <div className="flex h-[760px] flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border bg-background shadow-sm">
           <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
             <span className="text-xs font-bold uppercase text-muted-foreground">Ngày xếp lịch</span>
@@ -281,7 +294,7 @@ const OrgScheduleMgmtPage = () => {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {autoOpen && selectedStage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -289,7 +302,7 @@ const OrgScheduleMgmtPage = () => {
             <div className="mb-4">
               <p className="text-xs font-black uppercase text-primary">Stage hiện tại</p>
               <h3 className="text-lg font-black text-foreground">{selectedStage.name}</h3>
-              <p className="mt-1 text-xs font-semibold text-muted-foreground">Auto sẽ ghi đè sân/giờ theo thuật toán, không tạo thêm match và không đổi kết quả.</p>
+              <p className="mt-1 text-xs font-semibold text-muted-foreground">Auto sẽ ghi đè lịch, sân và trọng tài hiện tại theo thuật toán. Sau đó vẫn có thể sửa tay từng trận.</p>
             </div>
             <div className="space-y-3">
               <label className="block text-xs font-bold uppercase text-muted-foreground">
@@ -302,12 +315,12 @@ const OrgScheduleMgmtPage = () => {
                 />
               </label>
               <label className="block text-xs font-bold uppercase text-muted-foreground">
-                Khoảng cách giữa 2 đợt trận (phút)
+                Thời lượng mỗi trận (phút)
                 <input
                   type="number"
                   min={1}
-                  value={autoInterval}
-                  onChange={(event) => setAutoInterval(Number(event.target.value) || 30)}
+                  value={autoDuration}
+                  onChange={(event) => setAutoDuration(Number(event.target.value) || 30)}
                   className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground"
                 />
               </label>
@@ -315,7 +328,7 @@ const OrgScheduleMgmtPage = () => {
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAutoOpen(false)} disabled={working}>Hủy</Button>
               <Button onClick={runAutoSchedule} disabled={working}>
-                <Rocket className="h-4 w-4" /> {working ? "Đang xếp..." : "Xếp lịch tự động"}
+                <Rocket className="h-4 w-4" /> {working ? "Đang xếp..." : "Xếp lịch, sân, trọng tài"}
               </Button>
             </div>
           </div>
@@ -364,29 +377,37 @@ const StageFilter = ({
 );
 
 interface StageToolbarProps {
+  stages: Array<{ id: string; name: string; order: number }>;
   selectedStageId: string | null;
   working: boolean;
+  onStageChange: (id: string | null) => void;
   onAuto: () => void;
-  onQuickVenues: () => void;
   onQuickReferees: () => void;
   onPublish: () => void;
 }
 
-const StageToolbar = ({ selectedStageId, working, onAuto, onQuickVenues, onQuickReferees, onPublish }: StageToolbarProps) => {
+const StageToolbar = ({ stages, selectedStageId, working, onStageChange, onAuto,  onPublish }: StageToolbarProps) => {
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-      
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase text-muted-foreground">Stage</span>
+          <select
+            value={selectedStageId || ""}
+            onChange={(event) => onStageChange(event.target.value || null)}
+            className="h-10 min-w-[190px] rounded-lg border border-border bg-background px-3 text-sm font-bold text-foreground focus:outline-none"
+          >
+            {stages.map((stage) => (
+              <option key={stage.id} value={stage.id}>{stage.name || `Stage ${stage.order}`}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={onAuto} disabled={!selectedStageId || working}>
-            <CalendarClock className="h-4 w-4" /> Xếp lịch tự động
+            <CalendarClock className="h-4 w-4" /> Xếp lịch, sân, trọng tài
           </Button>
-          <Button type="button" variant="outline" onClick={onQuickVenues} disabled={!selectedStageId || working}>
-            <MapPinned className="h-4 w-4" /> Phân sân nhanh
-          </Button>
-          <Button type="button" variant="outline" onClick={onQuickReferees} disabled={!selectedStageId || working}>
-            <UserCheck className="h-4 w-4" /> Phân trọng tài nhanh
-          </Button>
+
           <Button type="button" onClick={onPublish} disabled={working}>
             <Send className="h-4 w-4" /> Công bố lịch đã xếp
           </Button>

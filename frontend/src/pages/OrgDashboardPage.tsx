@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import OrgStatCards from "@/components/org/OrgStatCards";
-import { RevenueChart, SportDistributionChart } from "@/components/org/OrgCharts";
 import OrgTournaments from "@/components/org/OrgTournaments";
 import OrgQuickActions from "@/components/org/OrgQuickActions";
 import { useOrgDashboardStore } from "@/stores/useOrgDashboardStore";
@@ -38,14 +37,7 @@ const OrgDashboardPage = () => {
 
       <OrgStatCards stats={data.stats} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RevenueChart data={data.revenueData} />
-        </div>
-        <div className="lg:col-span-1">
-          <SportDistributionChart data={data.sportDistribution} />
-        </div>
-      </div>
+  
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

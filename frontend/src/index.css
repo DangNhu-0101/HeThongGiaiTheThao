@@ -516,6 +516,23 @@
   }
 }
 
+@keyframes tournament-sponsor-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.tournament-sponsor-marquee {
+  animation: tournament-sponsor-marquee 26s linear infinite;
+}
+
+.tournament-sponsor-marquee:hover {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

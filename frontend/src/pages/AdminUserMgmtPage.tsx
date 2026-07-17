@@ -1,6 +1,4 @@
 import { useEffect } from "react";
-import { Download, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 import UserMgmtStats from "@/components/admin/user-mgmt/UserMgmtStats";
 import UserMgmtList from "@/components/admin/user-mgmt/UserMgmtList";
@@ -31,14 +29,7 @@ const AdminUserMgmtPage = () => {
           <h1 className="text-3xl font-black uppercase tracking-wider mb-1">Quản lý người dùng</h1>
           <p className="text-sm text-white/70">Điều chỉnh quyền hạn, phê duyệt hồ sơ năng lực và kiểm soát trạng thái truy cập.</p>
         </div>
-        <div className="flex gap-3 relative z-10 w-full md:w-auto">
-          <Button variant="outline" className="border-white/20 text-foreground bg-white hover:bg-white/90 flex-1 md:flex-none">
-            <Download className="w-4 h-4 mr-2" /> Xuất dữ liệu
-          </Button>
-          <Button className="bg-amber-500 hover:bg-amber-600 text-white flex-1 md:flex-none border-none">
-            <Plus className="w-4 h-4 mr-2" /> Thêm người dùng
-          </Button>
-        </div>
+
       </div>
 
       {/* Gọi các Component đã chia nhỏ */}

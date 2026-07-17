@@ -18,6 +18,7 @@ export interface IGalaConfig {
 export interface ILocation {
     city?: string;
     district?: string;
+    detail?: string;
 }
 
 export interface Tournament {
@@ -75,6 +76,7 @@ export interface TournamentDetail extends Omit<Tournament, 'prizes'> {
   registrationFormUrl: string;
   registrationInstructions: string;
   supportContacts: string;
+  sponsorContact?: string;
 }
 export interface Sport {
   _id: string;

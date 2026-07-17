@@ -334,8 +334,13 @@ const CreateTournamentModal = ({ mode = "create", record, onSuccess, defaultOpen
         !rule.tournamentStart ||
         !rule.tournamentEnd
     );
-    if (invalidRule) {
+    if (!isEditing && invalidRule) {
       toast.error("Hãy mở từng môn và nhập đủ nội dung thi đấu cùng lịch thi đấu riêng.");
+      return;
+    }
+    const invalidEditInfo = isEditing && !formData.name.trim() && !rules.some((rule) => rule.itemName?.trim());
+    if (invalidEditInfo) {
+      toast.error("Vui lòng nhập tên giải đấu.");
       return;
     }
     const missingExternalLink = rules.some(
@@ -343,7 +348,7 @@ const CreateTournamentModal = ({ mode = "create", record, onSuccess, defaultOpen
         rule.operations?.registrationMode === "external" &&
         !rule.operations.registrationFormUrl.trim(),
     );
-    if (missingExternalLink) {
+    if (!isEditing && missingExternalLink) {
       toast.error("Môn dùng link đăng ký riêng cần nhập link form đăng ký.");
       return;
     }
@@ -398,7 +403,7 @@ const CreateTournamentModal = ({ mode = "create", record, onSuccess, defaultOpen
                 {isMulti && <SectionCard
                   icon={CalendarDays}
                   title={isMulti ? "Thông tin chung hội thao" : "Thông tin cơ bản"}
-                  description={isMulti ? "Đúng phạm vi Tournament schema" : "Tên, hình ảnh và thời gian"}
+                  description="Các thông tin cơ bản"
                   badge="Bắt buộc"
                   defaultOpen
                 >

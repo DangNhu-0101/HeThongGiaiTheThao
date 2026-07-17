@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Download, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import MgmtStats from "@/components/org/tournament-mgmt/MgmtStats";
 import MgmtDataTable from "@/components/org/tournament-mgmt/MgmtDataTable";
@@ -58,8 +59,14 @@ const OrgTournamentMgmtPage = () => {
   const handleDelete = async (record: TournamentRecord) => {
     const ok = window.confirm(`Xóa "${record.name}"? Hệ thống sẽ gọi API để xóa hoặc hủy mềm giải này, không chỉ xóa trên giao diện.`);
     if (!ok) return;
-    await deleteTournament(record.id, record.kind);
-    await refreshData();
+    try {
+      await deleteTournament(record.id, record.kind);
+      await refreshData();
+      toast.success("Đã xóa giải khỏi danh sách.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể xóa giải. Vui lòng thử lại.";
+      toast.error(message);
+    }
   };
 
   if (loading && records.length === 0) {
@@ -78,12 +85,7 @@ const OrgTournamentMgmtPage = () => {
           <p className="text-sm text-white/80">Tạo hội thao nhiều môn, giải đơn một môn và quản lý CRUD trên cùng một màn hình.</p>
         </div>
         <div className="relative z-10 flex w-full flex-wrap gap-3 md:w-auto">
-          <Button variant="outline" className="flex-1 border-white/20 bg-white text-foreground hover:bg-white/90 md:flex-none">
-            <Download className="mr-2 h-4 w-4" /> Xuất dữ liệu
-          </Button>
-          <Button variant="outline" className="flex-1 border-white/20 bg-white text-foreground hover:bg-white/90 md:flex-none">
-            <Copy className="mr-2 h-4 w-4" /> Dùng mẫu
-          </Button>
+
           <CreateTournamentModal onSuccess={refreshData} defaultOpen={isCreateRoute} onOpenChange={(open) => { if (!open && isCreateRoute) navigate("/org/tournaments", { replace: true }); }}>
             <Button className="bg-primary font-bold text-white shadow-sm hover:bg-primary-hover">
               <Plus className="mr-2 h-4 w-4" /> Khởi tạo giải

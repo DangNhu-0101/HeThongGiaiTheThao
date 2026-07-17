@@ -214,21 +214,14 @@ const ScheduleTab = ({ tournamentId }: { tournamentId: string }) => {
                   <span className="text-xs font-bold uppercase text-muted-foreground">Kết quả</span>
                   <p className="mt-1 flex items-center gap-2 font-bold">
                     <Trophy className="h-4 w-4 text-accent" />
-                    {resultMatch.isDraw ? "Hòa" : resultMatch.winnerName || "Chưa xác định đội thắng"}
+                    {resultMatch.isDraw ? "Hòa" : resultMatch.winnerName ? `${resultMatch.winnerName} thắng` : "Chưa xác định đội thắng"}
                   </p>
                 </div>
                 <div className="rounded-lg border border-border p-3">
                   <span className="text-xs font-bold uppercase text-muted-foreground">Thời gian và sân</span>
                   <p className="mt-1 font-bold">{resultMatch.date || "Chưa cập nhật"} {resultMatch.time || ""} · {resultMatch.venue || "Chưa cập nhật"}</p>
                 </div>
-                <div className="rounded-lg border border-border p-3">
-                  <span className="text-xs font-bold uppercase text-muted-foreground">Trạng thái</span>
-                  <p className="mt-1 font-bold">{resultMatch.resultStatus === "confirmed" ? "Đã xác nhận" : "Đã hoàn tất"}</p>
-                </div>
-                <div className="rounded-lg border border-border p-3">
-                  <span className="text-xs font-bold uppercase text-muted-foreground">Tỉ số từng set/game</span>
-                  <p className="mt-1 font-bold">{resultMatch.setScores?.length ? resultMatch.setScores.join(", ") : "Chưa cập nhật"}</p>
-                </div>
+             
               </div>
 
               {resultMatch.note && (

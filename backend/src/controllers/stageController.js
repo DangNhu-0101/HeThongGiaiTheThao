@@ -35,18 +35,18 @@ export const getApprovedEligibleTeamsCount = async (tournamentItemId, session = 
     const query = Participant.find({
         tournamentItemId,
         type: 'team',
-        registrationStatus: 'approved',
-    }).select('_id name slug registrationStatus lineup skill seed rank ranking createdAt').populate('lineup.Player', 'name skill status').lean();
+        registrationStatus: { $nin: ['rejected', 'suspended'] },
+        $or: [
+            { registrationStatus: 'approved' },
+            { paymentStatus: 'exempted' },
+        ],
+    }).select('_id name slug registrationStatus paymentStatus lineup skill seed rank ranking createdAt').populate('lineup.Player', 'name skill status').lean();
     if (session) query.session(session);
     const participants = await query;
     const unique = new Map();
     participants.forEach((participant) => {
         const id = normalizeId(participant._id);
         if (!id || unique.has(id)) return;
-        const name = String(participant.name || '').trim();
-        const lineup = Array.isArray(participant.lineup) ? participant.lineup : [];
-        const hasRequiredInfo = Boolean(name) && lineup.some((entry) => entry?.Player);
-        if (!hasRequiredInfo) return;
         unique.set(id, participant);
     });
     return {
@@ -57,6 +57,231 @@ export const getApprovedEligibleTeamsCount = async (tournamentItemId, session = 
 };
 
 const groupNameForIndex = (index) => `Bảng ${String.fromCharCode(65 + index)}`;
+
+const groupKeyForIndex = (index) => String.fromCharCode(65 + index);
+
+const isLuckyLabel = (value) => /^Lucky\d+$/i.test(String(value || '').trim());
+
+const evenSlotCount = (value) => {
+    const safe = Math.max(2, Number(value) || 2);
+    return safe % 2 === 0 ? safe : safe + 1;
+};
+
+const splitEvenSlotCounts = (totalSlots, partCount, preferredCounts = []) => {
+    const count = Math.max(1, Number(partCount) || 1);
+    const safeTotal = Math.max(0, Math.trunc(Number(totalSlots) || 0));
+    if (safeTotal <= 0) return Array.from({ length: count }, () => 0);
+    const preferredTotal = preferredCounts.reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+    if (preferredTotal === totalSlots && preferredCounts.length >= count) {
+        return preferredCounts.slice(0, count).map((value) => value > 0 ? evenSlotCount(value) : 0);
+    }
+    const activeCount = Math.min(count, Math.max(1, Math.floor(evenSlotCount(safeTotal) / 2)));
+    let remaining = evenSlotCount(safeTotal);
+    return Array.from({ length: count }, (_, index) => {
+        if (index >= activeCount) return 0;
+        if (index === activeCount - 1) return Math.max(0, remaining);
+        const remainingParts = activeCount - index;
+        const minForRest = (remainingParts - 1) * 2;
+        const balancedShare = Math.ceil((remaining / remainingParts) / 2) * 2;
+        const share = Math.max(2, Math.min(balancedShare, remaining - minForRest));
+        remaining = Math.max(0, remaining - share);
+        return share;
+    });
+};
+
+const reviveWildcardAddedMatches = (stage, branch) => {
+    if (branch.type !== 'knockout') return branch;
+    const flowSlots = Array.isArray(branch.flowSlots) ? branch.flowSlots : [];
+    const wildcardSlotCount = flowSlots.filter((slot) => slot?.reservedForWildcard || isLuckyLabel(slot?.sourceLabel)).length;
+    if (!wildcardSlotCount) return branch;
+
+    const baseSlotCount = evenSlotCount(Math.max(
+        2,
+        flowSlots.filter((slot) => !slot?.reservedForWildcard && !isLuckyLabel(slot?.sourceLabel)).length,
+        Number(branch.totalTeamsIn || 0) - wildcardSlotCount,
+    ));
+    const totalSlotCount = evenSlotCount(Math.max(flowSlots.length, Number(branch.totalTeamsIn || 0)));
+    const previousDefaultMatchCount = Math.max(1, Math.ceil(baseSlotCount / 2));
+    const nextDefaultMatchCount = Math.max(1, Math.ceil(totalSlotCount / 2));
+    if (nextDefaultMatchCount <= previousDefaultMatchCount) return branch;
+
+    const revivedIds = new Set(Array.from(
+        { length: nextDefaultMatchCount - previousDefaultMatchCount },
+        (_, index) => `${stage.id}:${branch.id}:m-${previousDefaultMatchCount + index + 1}`,
+    ));
+    branch.flowDeletedMatchIds = (Array.isArray(branch.flowDeletedMatchIds) ? branch.flowDeletedMatchIds : [])
+        .filter((id) => !revivedIds.has(id));
+    return branch;
+};
+
+const matchIdsForBranch = (stage, branch) => {
+    if (branch.type !== 'knockout') return [];
+    if (Number(branch.totalTeamsIn || 0) < 2) return [];
+    reviveWildcardAddedMatches(stage, branch);
+    const count = evenSlotCount(Math.max(
+        Array.isArray(branch.flowSlots) ? branch.flowSlots.length : 0,
+        Number(branch.totalTeamsIn) || 2,
+    ));
+    const deleted = new Set(Array.isArray(branch.flowDeletedMatchIds) ? branch.flowDeletedMatchIds : []);
+    return Array.from({ length: Math.max(1, Math.ceil(count / 2)) }, (_, index) => `${stage.id}:${branch.id}:m-${index + 1}`)
+        .filter((id) => !deleted.has(id));
+};
+
+const assignMatchCodes = (stages) => {
+    const codes = new Map();
+    let next = 1;
+    stages.forEach((stage) => {
+        (Array.isArray(stage.brackets) ? stage.brackets : []).forEach((branch) => {
+            matchIdsForBranch(stage, branch).forEach((id) => {
+                codes.set(id, `M${next}`);
+                next += 1;
+            });
+            (Array.isArray(branch.flowStandaloneMatches) ? branch.flowStandaloneMatches : []).forEach((match) => {
+                const code = String(match.matchCode || `M${next}`);
+                codes.set(String(match.id), code);
+                next += 1;
+            });
+        });
+    });
+    return codes;
+};
+
+const groupAdvanceLabels = (groupCount, ranks) => {
+    const safeRanks = Array.isArray(ranks) && ranks.length ? ranks.map(Number).filter(Boolean) : [1];
+    if (groupCount === 2 && safeRanks.includes(1) && safeRanks.includes(2)) {
+        return ['A1', 'B2', 'A2', 'B1'];
+    }
+    const labels = [];
+    safeRanks.forEach((rank) => {
+        for (let index = 0; index < groupCount; index += 1) labels.push(`${groupKeyForIndex(index)}${rank}`);
+    });
+    return labels;
+};
+
+const createFlowSlots = (branch, totalTeamsIn, labels = [], metadata = []) => {
+    const count = evenSlotCount(totalTeamsIn);
+    return Array.from({ length: count }, (_, index) => ({
+        id: `${branch.id}-slot-${index + 1}`,
+        label: `Slot ${index + 1}`,
+        ...(labels[index] ? { sourceLabel: labels[index] } : {}),
+        ...(metadata[index] || {}),
+    }));
+};
+
+const knockoutOutputCount = (stage) => (Array.isArray(stage.brackets) ? stage.brackets : [])
+    .filter((branch) => branch.type === 'knockout')
+    .reduce((sum, branch) => sum + matchIdsForBranch(stage, branch).length, 0);
+
+const groupOutputLabels = (stage) => {
+    const labels = [];
+    (Array.isArray(stage.brackets) ? stage.brackets : []).forEach((branch) => {
+        if (branch.type !== 'group') return;
+        const groups = Array.isArray(branch.groups) ? branch.groups : [];
+        const ranks = branch.selection?.ranks?.length ? branch.selection.ranks : [1];
+        labels.push(...groupAdvanceLabels(groups.length || 1, ranks));
+    });
+    if (stage?.wildcard?.enabled) {
+        const slots = Number(stage.wildcard.selection?.slots || stage.wildcard.slots || 0);
+        for (let index = 0; index < slots; index += 1) labels.push(`Lucky${index + 1}`);
+    }
+    return labels;
+};
+
+const previousKnockoutSources = (stage, matchCodes) => {
+    const sources = [];
+    (Array.isArray(stage.brackets) ? stage.brackets : []).forEach((branch) => {
+        if (branch.type !== 'knockout') return;
+        matchIdsForBranch(stage, branch).forEach((matchId) => {
+            sources.push({
+                sourceMatchId: matchId,
+                sourceLabel: matchCodes.get(matchId) || '',
+                sourceStageId: stage.id,
+                sourceResult: 'WINNER',
+            });
+        });
+    });
+    return sources;
+};
+
+const connectPreviousMatchesToBranch = (previousStage, currentStage, branch, matchCodes, branchSources = null) => {
+    const sources = Array.isArray(branchSources) ? branchSources : previousKnockoutSources(previousStage, matchCodes);
+    const targetMatchIds = matchIdsForBranch(currentStage, branch);
+    const connections = [];
+    const slots = createFlowSlots(
+        branch,
+        Math.max(2, sources.length),
+        sources.map((source) => source.sourceLabel),
+        sources.map((source) => ({
+            sourceStageId: source.sourceStageId,
+            sourceMatchId: source.sourceMatchId,
+            sourceResult: source.sourceResult,
+        })),
+    );
+    sources.forEach((source, index) => {
+        const target = targetMatchIds[Math.floor(index / 2)];
+        if (!target) return;
+        const targetSlot = index % 2 === 0 ? 1 : 2;
+        connections.push({
+            id: `${source.sourceMatchId}->${target}:slot-${targetSlot}`,
+            source: source.sourceMatchId,
+            target,
+            label: source.sourceLabel,
+            output: source.sourceResult,
+            targetSlot,
+            targetSlotId: `${target}:slot-${targetSlot}`,
+            sourceStageId: previousStage.id,
+            targetStageId: currentStage.id,
+        });
+    });
+    return { slots, connections };
+};
+
+const hasIncomingConnectionsForBranch = (stages, stage, branch) => {
+    const targetIds = new Set(matchIdsForBranch(stage, branch));
+    return stages.some((item) => (Array.isArray(item.brackets) ? item.brackets : []).some((itemBranch) =>
+        (Array.isArray(itemBranch.flowConnections) ? itemBranch.flowConnections : [])
+            .some((connection) => targetIds.has(String(connection.target || ''))),
+    ));
+};
+
+const normalizeFlowConnectionSlots = (config) => {
+    const occupiedByTarget = new Map();
+    const seenConnections = new Set();
+    (Array.isArray(config?.stages) ? config.stages : []).forEach((stage) => {
+        (Array.isArray(stage.brackets) ? stage.brackets : []).forEach((branch) => {
+            const normalized = [];
+            (Array.isArray(branch.flowConnections) ? branch.flowConnections : []).forEach((connection) => {
+                const source = String(connection.source || '');
+                const target = String(connection.target || '');
+                if (!source || !target) return;
+                const output = String(connection.output || 'WINNER').toUpperCase() === 'LOSER' ? 'LOSER' : 'WINNER';
+                const identity = `${source}->${target}:${output}`;
+                if (seenConnections.has(identity)) return;
+                seenConnections.add(identity);
+
+                const occupied = occupiedByTarget.get(target) || new Set();
+                const requestedSlot = Number(
+                    connection.targetSlot
+                    || String(connection.targetSlotId || '').match(/slot-(\d+)$/)?.[1]
+                    || 0,
+                );
+                let targetSlot = requestedSlot === 1 || requestedSlot === 2 ? requestedSlot : 0;
+                if (!targetSlot || occupied.has(targetSlot)) {
+                    targetSlot = !occupied.has(1) ? 1 : !occupied.has(2) ? 2 : targetSlot;
+                }
+                if (targetSlot === 1 || targetSlot === 2) occupied.add(targetSlot);
+                occupiedByTarget.set(target, occupied);
+                normalized.push({
+                    ...connection,
+                    output,
+                    targetSlot: targetSlot || undefined,
+                    targetSlotId: targetSlot ? `${target}:slot-${targetSlot}` : connection.targetSlotId,
+                });
+            });
+            branch.flowConnections = normalized;
+        });
+    });
+};
 
 const normalizeTemplateGroups = (branch, approvedTeamsCount) => {
     const existingGroups = Array.isArray(branch.groups) ? branch.groups : [];
@@ -126,6 +351,155 @@ const normalizeFormatWithEligibleTeams = (competitionFormat, eligibleTeams) => {
     return competitionFormat;
 };
 
+const normalizeFormatWithStartTeams = (competitionFormat, eligibleTeams) => {
+    const config = competitionFormat.config || {};
+    const stages = Array.isArray(config.stages) ? config.stages : [];
+    const startTeams = Number(eligibleTeams.totalTeams || 0);
+    let previousStage = null;
+
+    stages.forEach((stage, stageIndex) => {
+        stage.id = stage.id || `stage-${stageIndex + 1}`;
+        stage.order = Number(stage.order || stageIndex + 1);
+        stage.sourceType = stageIndex === 0 ? 'REGISTRATION' : 'PREVIOUS_STAGE';
+        stage.sourceStageIds = stageIndex === 0 ? [] : [previousStage?.id].filter(Boolean);
+        stage.input = stage.input && typeof stage.input === 'object' ? stage.input : {};
+        stage.input.selection = stage.input.selection && typeof stage.input.selection === 'object'
+            ? stage.input.selection
+            : { mode: stageIndex === 0 ? 'MANUAL' : 'WINNER', slots: 0, ranks: [], manualTeamIds: [] };
+
+        if (stageIndex === 0) {
+            stage.input.teams = startTeams;
+            stage.input.sourceStageId = '';
+        } else {
+            const previousGroupLabels = previousStage ? groupOutputLabels(previousStage) : [];
+            const previousKnockoutTeams = previousStage ? knockoutOutputCount(previousStage) : 0;
+            const inheritedTeams = previousKnockoutTeams || previousGroupLabels.length || Number(stage.input.teams || 0);
+            stage.input.teams = inheritedTeams;
+            stage.input.sourceStageId = previousStage?.id || '';
+            stage.input.selection.slots = inheritedTeams;
+        }
+
+        stage.brackets = Array.isArray(stage.brackets) ? stage.brackets : [];
+        const previousGroupLabelsForStage = previousStage ? groupOutputLabels(previousStage) : [];
+        const previousKnockoutTeamsForStage = previousStage ? knockoutOutputCount(previousStage) : 0;
+        const knockoutBranchesForStage = stage.brackets.filter((branch) => branch.type === 'knockout');
+        const knockoutInputCounts = splitEvenSlotCounts(
+            stageIndex === 0 ? startTeams : Number(previousKnockoutTeamsForStage || previousGroupLabelsForStage.length || stage.input.teams || 0),
+            Math.max(1, knockoutBranchesForStage.length),
+            knockoutBranchesForStage.map((branch) => Number(branch.totalTeamsIn || 0)),
+        );
+        let knockoutIndex = 0;
+        let groupLabelOffset = 0;
+        stage.brackets.forEach((branch) => {
+            branch.id = branch.id || `${stage.id}-main`;
+            branch.selection = branch.selection && typeof branch.selection === 'object'
+                ? branch.selection
+                : { mode: branch.type === 'group' ? 'TOP_RANKS' : 'WINNER', slots: 0, ranks: branch.type === 'group' ? [1, 2] : [], manualTeamIds: [] };
+
+            if (branch.type === 'group') {
+                branch.totalTeamsIn = stageIndex === 0 ? startTeams : Number(stage.input.teams || branch.totalTeamsIn || 0);
+                branch.groups = normalizeTemplateGroups(branch, branch.totalTeamsIn);
+                branch.groupIds = branch.groups.map((group) => group.id);
+                stage.input.groups = branch.groups.length;
+                stage.input.teamsPerGroup = Number(branch.groups[0]?.numberOfTeams || stage.input.teamsPerGroup || 0);
+                branch.selection.slots = branch.groups.length * (branch.selection.ranks?.length || 1);
+                return;
+            }
+
+            if (branch.type !== 'knockout') return;
+            const hasConfiguredFlow = branch.flowConnectionsConfigured === true;
+            const previousGroupLabels = previousStage ? groupOutputLabels(previousStage) : [];
+            const previousKnockoutTeams = previousStage ? knockoutOutputCount(previousStage) : 0;
+            const configuredBranchTeamsIn = Number(branch.totalTeamsIn || 0);
+            const branchTeamsIn = configuredBranchTeamsIn > 0
+                ? configuredBranchTeamsIn
+                : knockoutInputCounts[knockoutIndex] || Number(stage.input.teams || 0);
+            knockoutIndex += 1;
+            const totalTeamsIn = stageIndex === 0
+                ? startTeams
+                : branchTeamsIn;
+
+            if (stageIndex === 0 && !isPowerOfTwo(totalTeamsIn)) {
+                const error = new Error(`So doi bat dau (${totalTeamsIn}) khong phu hop voi template knockout khong ho tro bye`);
+                error.statusCode = 400;
+                throw error;
+            }
+            if (stageIndex > 0 && previousKnockoutTeams && totalTeamsIn > 2 && totalTeamsIn % 2 !== 0) {
+                const error = new Error(`Stage truoc co ${totalTeamsIn} doi di tiep, khong the tu noi knockout vi so luong le`);
+                error.statusCode = 400;
+                throw error;
+            }
+
+            branch.totalTeamsIn = totalTeamsIn;
+            branch.selection.slots = Math.max(1, Math.ceil(totalTeamsIn / 2));
+            if (stageIndex === 0) {
+                stage.input.teams = totalTeamsIn;
+                if (!hasConfiguredFlow) {
+                    branch.flowSlots = createFlowSlots(branch, totalTeamsIn);
+                    branch.flowConnections = [];
+                }
+            } else if (previousGroupLabels.length && !previousKnockoutTeams) {
+                groupLabelOffset += totalTeamsIn;
+                if (!hasConfiguredFlow) {
+                    const labels = previousGroupLabels.slice(groupLabelOffset - totalTeamsIn, groupLabelOffset);
+                    branch.flowSlots = createFlowSlots(
+                        branch,
+                        totalTeamsIn,
+                        labels,
+                        labels.map((label) => ({
+                            sourceStageId: previousStage.id,
+                            sourceGroupName: label.match(/^[A-Z]+/)?.[0],
+                            sourceRank: Number(label.match(/\d+$/)?.[0] || 0) || undefined,
+                        })),
+                    );
+                    branch.flowConnections = [];
+                }
+            }
+        });
+        previousStage = stage;
+    });
+
+    const matchCodes = assignMatchCodes(stages);
+    stages.forEach((stage, stageIndex) => {
+        if (stageIndex === 0) return;
+        const previous = stages[stageIndex - 1];
+        const previousKnockoutTeams = knockoutOutputCount(previous);
+        if (!previousKnockoutTeams) return;
+        const previousStageHasConfiguredFlow = (Array.isArray(previous.brackets) ? previous.brackets : [])
+            .some((branch) => branch.type === 'knockout' && branch.flowConnectionsConfigured === true);
+        const sources = previousKnockoutSources(previous, matchCodes);
+        let sourceOffset = 0;
+        (Array.isArray(stage.brackets) ? stage.brackets : []).forEach((branch) => {
+            if (branch.type !== 'knockout') return;
+            const preserveConfiguredFlow = branch.flowConnectionsConfigured === true
+                || previousStageHasConfiguredFlow
+                || hasIncomingConnectionsForBranch(stages, stage, branch);
+            if (preserveConfiguredFlow) {
+                sourceOffset += Math.min(
+                    Math.max(0, Number(branch.totalTeamsIn || 0)),
+                    Math.max(0, sources.length - sourceOffset),
+                );
+                return;
+            }
+            const branchSourceCount = Math.min(
+                Math.max(0, Number(branch.totalTeamsIn || 0)),
+                Math.max(0, sources.length - sourceOffset),
+            );
+            const branchSources = sources.slice(sourceOffset, sourceOffset + branchSourceCount);
+            sourceOffset += branchSourceCount;
+            const { slots, connections } = connectPreviousMatchesToBranch(previous, stage, branch, matchCodes, branchSources);
+            branch.flowSlots = slots;
+            branch.flowConnections = connections;
+        });
+    });
+
+    config.stages = stages;
+    config.stageCount = stages.length;
+    competitionFormat.stageCount = stages.length;
+    competitionFormat.config = config;
+    return competitionFormat;
+};
+
 const validateCompetitionTemplateSource = async (competitionFormat, item) => {
     if (!['preset', 'template'].includes(competitionFormat.selectedType) || competitionFormat.presetSource !== 'competition-template') return;
     if (!mongoose.Types.ObjectId.isValid(competitionFormat.presetId)) {
@@ -153,6 +527,8 @@ const validateCompetitionTemplateSource = async (competitionFormat, item) => {
 
 const defaultMatchIdsForBranch = (stage, branch) => {
     if (branch.type !== 'knockout') return [];
+    if (Number(branch.totalTeamsIn || 0) < 2) return [];
+    reviveWildcardAddedMatches(stage, branch);
     const totalTeamsIn = Math.max(2, Number(branch.totalTeamsIn) || 2);
     const slotCount = totalTeamsIn % 2 === 0 ? totalTeamsIn : totalTeamsIn + 1;
     const deleted = new Set(Array.isArray(branch.flowDeletedMatchIds) ? branch.flowDeletedMatchIds : []);
@@ -263,6 +639,7 @@ const validateCompetitionFormatConfig = (config = {}) => {
                     source: String(connection.source || ''),
                     target: String(connection.target || ''),
                     id: String(connection.id || ''),
+                    targetSlot: Number(connection.targetSlot || String(connection.targetSlotId || '').match(/slot-(\d+)$/)?.[1] || 0),
                 });
             });
         });
@@ -289,11 +666,21 @@ const validateCompetitionFormatConfig = (config = {}) => {
 
     const outgoing = new Map();
     const incoming = new Map();
+    const targetSlots = new Set();
     allEdges.forEach((edge) => {
         outgoing.set(edge.source, (outgoing.get(edge.source) || 0) + 1);
         incoming.set(edge.target, (incoming.get(edge.target) || 0) + 1);
+        if (edge.targetSlot) {
+            const slotKey = `${edge.target}:slot-${edge.targetSlot}`;
+            if (targetSlots.has(slotKey)) {
+                const error = new Error(`Slot ${slotKey} đã có nguồn vào`);
+                error.statusCode = 400;
+                throw error;
+            }
+            targetSlots.add(slotKey);
+        }
     });
-    if ([...outgoing.values()].some((count) => count > 2) || [...incoming.values()].some((count) => count > 2)) {
+    if ([...outgoing.values()].some((count) => count > 1) || [...incoming.values()].some((count) => count > 2)) {
         const error = new Error('Match flow có quá nhiều liên kết vào/ra một trận');
         error.statusCode = 400;
         throw error;
@@ -342,6 +729,7 @@ const buildCompetitionFormatPayload = (body, userId) => {
                 flowSlots: branch.flowSlots || [],
                 flowConnections: branch.flowConnections || [],
                 flowConnectionRoutes: branch.flowConnectionRoutes || {},
+                flowConnectionsConfigured: branch.flowConnectionsConfigured === true,
                 flowDeletedMatchIds: branch.flowDeletedMatchIds || [],
                 flowStandaloneMatches: branch.flowStandaloneMatches || [],
                 defaultMatches: branch.type === 'knockout'
@@ -428,7 +816,7 @@ export const validateTournamentCompetitionFormat = async (req, res) => {
         const tournamentItemId = req.params.tournamentItemId || req.params.id;
         const eligibleTeams = await getApprovedEligibleTeamsCount(tournamentItemId);
         let competitionFormat = buildCompetitionFormatPayload({ ...req.body, tournamentItemId }, req.user?._id || req.user?.id);
-        competitionFormat = normalizeFormatWithEligibleTeams(competitionFormat, eligibleTeams);
+        competitionFormat = normalizeFormatWithStartTeams(competitionFormat, eligibleTeams);
         validateCompetitionFormatConfig(competitionFormat.config);
         return res.json({
             success: true,
@@ -510,31 +898,43 @@ export const saveTournamentCompetitionFormat = async (req, res) => {
         const { tournamentItemId } = req.params;
         const { allowed, item, message } = await checkTournamentItemPermission(tournamentItemId, userId);
         if (!item) {
-            await session.abortTransaction();
             return res.status(404).json({ success: false, message });
         }
         if (!allowed && !canUseFormatFallback(req)) {
-            await session.abortTransaction();
             return res.status(403).json({ success: false, message });
         }
 
         const eligibleTeams = await getApprovedEligibleTeamsCount(tournamentItemId, session);
         let competitionFormat = buildCompetitionFormatPayload({ ...req.body, tournamentItemId }, userId);
-        competitionFormat = normalizeFormatWithEligibleTeams(competitionFormat, eligibleTeams);
+        competitionFormat = normalizeFormatWithStartTeams(competitionFormat, eligibleTeams);
+        normalizeFlowConnectionSlots(competitionFormat.config);
         await validateCompetitionTemplateSource(competitionFormat, item);
         validateCompetitionFormatConfig(competitionFormat.config);
 
         const oldConfig = item.competitionFormat?.config || null;
         const shapeChanged = oldConfig && stableFormatShape(oldConfig) !== stableFormatShape(competitionFormat.config);
+        const allowLockedSync = Boolean(req.body?.allowLockedSync || req.body?.confirmSyncPlayed);
         if (shapeChanged) {
-            const [matchCount, resultCount] = await Promise.all([
-                Match.countDocuments({ tournamentItemId }).session(session),
+            const [lockedMatchCount, resultCount] = await Promise.all([
+                Match.countDocuments({
+                    tournamentItemId,
+                    $or: [
+                        { status: { $ne: 'pending' } },
+                        { scheduleStatus: 'published' },
+                        { scheduledAt: { $ne: null } },
+                    ],
+                }).session(session),
                 MatchResult.countDocuments({ tournamentItemId }).session(session),
             ]);
-            if (matchCount > 0 || resultCount > 0) {
+            if ((lockedMatchCount > 0 || resultCount > 0) && !allowLockedSync) {
                 await session.abortTransaction();
                 return res.status(409).json({
                     success: false,
+                    code: 'FORMAT_SYNC_CONFIRM_REQUIRED',
+                    data: {
+                        lockedMatchCount,
+                        resultCount,
+                    },
                     message: 'Thể thức đã phát sinh trận hoặc kết quả. Hãy reset đúng quy trình trước khi ghi đè cấu trúc.',
                 });
             }
@@ -548,12 +948,14 @@ export const saveTournamentCompetitionFormat = async (req, res) => {
                     format: competitionFormat.selectedType === 'custom' ? 'custom' : competitionFormat.name,
                 },
             },
-            { new: true, runValidators: true, session }
+            { returnDocument: 'after', runValidators: true, session }
         ).lean();
 
-        const syncResult = await syncMatchesFromCompetitionConfig(tournamentItemId, userId, session, { force: false });
+        const syncResult = await syncMatchesFromCompetitionConfig(tournamentItemId, userId, session, {
+            force: false,
+            allowLocked: allowLockedSync,
+        });
         if (!syncResult.ok) {
-            await session.abortTransaction();
             return res.status(syncResult.status || 400).json({ success: false, message: syncResult.message });
         }
 
@@ -568,6 +970,9 @@ export const saveTournamentCompetitionFormat = async (req, res) => {
                     teamIds: eligibleTeams.teamIds,
                 },
                 sync: syncResult,
+                warnings: syncResult.skipped === 'existingMatches'
+                    ? ['Giải cũ đã có trận nên chỉ cập nhật cấu hình, không ghi đè dữ liệu thi đấu hiện có.']
+                    : [],
             },
         });
     } catch (error) {
@@ -760,8 +1165,23 @@ const bracketSeedOrder = (teams, strategy) => {
     return pairings;
 };
 
+const getCompetitionStages = (format = {}) => {
+    const config = format?.config && typeof format.config === 'object' ? format.config : {};
+    if (Array.isArray(config.stages) && config.stages.length) return config.stages;
+    if (Array.isArray(config.config?.stages) && config.config.stages.length) return config.config.stages;
+    if (Array.isArray(format?.stages) && format.stages.length) return format.stages;
+    return [];
+};
+
+const resolvePlacementStage = (stages, stageId) => {
+    const requestedId = String(stageId || '').trim();
+    return stages.find((item) => item.id === requestedId)
+        || stages.find((item) => (item.brackets || []).some((branch) => branch.type === 'group' || branch.type === 'knockout'))
+        || stages[0];
+};
+
 const buildPlacementPreview = (format, stageId, teams, strategy = 'SNAKE_BALANCE') => {
-    const stage = (format?.config?.stages || []).find((item) => item.id === stageId) || format?.config?.stages?.[0];
+    const stage = resolvePlacementStage(getCompetitionStages(format), stageId);
     if (!stage) {
         const error = new Error('Không tìm thấy stage để xếp đội');
         error.statusCode = 400;
@@ -849,7 +1269,11 @@ export const previewTeamPlacement = async (req, res) => {
         if (!item) return res.status(404).json({ success: false, message });
         if (!allowed && !canUseFormatFallback(req)) return res.status(403).json({ success: false, message });
         const eligible = await getApprovedEligibleTeamsCount(tournamentItemId);
-        const preview = buildPlacementPreview(item.competitionFormat, req.body?.stageId, eligible.teams, req.body?.strategy);
+        const savedStages = getCompetitionStages(item.competitionFormat);
+        const previewFormat = savedStages.length
+            ? item.competitionFormat
+            : { config: { stages: req.body?.stageDraft ? [req.body.stageDraft] : [] } };
+        const preview = buildPlacementPreview(previewFormat, req.body?.stageId, eligible.teams, req.body?.strategy);
         return res.json({ success: true, data: preview });
     } catch (error) {
         console.error('Preview team placement failed:', error);
@@ -858,8 +1282,6 @@ export const previewTeamPlacement = async (req, res) => {
 };
 
 export const confirmTeamPlacement = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
     try {
         const userId = req.user?._id || req.user?.id;
         const tournamentItemId = req.params.tournamentItemId || req.params.id;
@@ -876,18 +1298,23 @@ export const confirmTeamPlacement = async (req, res) => {
             Match.countDocuments({
                 tournamentItemId,
                 $or: [{ scheduleStatus: 'published' }, { status: { $ne: 'pending' } }],
-            }).session(session),
-            MatchResult.countDocuments({ tournamentItemId }).session(session),
+            }),
+            MatchResult.countDocuments({ tournamentItemId }),
         ]);
         if (lockedMatches > 0 || resultCount > 0) {
             await session.abortTransaction();
             return res.status(409).json({ success: false, message: 'Giải đã có lịch công bố hoặc kết quả, không thể xếp lại đội trực tiếp.' });
         }
-        const dbItem = await TournamentItem.findById(tournamentItemId).session(session);
-        const eligible = await getApprovedEligibleTeamsCount(tournamentItemId, session);
+        const dbItem = await TournamentItem.findById(tournamentItemId);
+        const eligible = await getApprovedEligibleTeamsCount(tournamentItemId);
         const preview = buildPlacementPreview(dbItem.competitionFormat, req.body?.stageId, eligible.teams, req.body?.strategy);
         const config = dbItem.competitionFormat?.config || {};
-        const stages = Array.isArray(config.stages) ? config.stages : [];
+        const stages = getCompetitionStages(dbItem.competitionFormat);
+        if (!stages.length) {
+            const error = new Error('Hãy lưu cấu hình thể thức trước khi áp dụng xếp đội.');
+            error.statusCode = 400;
+            throw error;
+        }
         const stage = stages.find((entry) => entry.id === preview.stage.id);
         if (!stage) throw new Error('Không tìm thấy stage để lưu xếp đội');
         stage.seedAssignments = preview.placements.map((placement) => ({
@@ -907,15 +1334,11 @@ export const confirmTeamPlacement = async (req, res) => {
         stage.placedAt = new Date();
         stage.placedBy = userId;
         dbItem.markModified('competitionFormat');
-        await dbItem.save({ session });
-        await session.commitTransaction();
+        await dbItem.save();
         return res.json({ success: true, data: preview });
     } catch (error) {
-        await session.abortTransaction();
         console.error('Confirm team placement failed:', error);
         return res.status(error.statusCode || 500).json({ success: false, message: error.message });
-    } finally {
-        session.endSession();
     }
 };
 
@@ -1080,9 +1503,16 @@ const aggregateWildcardCandidates = async ({ tournamentItemId, targetStage, sour
     const standingQuery = Standing.find({
         tournamentItemId,
         stageId: { $in: sourceStageRuleIds },
-    }).populate('teamOrPlayerId', 'name logo skill seed rank ranking lineup').lean();
+    }).lean();
     if (session) standingQuery.session(session);
     const standings = await standingQuery;
+    const standingParticipantIds = [...new Set(standings.map((standing) => normalizeId(standing.teamOrPlayerId)).filter(Boolean))];
+    const participantQuery = Participant.find({ _id: { $in: standingParticipantIds } })
+        .select('name logo skill seed rank ranking lineup')
+        .lean();
+    if (session) participantQuery.session(session);
+    const standingParticipants = standingParticipantIds.length ? await participantQuery : [];
+    const participantById = new Map(standingParticipants.map((participant) => [normalizeId(participant._id), participant]));
     const rows = new Map();
     standings.forEach((standing) => {
         const teamId = normalizeId(standing.teamOrPlayerId);
@@ -1090,7 +1520,7 @@ const aggregateWildcardCandidates = async ({ tournamentItemId, targetStage, sour
         const played = Number(standing.played || 0);
         if (played <= 0) return;
         const row = rows.get(teamId) || emptyWildcardStats(teamId);
-        const participant = standing.teamOrPlayerId || {};
+        const participant = participantById.get(teamId) || {};
         row.teamName = row.teamName || participant.name || 'Đội thi đấu';
         row.played += played;
         row.wins += Number(standing.wins || 0);

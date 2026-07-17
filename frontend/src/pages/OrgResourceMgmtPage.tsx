@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, LayoutGrid, List, MapPin, Flag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import api from "@/libs/axios";
 import ResourceStats from "@/components/org/resource-mgmt/ResourceStats";
 import VenueMgmtTable from "@/components/org/resource-mgmt/VenueMgmtTable";
 import RefereeMgmtTable from "@/components/org/resource-mgmt/RefereeMgmtTable";
@@ -12,6 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import type { OrgRefereeRecord, OrgVenueRecord, RefereeStatus, VenueStatus } from "@/types/orgResourceMgmt";
 
 type ResourceDialogMode = "venue" | "referee";
+type ApiList<T = unknown> = T[] | { data?: T[] };
 
 const emptyVenue = { name: "", location: "", status: "Available" as VenueStatus };
 const emptyReferee = {
@@ -22,6 +25,17 @@ const emptyReferee = {
   status: "Available" as RefereeStatus,
 };
 
+const asArray = <T,>(payload: ApiList<T>): T[] => {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.data) ? payload.data : [];
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" ? value as Record<string, unknown> : {};
+
+const uniqueSports = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+
 const OrgResourceMgmtPage = () => {
   const [activeTab, setActiveTab] = useState<"venues" | "referees">("venues");
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,6 +44,7 @@ const OrgResourceMgmtPage = () => {
   const [editingReferee, setEditingReferee] = useState<OrgRefereeRecord | null>(null);
   const [venueForm, setVenueForm] = useState(emptyVenue);
   const [refereeForm, setRefereeForm] = useState(emptyReferee);
+  const [sportOptions, setSportOptions] = useState<string[]>([]);
   const isMobile = useIsMobile();
   const selectedTournamentItemId = useOrgContextStore((state) => state.selectedTournamentItemId);
   const {
@@ -54,6 +69,32 @@ const OrgResourceMgmtPage = () => {
     if (!selectedTournamentItemId) return;
     fetchData(selectedTournamentItemId);
   }, [fetchData, selectedTournamentItemId]);
+
+  useEffect(() => {
+    let active = true;
+    const loadSports = async () => {
+      try {
+        const response = await api.get<ApiList<Record<string, unknown>>>("/rules/sports");
+        const names = asArray(response.data)
+          .map((item) => asRecord(item))
+          .map((item) => String(item.displayName || item.name || item.sportType || "").trim())
+          .filter(Boolean);
+        if (active) setSportOptions(uniqueSports(names));
+      } catch (error) {
+        console.error("Không thể tải danh sách môn thể thao.", error);
+        if (active) setSportOptions([]);
+      }
+    };
+    void loadSports();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const qualificationOptions = useMemo(
+    () => uniqueSports([...sportOptions, refereeForm.qualification]),
+    [refereeForm.qualification, sportOptions],
+  );
 
   const filteredVenues = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -89,7 +130,7 @@ const OrgResourceMgmtPage = () => {
     setEditingReferee(referee);
     setRefereeForm({
       name: referee.name,
-      phoneNumber: "",
+      phoneNumber: referee.phoneNumber || "",
       qualification: referee.qualification,
       experience: referee.experience,
       status: referee.status,
@@ -120,7 +161,10 @@ const OrgResourceMgmtPage = () => {
     if (editingReferee) {
       await updateReferee(editingReferee.id, payload);
     } else {
-      await addReferee(payload);
+      const result = (await addReferee(payload)) as { defaultAccount?: { username?: string; password?: string } };
+      if (result.defaultAccount?.username) {
+        toast.success(`Đã tạo tài khoản trọng tài: ${result.defaultAccount.username} / ${result.defaultAccount.password || "mật khẩu mặc định"}`);
+      }
     }
     setDialogMode(null);
   };
@@ -217,16 +261,14 @@ const OrgResourceMgmtPage = () => {
             <div className="space-y-3 p-4 text-sm">
               <p><span className="font-bold">Tên:</span> {viewingReferee.name}</p>
               <p><span className="font-bold">Môn/chuyên môn:</span> {viewingReferee.qualification}</p>
-              <p><span className="font-bold">Kinh nghiệm:</span> {viewingReferee.experience} n?m</p>
+              <p><span className="font-bold">Kinh nghiệm:</span> {viewingReferee.experience} năm</p>
               <p><span className="font-bold">Tài khoản:</span> {viewingReferee.accountLinked ? `Đã liên kết ${viewingReferee.accountLabel || ""}` : "Chưa liên kết"}</p>
             </div>
-            {!viewingReferee.accountLinked && (
-              <div className="border-t border-border p-4">
-                <Button className="w-full" onClick={() => { setLinkingReferee(viewingReferee); setViewingReferee(null); }}>
-                  Liên kết tài khoản
-                </Button>
-              </div>
-            )}
+            <div className="border-t border-border p-4">
+              <Button className="w-full" onClick={() => { setLinkingReferee(viewingReferee); setViewingReferee(null); }}>
+                {viewingReferee.accountLinked ? "Đổi tài khoản liên kết" : "Liên kết tài khoản"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -234,7 +276,6 @@ const OrgResourceMgmtPage = () => {
       <AccountLinkDialog
         open={Boolean(linkingReferee)}
         title={`Liên kết cho ${linkingReferee?.name || "trọng tài"}`}
-        role="referee"
         onClose={() => setLinkingReferee(null)}
         onSelect={async (account) => {
           if (!linkingReferee) return;
@@ -295,7 +336,19 @@ const OrgResourceMgmtPage = () => {
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-bold uppercase text-muted-foreground">Chuyên môn</span>
-                <input value={refereeForm.qualification} onChange={(event) => setRefereeForm({ ...refereeForm, qualification: event.target.value })} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                <select
+                  value={refereeForm.qualification}
+                  onChange={(event) => setRefereeForm({ ...refereeForm, qualification: event.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Chọn môn thể thao</option>
+                  {qualificationOptions.map((sport) => (
+                    <option key={sport} value={sport}>{sport}</option>
+                  ))}
+                </select>
+                {!qualificationOptions.length ? (
+                  <span className="mt-1 block text-xs text-muted-foreground">Chưa có môn thể thao đang hoạt động trong hệ thống.</span>
+                ) : null}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">

@@ -13,7 +13,7 @@ export interface OrgResourceMgmtState {
   addVenue: (venue: Pick<OrgVenueRecord, "name" | "location">) => Promise<void>;
   updateVenue: (id: string, venue: Partial<OrgVenueRecord>) => Promise<void>;
   deleteVenue: (id: string) => Promise<void>;
-  addReferee: (referee: Pick<OrgRefereeRecord, "name" | "qualification" | "experience" | "status"> & { phoneNumber?: string }) => Promise<void>;
+  addReferee: (referee: Pick<OrgRefereeRecord, "name" | "qualification" | "experience" | "status"> & { phoneNumber?: string }) => Promise<unknown>;
   updateReferee: (id: string, referee: Partial<OrgRefereeRecord> & { phoneNumber?: string }) => Promise<void>;
   deleteReferee: (id: string) => Promise<void>;
   linkRefereeAccount: (id: string, userId: string) => Promise<void>;
@@ -58,8 +58,9 @@ export const useOrgResourceMgmtStore = create<OrgResourceMgmtState>((set, get) =
   addReferee: async (referee) => {
     const tournamentItemId = get().tournamentItemId;
     if (!tournamentItemId) throw new Error("Vui lòng chọn giải trước khi thêm trọng tài.");
-    await orgResourceMgmtService.createReferee(tournamentItemId, referee);
+    const result = await orgResourceMgmtService.createReferee(tournamentItemId, referee);
     await get().fetchData(tournamentItemId);
+    return result;
   },
 
   updateReferee: async (id, referee) => {

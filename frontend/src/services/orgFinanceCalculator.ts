@@ -9,6 +9,12 @@ type FinanceParticipant = Participant & {
 export const calculateFeeProgress = (participants: FinanceParticipant[], feePerPlayer: number): FeeProgressData => {
   const teams = participants.filter((item) => item.type === "team");
   const countPlayers = (item: FinanceParticipant) => item.lineup?.length || 0;
+  const feeOfTeam = (item: FinanceParticipant) => {
+    const memberFees = item.memberFees || [];
+    const memberTotal = memberFees.reduce((sum, fee) => sum + Number(fee.amount || 0), 0);
+    if (memberTotal > 0) return memberTotal;
+    return countPlayers(item) * feePerPlayer;
+  };
 
   const totalPlayers = teams.reduce((sum, item) => sum + countPlayers(item), 0);
   const freeTeams = teams.filter((item) => item.paymentStatus === "exempted");
@@ -22,10 +28,9 @@ export const calculateFeeProgress = (participants: FinanceParticipant[], feePerP
   const approvedPaidPlayers = approvedPaidTeams.reduce((sum, item) => sum + countPlayers(item), 0);
   const approvedFreePlayers = approvedFreeTeams.reduce((sum, item) => sum + countPlayers(item), 0);
   const allEligiblePaidPlayers = paidTeams.reduce((sum, item) => sum + countPlayers(item), 0);
-  const paidMemberFees = teams.flatMap((item) => item.memberFees || []).filter((fee) => fee.status === "paid");
 
-  const expectedAmount = allEligiblePaidPlayers * feePerPlayer;
-  const collectedAmount = paidMemberFees.reduce((sum, fee) => sum + Number(fee.amountPaid || fee.amount || 0), 0);
+  const expectedAmount = paidTeams.reduce((sum, item) => sum + feeOfTeam(item), 0);
+  const collectedAmount = approvedPaidTeams.reduce((sum, item) => sum + feeOfTeam(item), 0);
 
   return {
     expectedAmount,

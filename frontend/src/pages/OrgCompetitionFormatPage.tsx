@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { GitBranch, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import RequireTournamentSelection from "@/components/org/RequireTournamentSelection";
 import FlowCanvas from "@/components/org/competition-format/workflow/FlowCanvas";
-import { mapStagesToFlow } from "@/components/org/competition-format/workflow/FlowMapper";
 import StageEditor from "@/components/org/competition-format/workflow/StageEditor";
 import TeamSeedingBoard from "@/components/org/competition-format/TeamSeedingBoard";
 import { competitionFormatService } from "@/services/competitionFormatService";
@@ -75,14 +74,127 @@ const normalizeBranchMatchSlots = (branch: StageBracketConfig): StageBracketConf
   };
 };
 
+const isLuckyLabel = (value?: string) => /^Lucky\d+$/i.test(String(value || "").trim());
+
+const splitEvenSlotCounts = (totalSlots: number, partCount: number, preferredCounts: number[] = []) => {
+  const count = Math.max(1, partCount);
+  const safeTotal = Math.max(0, Math.trunc(Number(totalSlots) || 0));
+  if (safeTotal <= 0) return Array.from({ length: count }, () => 0);
+  const preferredTotal = preferredCounts.reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+  if (preferredTotal === totalSlots && preferredCounts.length >= count) {
+    return preferredCounts.slice(0, count).map((value) => value > 0 ? makeEvenSlotCount(value) : 0);
+  }
+  const activeCount = Math.min(count, Math.max(1, Math.floor(makeEvenSlotCount(safeTotal) / 2)));
+  let remaining = makeEvenSlotCount(safeTotal);
+  return Array.from({ length: count }, (_, index) => {
+    if (index >= activeCount) return 0;
+    if (index === activeCount - 1) return Math.max(0, remaining);
+    const remainingParts = activeCount - index;
+    const minForRest = (remainingParts - 1) * 2;
+    const balancedShare = Math.ceil((remaining / remainingParts) / 2) * 2;
+    const share = Math.max(2, Math.min(balancedShare, remaining - minForRest));
+    remaining = Math.max(0, remaining - share);
+    return share;
+  });
+};
+
+const reviveWildcardAddedMatches = (
+  stageId: string,
+  branch: StageBracketConfig,
+  baseSlotCount: number,
+  totalTeamsIn: number,
+) => {
+  const previousDefaultMatchCount = Math.max(1, Math.ceil(makeEvenSlotCount(baseSlotCount) / 2));
+  const nextDefaultMatchCount = Math.max(1, Math.ceil(makeEvenSlotCount(totalTeamsIn) / 2));
+  if (nextDefaultMatchCount <= previousDefaultMatchCount) return branch.flowDeletedMatchIds || [];
+
+  const revivedIds = new Set(
+    Array.from(
+      { length: nextDefaultMatchCount - previousDefaultMatchCount },
+      (_, index) => `${stageId}:${branch.id}:m-${previousDefaultMatchCount + index + 1}`,
+    ),
+  );
+  return (branch.flowDeletedMatchIds || []).filter((id) => !revivedIds.has(id));
+};
+
+const syncWildcardSlotsToKnockoutStage = (stage: CompetitionStageConfig): CompetitionStageConfig => {
+  const luckySlots = stage.wildcard.enabled ? Math.max(0, Number(stage.wildcard.selection.slots || stage.wildcard.slots || 0)) : 0;
+  const knockoutBranches = stage.brackets.filter((branch) => branch.type === "knockout");
+  if (!knockoutBranches.length) return stage;
+  const luckyCounts = splitEvenSlotCounts(luckySlots, knockoutBranches.length);
+  const luckyCountByBranch = new Map(knockoutBranches.map((branch, index) => [branch.id, luckyCounts[index] || 0]));
+
+  let syncedTotalTeamsIn = 0;
+  const brackets = stage.brackets.map((branch) => {
+    if (branch.type !== "knockout") return branch;
+    const branchLuckySlots = luckyCountByBranch.get(branch.id) || 0;
+    const existingSlots = branch.flowSlots || [];
+    const assignedWildcardCount = existingSlots.filter((slot) => isLuckyLabel(slot.sourceLabel)).length;
+    const reservedEmptySlots = existingSlots.filter((slot) => slot.reservedForWildcard && !isLuckyLabel(slot.sourceLabel)).length;
+    const wildcardCapacity = Math.max(branchLuckySlots, assignedWildcardCount + reservedEmptySlots);
+    const baseSlotCount = makeEvenSlotCount(Math.max(
+      2,
+      Number(branch.totalTeamsIn || 0) - wildcardCapacity,
+      existingSlots.length - assignedWildcardCount - reservedEmptySlots,
+    ));
+    const totalTeamsIn = makeEvenSlotCount(baseSlotCount + wildcardCapacity);
+    syncedTotalTeamsIn += totalTeamsIn;
+    let emptyWildcardSlotsToAppend = Math.max(0, branchLuckySlots - assignedWildcardCount - reservedEmptySlots);
+    const flowSlots = Array.from({ length: totalTeamsIn }, (_, index) => {
+      const existingSlot = existingSlots[index];
+      if (existingSlot) {
+        return {
+          ...existingSlot,
+          id: `${branch.id}-slot-${index + 1}`,
+          label: `Slot ${index + 1}`,
+          reservedForWildcard: isLuckyLabel(existingSlot.sourceLabel) ? true : existingSlot.reservedForWildcard,
+        };
+      }
+      if (emptyWildcardSlotsToAppend > 0) {
+        emptyWildcardSlotsToAppend -= 1;
+        return {
+          id: `${branch.id}-slot-${index + 1}`,
+          label: `Slot ${index + 1}`,
+          reservedForWildcard: true,
+        };
+      }
+      return {
+        id: `${branch.id}-slot-${index + 1}`,
+        label: `Slot ${index + 1}`,
+      };
+    });
+    return normalizeBranchMatchSlots({
+      ...branch,
+      totalTeamsIn,
+      flowDeletedMatchIds: reviveWildcardAddedMatches(stage.id, branch, baseSlotCount, totalTeamsIn),
+      flowSlots,
+      selection: {
+        ...branch.selection,
+        slots: Math.max(1, Math.ceil(totalTeamsIn / 2)),
+      },
+    });
+  });
+
+  if (!syncedTotalTeamsIn) return { ...stage, brackets };
+  return {
+    ...stage,
+    input: {
+      ...stage.input,
+      teams: syncedTotalTeamsIn,
+      selection: {
+        ...stage.input.selection,
+        slots: syncedTotalTeamsIn,
+      },
+    },
+    brackets,
+  };
+};
+
 const defaultMatchCountOfBranch = (branch: StageBracketConfig) => {
   if (branch.type !== "knockout") return Math.max(1, branch.selection?.slots || 1);
   const deletedDefaultMatches = branch.flowDeletedMatchIds?.filter((id) => id.includes(":m-")).length || 0;
   return Math.max(1, Math.ceil(makeEvenSlotCount(branch.totalTeamsIn) / 2) - deletedDefaultMatches + (branch.flowStandaloneMatches?.length || 0));
 };
-
-const nextTeamsInFromPreviousMatches = (previousMatchCount: number) =>
-  makeEvenSlotCount(Math.max(1, Math.ceil(previousMatchCount / 2)) * 2);
 
 const createBranch = (stageOrder: number, totalStages: number, inputTeams: number): StageBracketConfig => {
   const isFirst = stageOrder === 1;
@@ -148,6 +260,47 @@ const createDraft = (option?: CompetitionTournamentOption): CompetitionFormatRec
   };
 };
 
+const createEmptyCustomDraft = (option?: CompetitionTournamentOption, startTeams = 0): CompetitionFormatRecord => ({
+  id: option?.id || "new",
+  tournamentItemId: option?.id,
+  selectedType: "custom",
+  presetId: "",
+  presetSource: "",
+  name: "",
+  sportType: option?.sportType ? capitalize(option.sportType) : "",
+  description: "",
+  status: "actived",
+  stageCount: 1,
+  stages: [{
+    id: "stage-1",
+    order: 1,
+    name: "Stage 1",
+    sourceType: "REGISTRATION",
+    sourceStageIds: [],
+    input: {
+      teams: Math.max(0, startTeams),
+      groups: 0,
+      teamsPerGroup: 0,
+      sourceStageId: "",
+      selection: createSelection(Math.max(0, startTeams), "MANUAL"),
+    },
+    brackets: [],
+    wildcard: { enabled: false, selection: createSelection(0, "LOSER") },
+    scoring: {
+      targetScore: 11,
+      changeSideAt: 6,
+      setsToWin: 1,
+      winBy: 2,
+      winPoints: 1,
+      drawPoints: 0,
+      lossPoints: 0,
+    },
+    rankingCriteria: defaultRankingCriteria,
+    luckyCriteria: defaultLuckyCriteria,
+    note: "",
+  }],
+});
+
 const normalizeTemplateByEligibleTeams = (record: CompetitionFormatRecord, totalTeams: number): CompetitionFormatRecord => {
   if (!totalTeams || totalTeams < 1) return record;
   const stages = record.stages.map((stage, stageIndex) => {
@@ -172,6 +325,219 @@ const normalizeTemplateByEligibleTeams = (record: CompetitionFormatRecord, total
   return { ...record, stageCount: stages.length, stages };
 };
 
+const groupKeyForIndex = (index: number) => String.fromCharCode(65 + index);
+
+const groupAdvanceLabels = (groupCount: number, ranks: number[] = [1]) => {
+  if (groupCount === 2 && ranks.includes(1) && ranks.includes(2)) return ["A1", "B2", "A2", "B1"];
+  return ranks.flatMap((rank) => Array.from({ length: groupCount }, (_, index) => `${groupKeyForIndex(index)}${rank}`));
+};
+
+const matchIdsForBranch = (stage: CompetitionStageConfig, branch: StageBracketConfig) =>
+  branch.type === "knockout" && Number(branch.totalTeamsIn || 0) >= 2
+    ? Array.from({ length: Math.max(1, Math.ceil(makeEvenSlotCount(branch.totalTeamsIn) / 2)) }, (_, index) => `${stage.id}:${branch.id}:m-${index + 1}`)
+      .filter((id) => !(branch.flowDeletedMatchIds || []).includes(id))
+    : [];
+
+const assignMatchCodes = (stages: CompetitionStageConfig[]) => {
+  const codes = new Map<string, string>();
+  let next = 1;
+  stages.forEach((stage) => {
+    stage.brackets.forEach((branch) => {
+      matchIdsForBranch(stage, branch).forEach((id) => {
+        codes.set(id, `M${next}`);
+        next += 1;
+      });
+      (branch.flowStandaloneMatches || []).forEach((match) => {
+        codes.set(match.id, match.matchCode || `M${next}`);
+        next += 1;
+      });
+    });
+  });
+  return codes;
+};
+
+const createFlowSlots = (
+  branch: StageBracketConfig,
+  totalTeamsIn: number,
+  labels: string[] = [],
+  metadata: Partial<NonNullable<StageBracketConfig["flowSlots"]>[number]>[] = [],
+) =>
+  Array.from({ length: makeEvenSlotCount(totalTeamsIn) }, (_, index) => ({
+    id: `${branch.id}-slot-${index + 1}`,
+    label: `Slot ${index + 1}`,
+    ...(labels[index] ? { sourceLabel: labels[index] } : {}),
+    ...(metadata[index] || {}),
+  }));
+
+const groupOutputLabels = (stage: CompetitionStageConfig) => stage.brackets.flatMap((branch) => {
+  if (branch.type !== "group") return [];
+  const groups = branch.groups || [];
+  const ranks = branch.selection.ranks?.length ? branch.selection.ranks : [1];
+  return groupAdvanceLabels(groups.length || 1, ranks);
+});
+
+const knockoutOutputCount = (stage: CompetitionStageConfig) =>
+  stage.brackets.filter((branch) => branch.type === "knockout").reduce((sum, branch) => sum + matchIdsForBranch(stage, branch).length, 0);
+
+const createDerivedKnockoutStage = (previousStage: CompetitionStageConfig, inheritedTeams: number): CompetitionStageConfig => {
+  const order = previousStage.order + 1;
+  const stageId = `stage-${order}`;
+  const previousKnockoutBranches = previousStage.brackets.filter((branch) => branch.type === "knockout");
+  const branchCount = inheritedTeams <= 2 ? 1 : Math.max(1, Math.min(previousKnockoutBranches.length || 1, Math.floor(makeEvenSlotCount(inheritedTeams) / 2)));
+  const branchInputCounts = splitEvenSlotCounts(inheritedTeams, branchCount).filter((count) => count >= 2);
+  return {
+    id: stageId,
+    order,
+    name: inheritedTeams === 2 ? "Chung kết" : `Vòng knockout ${order}`,
+    sourceType: "PREVIOUS_STAGE",
+    sourceStageIds: [previousStage.id],
+    input: {
+      teams: inheritedTeams,
+      groups: 0,
+      teamsPerGroup: 0,
+      sourceStageId: previousStage.id,
+      selection: createSelection(inheritedTeams, "WINNER"),
+    },
+    brackets: branchInputCounts.map((branchTeamsIn, index) => {
+      const sourceBranch = previousKnockoutBranches[index];
+      const branchId = branchCount === 1 ? `${stageId}-main` : `${stageId}-from-${sourceBranch?.id || index + 1}`;
+      return {
+      id: branchId,
+      name: inheritedTeams === 2 ? "Chung kết" : `Nhánh ${order}`,
+      type: "knockout",
+      totalTeamsIn: branchTeamsIn,
+      groups: [],
+      groupIds: [],
+      selection: createSelection(Math.max(1, Math.ceil(branchTeamsIn / 2)), "WINNER"),
+      flowSlots: createFlowSlots({ id: branchId } as StageBracketConfig, branchTeamsIn),
+      flowConnections: [],
+      flowConnectionRoutes: {},
+      };
+    }),
+    wildcard: { enabled: false, selection: createSelection(0, "LOSER") },
+    scoring: previousStage.scoring,
+    rankingCriteria: previousStage.rankingCriteria || defaultRankingCriteria,
+    luckyCriteria: previousStage.luckyCriteria || defaultLuckyCriteria,
+    note: "",
+  };
+};
+
+void createDerivedKnockoutStage;
+
+const normalizeTemplateByStartTeams = (record: CompetitionFormatRecord, totalTeams: number): CompetitionFormatRecord => {
+  if (!totalTeams || totalTeams < 1) return record;
+  let previousStage: CompetitionStageConfig | undefined;
+  let stages = record.stages.map((stage, stageIndex) => {
+    const previousGroupLabels = previousStage ? groupOutputLabels(previousStage) : [];
+    const previousKnockoutTeams = previousStage ? knockoutOutputCount(previousStage) : 0;
+    const inheritedTeams = stageIndex === 0 ? totalTeams : previousKnockoutTeams || previousGroupLabels.length || stage.input.teams;
+    const nextStage: CompetitionStageConfig = {
+      ...stage,
+      sourceType: stageIndex === 0 ? "REGISTRATION" : "PREVIOUS_STAGE",
+      sourceStageIds: stageIndex === 0 || !previousStage ? [] : [previousStage.id],
+      input: {
+        ...stage.input,
+        teams: inheritedTeams,
+        sourceStageId: stageIndex === 0 ? "" : previousStage?.id || "",
+        selection: { ...stage.input.selection, slots: inheritedTeams },
+      },
+      brackets: (() => {
+        const knockoutBranches = stage.brackets.filter((branch) => branch.type === "knockout");
+        const branchInputCounts = splitEvenSlotCounts(
+          inheritedTeams,
+          Math.max(1, knockoutBranches.length),
+          knockoutBranches.map((branch) => Number(branch.totalTeamsIn || 0)),
+        );
+        let knockoutIndex = 0;
+        let groupLabelOffset = 0;
+        return stage.brackets.map((branch) => {
+        if (branch.type === "group") {
+          const existingGroups = branch.groups || [];
+          const teamsPerGroup = Math.max(1, existingGroups[0]?.numberOfTeams || stage.input.teamsPerGroup || Math.ceil(totalTeams / Math.max(1, existingGroups.length || stage.input.groups || 1)));
+          const groupCount = Math.max(1, Math.ceil(inheritedTeams / teamsPerGroup));
+          const groups = createGroups(inheritedTeams, groupCount);
+          return {
+            ...branch,
+            totalTeamsIn: inheritedTeams,
+            groups,
+            groupIds: groups.map((group) => group.name),
+            selection: { ...branch.selection, slots: groups.length * (branch.selection.ranks?.length || 1) },
+          };
+        }
+        if (branch.type !== "knockout") return branch;
+        const branchTeamsIn = branchInputCounts[knockoutIndex] || inheritedTeams;
+        knockoutIndex += 1;
+        const labels = previousGroupLabels.slice(groupLabelOffset, groupLabelOffset + branchTeamsIn);
+        groupLabelOffset += branchTeamsIn;
+        return {
+          ...branch,
+          totalTeamsIn: branchTeamsIn,
+          selection: { ...branch.selection, slots: Math.max(1, Math.ceil(branchTeamsIn / 2)) },
+          flowSlots: previousGroupLabels.length && !previousKnockoutTeams
+            ? createFlowSlots(branch, branchTeamsIn, labels, labels.map((label) => ({
+              sourceStageId: previousStage?.id,
+              sourceGroupName: label.match(/^[A-Z]+/)?.[0],
+              sourceRank: Number(label.match(/\d+$/)?.[0] || 0) || undefined,
+            })))
+            : createFlowSlots(branch, branchTeamsIn),
+          flowConnections: previousGroupLabels.length && !previousKnockoutTeams ? [] : branch.flowConnections,
+        };
+        });
+      })(),
+    };
+    previousStage = nextStage;
+    return nextStage;
+  });
+
+  const matchCodes = assignMatchCodes(stages);
+  stages = stages.map((stage, stageIndex) => {
+    if (stageIndex === 0) return stage;
+    const previous = stages[stageIndex - 1];
+    if (!knockoutOutputCount(previous)) return stage;
+    const sourceIds = previous.brackets.flatMap((previousBranch) => matchIdsForBranch(previous, previousBranch));
+    let sourceOffset = 0;
+    return {
+      ...stage,
+      brackets: stage.brackets.map((branch) => {
+        if (branch.type !== "knockout") return branch;
+        const branchSourceCount = Math.min(
+          Math.max(0, Number(branch.totalTeamsIn || 0)),
+          Math.max(0, sourceIds.length - sourceOffset),
+        );
+        const branchSourceIds = sourceIds.slice(sourceOffset, sourceOffset + branchSourceCount);
+        sourceOffset += branchSourceCount;
+        const targetIds = matchIdsForBranch(stage, branch);
+        const labels = branchSourceIds.map((id) => matchCodes.get(id) || "");
+        return {
+          ...branch,
+          flowSlots: createFlowSlots(branch, branchSourceIds.length || branch.totalTeamsIn, labels, branchSourceIds.map((id) => ({
+            sourceStageId: previous.id,
+            sourceMatchId: id,
+            sourceResult: "WINNER" as const,
+          }))),
+          flowConnections: branchSourceIds.map((sourceId, index) => {
+            const target = targetIds[Math.floor(index / 2)];
+            const targetSlot = (index % 2 === 0 ? 1 : 2) as 1 | 2;
+            return {
+              id: `${sourceId}->${target}:slot-${targetSlot}`,
+              source: sourceId,
+              target,
+              label: matchCodes.get(sourceId) || "",
+              output: "WINNER" as const,
+              targetSlot,
+              targetSlotId: `${target}:slot-${targetSlot}`,
+              sourceStageId: previous.id,
+              targetStageId: stage.id,
+            };
+          }).filter((connection) => connection.target),
+        };
+      }),
+    };
+  });
+
+  return { ...record, stageCount: stages.length, stages };
+};
+
 const normalizeStages = (stageCount: number, currentStages: CompetitionStageConfig[]) => {
   const count = Math.max(1, Math.min(20, Number(stageCount) || 1));
   return Array.from({ length: count }, (_, index) => {
@@ -184,7 +550,7 @@ const normalizeStages = (stageCount: number, currentStages: CompetitionStageConf
       .sort((a, b) => a.order - b.order)
       .map((stage) => stage.id);
     const luckyCriteria = current.luckyCriteria?.length ? current.luckyCriteria : defaultLuckyCriteria;
-    return {
+    return syncWildcardSlotsToKnockoutStage({
       ...current,
       id: current.id || `stage-${order}`,
       order,
@@ -201,7 +567,7 @@ const normalizeStages = (stageCount: number, currentStages: CompetitionStageConf
         criteria: current.wildcard.criteria?.length ? current.wildcard.criteria : wildcardCriteria(luckyCriteria),
       },
       luckyCriteria,
-    };
+    });
   });
 };
 
@@ -228,25 +594,21 @@ const syncNextStageBranches = (stages: CompetitionStageConfig[], changedOrder: n
   if (currentIndex < 0 || currentIndex >= stages.length - 1) return stages;
   const currentStage = stages[currentIndex];
   const nextStage = stages[currentIndex + 1];
-  const inheritedTeamsIn = nextTeamsInFromPreviousMatches(Math.max(
+  const previousMatchCount = currentStage.brackets.reduce((sum, branch) => sum + defaultMatchCountOfBranch(branch), 0);
+  const inheritedTeamsIn = Math.max(2, previousMatchCount);
+  const branchCount = Math.max(
     1,
-    ...currentStage.brackets.map(defaultMatchCountOfBranch),
-  ));
-  const nextBranches = nextStage.brackets.map((branch) => normalizeBranchMatchSlots({
-    ...branch,
-    totalTeamsIn: inheritedTeamsIn,
-    selection: {
-      ...branch.selection,
-      slots: Math.max(1, Math.ceil(inheritedTeamsIn / 2)),
-    },
-  }));
+    nextStage.brackets.filter((branch) => branch.type === "knockout").length,
+    currentStage.brackets.filter((branch) => branch.type === "knockout").length,
+  );
+  const branchInputCounts = splitEvenSlotCounts(inheritedTeamsIn, branchCount);
+  const nextBranches = nextStage.brackets.map((branch) => normalizeBranchMatchSlots(branch));
 
   currentStage.brackets.forEach((branch, index) => {
     if (nextBranches[index]) return;
-    nextBranches.push(createFollowupBranch(nextStage, branch, index, inheritedTeamsIn));
+    nextBranches.push(createFollowupBranch(nextStage, branch, index, branchInputCounts[index] || inheritedTeamsIn));
   });
 
-  if (nextBranches.length === nextStage.brackets.length) return stages;
   return stages.map((stage, index) => index === currentIndex + 1
     ? {
       ...stage,
@@ -259,13 +621,21 @@ const syncNextStageBranches = (stages: CompetitionStageConfig[], changedOrder: n
     : stage);
 };
 
-void syncNextStageBranches;
+const collectFlowNodeIds = (stages: CompetitionStageConfig[]) => new Set(stages.flatMap((stage) =>
+  stage.brackets.flatMap((branch) => {
+    if (branch.type !== "knockout") return [`${stage.id}:${branch.id}`];
+    return [
+      ...matchIdsForBranch(stage, branch),
+      ...(branch.flowStandaloneMatches || []).map((match) => match.id),
+    ];
+  }),
+));
 
 const cleanupFlowState = (stages: CompetitionStageConfig[]) => {
-  const graph = mapStagesToFlow(stages);
-  const nodeIds = new Set(graph.nodes.map((node) => node.id));
+  const syncedStages = stages.map(syncWildcardSlotsToKnockoutStage);
+  const nodeIds = collectFlowNodeIds(syncedStages);
   const seenEdges = new Set<string>();
-  return stages.map((stage) => ({
+  return syncedStages.map((stage) => ({
     ...stage,
     brackets: stage.brackets.map((rawBranch) => {
       const branch = normalizeBranchMatchSlots(rawBranch);
@@ -303,6 +673,7 @@ const OrgCompetitionFormatPage = () => {
   const [activeTab, setActiveTab] = useState<"config" | "seeding">("config");
   const [presetTemplates, setPresetTemplates] = useState<CompetitionFormatRecord[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
+  const deferredStages = useDeferredValue(draft.stages);
 
   useEffect(() => {
     void fetchTournamentOptions();
@@ -392,7 +763,7 @@ const OrgCompetitionFormatPage = () => {
   const updateStage = (stage: CompetitionStageConfig) =>
     setDraft((current) => {
       const nextStages = current.stages.map((item) => item.order === stage.order ? stage : item);
-      const stages = cleanupFlowState(nextStages);
+      const stages = cleanupFlowState(syncNextStageBranches(nextStages, stage.order));
       return { ...current, stages };
     });
 
@@ -433,7 +804,7 @@ const OrgCompetitionFormatPage = () => {
       const eligible = selectedTournamentItemId
         ? await competitionFormatService.getEligibleTeams(selectedTournamentItemId).catch(() => ({ totalTeams: 0, teamIds: [] }))
         : { totalTeams: 0, teamIds: [] };
-      const normalizedDetail = normalizeTemplateByEligibleTeams(detail, eligible.totalTeams);
+      const normalizedDetail = normalizeTemplateByStartTeams(normalizeTemplateByEligibleTeams(detail, eligible.totalTeams), eligible.totalTeams);
       const stages = normalizeStages(normalizedDetail.stages.length || 1, normalizedDetail.stages);
       setDraft({
         ...normalizedDetail,
@@ -454,29 +825,30 @@ const OrgCompetitionFormatPage = () => {
     }
   };
 
-  const selectCustomFormat = () => {
-    setDraft((current) => ({
-      ...current,
-      selectedType: "custom",
-      presetId: "",
-      presetSource: "",
-    }));
-    toast.success("Đã chuyển sang Tự cấu hình. Cấu hình hiện tại vẫn được giữ để chỉnh sửa.");
+  const selectCustomFormat = async () => {
+    const eligible = selectedTournamentItemId
+      ? await competitionFormatService.getEligibleTeams(selectedTournamentItemId).catch(() => ({ totalTeams: draft.stages[0]?.input.teams || 0, teamIds: [] }))
+      : { totalTeams: 0, teamIds: [] };
+    const emptyDraft = createEmptyCustomDraft(selectedTournament, eligible.totalTeams);
+    setDraft(emptyDraft);
+    setFocusedBranchId(emptyDraft.stages[0]?.brackets[0]?.id);
+    setActiveTab("config");
+    toast.success("Đã chuyển sang Tự cấu hình và xóa sạch bản nháp trên màn hình. Chưa lưu vào giải cho đến khi bấm Lưu cấu hình.");
   };
 
   const submit = async () => {
     if (!selectedTournamentItemId) return toast.error("Hãy chọn giải cần cấu hình.");
     if (!draft.name.trim()) return toast.error("Vui lòng nhập tên cấu hình.");
+    if (!draft.stages.length) return toast.error("Tự cấu hình đang trống. Hãy nhập số stage để tạo cấu trúc trước khi lưu.");
     if (draft.stages.some((stage) => stage.brackets.length === 0)) return toast.error("Mỗi stage cần ít nhất một branch.");
     if (draft.stages.some((stage) => stage.brackets.some((branch) => branch.type === "group" && (!branch.groups || branch.groups.length === 0)))) {
       return toast.error("Branch Round Robin cần có group config.");
     }
     if (!validateConnections()) return toast.error("Connection không hợp lệ: mỗi match tối đa 2 incoming và 1 outgoing.");
 
-    try {
-      await saveTournamentFormat({
+    const payload = {
         tournamentItemId: selectedTournamentItemId,
-        selectedType: draft.selectedType === "template" ? "template" : draft.selectedType === "preset" ? "preset" : "custom",
+        selectedType: draft.selectedType === "template" ? "template" as const : draft.selectedType === "preset" ? "preset" as const : "custom" as const,
         presetId: draft.presetId,
         presetSource: draft.presetSource,
         name: draft.name.trim(),
@@ -484,7 +856,10 @@ const OrgCompetitionFormatPage = () => {
         description: draft.description,
         stageCount: draft.stageCount || draft.stages.length,
         stages: cleanupFlowState(normalizeStages(draft.stages.length, draft.stages)),
-      });
+    };
+
+    try {
+      await saveTournamentFormat(payload);
       toast.success("Đã lưu cấu hình workflow thể thức giải đấu.");
     } catch (error) {
       console.error(error);
@@ -596,7 +971,7 @@ const OrgCompetitionFormatPage = () => {
 
           <main className="min-h-0">
             <FlowCanvas
-              stages={draft.stages}
+              stages={deferredStages}
               focusedBranchId={focusedBranchId}
               onChangeStage={updateStage}
               onFocusBranch={(_stageId, branchId) => {
@@ -648,7 +1023,7 @@ const TemplateChooser = ({
       >
         <span className="block truncate text-sm font-black">Tự cấu hình</span>
         <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
-          Giữ cấu hình hiện tại và cho phép tự tạo Stage, nhánh, bảng đấu, trận, slot, key và match flow.
+          Xóa sạch bản nháp hiện tại để tự tạo Stage, nhánh, bảng đấu, trận, slot, key và match flow từ đầu.
         </span>
         <span className="mt-3 inline-flex rounded bg-muted px-2 py-1 text-[10px] font-bold">Custom schema</span>
       </button>
@@ -767,17 +1142,48 @@ const NumberField = ({
   label: string;
   value: number;
   onChange: (value: number) => void;
-}) => (
-  <div className="space-y-1.5">
-    <label className="block truncate whitespace-nowrap text-[11px] font-black uppercase tracking-wide text-muted-foreground">{label}</label>
-    <input
-      type="number"
-      min={1}
-      className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm shadow-sm"
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
-  </div>
-);
+}) => {
+  const [inputValue, setInputValue] = useState({ externalValue: value, value: String(value) });
+  const draftValue = inputValue.externalValue === value ? inputValue.value : String(value);
+
+  const applyDraftValue = (nextDraft: string, finalize = false) => {
+    const parsed = Number(nextDraft);
+    if (!Number.isFinite(parsed)) {
+      setInputValue({ externalValue: value, value: nextDraft });
+      return;
+    }
+    const nextValue = Math.max(1, Math.trunc(parsed));
+    setInputValue({ externalValue: nextValue, value: finalize ? String(nextValue) : nextDraft });
+    if (nextValue !== value) onChange(nextValue);
+  };
+
+  const commit = () => {
+    const parsed = Number(draftValue);
+    const nextValue = Number.isFinite(parsed) ? Math.max(1, Math.trunc(parsed)) : Math.max(1, value);
+    setInputValue({ externalValue: nextValue, value: String(nextValue) });
+    if (nextValue !== value) onChange(nextValue);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <label className="block truncate whitespace-nowrap text-[11px] font-black uppercase tracking-wide text-muted-foreground">{label}</label>
+      <input
+        type="number"
+        min={1}
+        step={1}
+        inputMode="numeric"
+        className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm shadow-sm"
+        value={draftValue}
+        onChange={(event) => applyDraftValue(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.currentTarget.blur();
+          }
+        }}
+      />
+    </div>
+  );
+};
 
 export default OrgCompetitionFormatPage;

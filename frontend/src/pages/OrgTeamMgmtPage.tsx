@@ -49,6 +49,7 @@ const OrgTeamMgmtPage = () => {
   const [linkingAthlete, setLinkingAthlete] = useState<OrgAthleteRecord | null>(null);
   const [exportingAccounts, setExportingAccounts] = useState(false);
   const [exportingList, setExportingList] = useState(false);
+  const [importingTeams, setImportingTeams] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -60,7 +61,6 @@ const OrgTeamMgmtPage = () => {
     loading: teamLoading,
     fetchData: fetchTeams,
     toggleFeeExempt,
-    updatePaymentStatus,
     approveTeam,
     rejectTeam,
     unapproveTeam,
@@ -139,6 +139,7 @@ const OrgTeamMgmtPage = () => {
 
   const handleImportFile = async (file?: File) => {
     if (!file) return;
+    setImportingTeams(true);
     try {
       const result = await importTeamsFromFile(file);
       if (result.loginFile?.base64) {
@@ -152,6 +153,7 @@ const OrgTeamMgmtPage = () => {
       const message = [responseData?.message || (error instanceof Error ? error.message : "Không thể nhập file."), detail, notes].filter(Boolean).join("\n");
       toast.error(message);
     } finally {
+      setImportingTeams(false);
       if (importInputRef.current) importInputRef.current.value = "";
     }
   };
@@ -207,7 +209,6 @@ const OrgTeamMgmtPage = () => {
               team={team}
               onViewPublic={(record) => navigate(`/teams/${encodeURIComponent(record.slug || record.id)}`)}
               onToggleFree={(id) => void toggleFeeExempt(id)}
-              onPaymentStatusChange={(id, paymentStatus) => void updatePaymentStatus(id, paymentStatus)}
               onReviewMemberFee={(teamId, playerId, decision) => void reviewMemberFee(teamId, playerId, decision)}
               onApprove={(id) => void approveTeam(id)}
               onReject={(id) => void rejectTeam(id)}
@@ -265,11 +266,11 @@ const OrgTeamMgmtPage = () => {
             <Button type="button" variant="outline" onClick={downloadImportTemplate} className="flex-1 border-white/20 bg-white text-foreground hover:bg-white/90 md:flex-none">
               <FileSpreadsheet className="mr-2 hidden h-4 w-4 sm:inline" /> Tải mẫu Excel
             </Button>
-            <Button type="button" variant="outline" onClick={() => importInputRef.current?.click()} className="flex-1 border-white/20 bg-white text-foreground hover:bg-white/90 md:flex-none">
-              <Upload className="mr-2 hidden h-4 w-4 sm:inline" /> Nhập file
+            <Button type="button" variant="outline" disabled={importingTeams} onClick={() => importInputRef.current?.click()} className="flex-1 border-white/20 bg-white text-foreground hover:bg-white/90 md:flex-none">
+              <Upload className={`mr-2 hidden h-4 w-4 sm:inline ${importingTeams ? "animate-pulse" : ""}`} /> {importingTeams ? "Đang nhập..." : "Nhập file"}
             </Button>
           </div>
-          <input ref={importInputRef} type="file" accept=".xlsx,.csv" className="hidden" onChange={(event) => void handleImportFile(event.target.files?.[0])} />
+          <input ref={importInputRef} type="file" accept=".xlsx,.csv" className="hidden" disabled={importingTeams} onChange={(event) => void handleImportFile(event.target.files?.[0])} />
         </div>
       </div>
 

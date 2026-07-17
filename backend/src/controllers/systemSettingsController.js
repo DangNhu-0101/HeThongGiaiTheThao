@@ -15,7 +15,7 @@ const getOrCreateSettings = async () => {
     const settings = await SystemSettings.findOneAndUpdate(
         { key: 'public' },
         { $setOnInsert: { key: 'public', ...DEFAULT_SETTINGS } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     ).lean();
     return settings;
 };
@@ -59,7 +59,7 @@ export const updateSystemSettings = async (req, res) => {
         const settings = await SystemSettings.findOneAndUpdate(
             { key: 'public' },
             { $set: update, $setOnInsert: { key: 'public' } },
-            { upsert: true, new: true, runValidators: true }
+            { upsert: true, returnDocument: 'after', runValidators: true }
         ).lean();
 
         return res.json({ success: true, message: 'Đã cập nhật cài đặt hệ thống', data: mapSettings(settings) });

@@ -39,12 +39,32 @@ export const readMatchSourceLabels = (raw: Record<string, unknown>) => {
       const match = asRecord(entry.matchId);
       return cleanSourceLabel(match.name || entry.label || entry.sourceLabel);
     });
-  const rawTeamA = asRecord(raw.teamA || raw.participantA || raw.team1 || raw.homeParticipant || participants[0]);
-  const rawTeamB = asRecord(raw.teamB || raw.participantB || raw.team2 || raw.awayParticipant || participants[1]);
-  const teamA = hasDisplayName(rawTeamA) ? rawTeamA : asRecord(previousWinners[0]);
-  const teamB = hasDisplayName(rawTeamB) ? rawTeamB : asRecord(previousWinners[1]);
   const labelA = labels[0] && !isDefaultSlotLabel(labels[0]) ? labels[0] : previousLabels[0];
   const labelB = labels[1] && !isDefaultSlotLabel(labels[1]) ? labels[1] : previousLabels[1];
+  const previousWinnerForLabel = (label: string) => {
+    const normalized = cleanSourceLabel(label).toUpperCase();
+    const index = previousLabels.findIndex((previousLabel) => cleanSourceLabel(previousLabel).toUpperCase() === normalized);
+    return index >= 0 ? asRecord(previousWinners[index]) : {};
+  };
+  const sparseParticipants = labels.length >= 2 && participants.length < labels.length;
+  const dependencyWinnerIds = new Set(labels
+    .map((label) => previousWinnerForLabel(label))
+    .map((winner) => String(winner._id || winner.id || ""))
+    .filter(Boolean));
+  const compactParticipantsAreDependencies = sparseParticipants && participants.length > 0 && participants.every((participant) => {
+    const record = asRecord(participant);
+    return dependencyWinnerIds.has(String(record._id || record.id || ""));
+  });
+  const participantAt = (index: number, label: string) => {
+    const dependencyWinner = previousWinnerForLabel(label);
+    if (hasDisplayName(dependencyWinner)) return dependencyWinner;
+    if (compactParticipantsAreDependencies || (sparseParticipants && /^M\d+$/i.test(label))) return {};
+    return asRecord(participants[index]);
+  };
+  const rawTeamA = asRecord(raw.teamA || raw.participantA || raw.team1 || raw.homeParticipant || participantAt(0, labelA));
+  const rawTeamB = asRecord(raw.teamB || raw.participantB || raw.team2 || raw.awayParticipant || participantAt(1, labelB));
+  const teamA = hasDisplayName(rawTeamA) ? rawTeamA : previousWinnerForLabel(labelA);
+  const teamB = hasDisplayName(rawTeamB) ? rawTeamB : previousWinnerForLabel(labelB);
   const nameA = cleanSourceLabel(teamA.name, labelA || "Seed 1");
   const nameB = cleanSourceLabel(teamB.name, labelB || "Seed 2");
   return {

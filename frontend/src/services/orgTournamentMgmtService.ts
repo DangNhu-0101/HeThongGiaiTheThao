@@ -20,6 +20,11 @@ const asRecord = (value: unknown): Record<string, unknown> => {
   return {};
 };
 
+const isActiveTournamentRecord = (value: unknown) => {
+  const raw = asRecord(value);
+  return String(raw.status || "").toLowerCase() !== "cancelled";
+};
+
 const formatDate = (value: unknown) => {
   const date = value ? new Date(String(value)) : new Date();
   if (Number.isNaN(date.getTime())) return "";
@@ -172,10 +177,10 @@ const mapRecord = (rawValue: unknown, kind: TournamentKind): TournamentRecord =>
       accountName: String(paymentConfig.accountName || ""),
       accountNumber: String(paymentConfig.accountNumber || ""),
       transferContent: String(paymentConfig.transferContent || ""),
-      paymentInstructions: String(paymentConfig.paymentInstructions || ""),
+      paymentInstructions: String(paymentConfig.instructions || paymentConfig.paymentInstructions || ""),
       refundPolicy: String(paymentConfig.refundPolicy || ""),
-      mediaConsent: Boolean(mediaConfig.mediaConsent),
-      mediaUsageTerms: String(mediaConfig.mediaUsageTerms || ""),
+      mediaConsent: Boolean(mediaConfig.consent || mediaConfig.mediaConsent),
+      mediaUsageTerms: String(mediaConfig.usageTerms || mediaConfig.mediaUsageTerms || ""),
       logo: String(raw.logo || mediaConfig.logoUrl || firstItem?.logo || ""),
       banner: bannerList,
       paymentQR: String(raw.paymentQR || mediaConfig.paymentQRUrl || paymentConfig.paymentQR || firstItem?.paymentQR || ""),
@@ -370,8 +375,8 @@ export const orgTournamentMgmtService = {
         api.get<ApiList>("/tournaments/my/single"),
       ]);
       const records = await withParticipantCounts([
-        ...asArray(multiResponse.data).map((item) => mapRecord(item, "multi")),
-        ...asArray(singleResponse.data).map((item) => mapRecord(item, "single")),
+        ...asArray(multiResponse.data).filter(isActiveTournamentRecord).map((item) => mapRecord(item, "multi")),
+        ...asArray(singleResponse.data).filter(isActiveTournamentRecord).map((item) => mapRecord(item, "single")),
       ]);
       return { stats: buildStats(records), records };
     } catch (error) {

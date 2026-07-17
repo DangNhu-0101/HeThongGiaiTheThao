@@ -1,11 +1,7 @@
-import api from "@/libs/axios";
+import api, { normalizeUploadUrl } from "@/libs/axios";
 import type { Achievement, TeamDetailInfo, TeamMember } from "@/types/Team";
 import type { Participant, ParticipantApiResponse, ParticipantTournamentItemRef } from "@/types/participant";
 import type { Tournament } from "@/types/tournament";
-
-const API_ORIGIN = (import.meta.env.VITE_API_URL
-  || (import.meta.env.MODE === "development" ? "http://localhost:5001/api" : "/api"))
-  .replace(/\/api\/?$/, "");
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -13,9 +9,7 @@ const asRecord = (value: unknown): Record<string, unknown> =>
 const normalizeImage = (value?: unknown) => {
   const image = String(value || "").trim();
   if (!image) return "";
-  if (/^(https?:\/\/|data:image\/|blob:)/i.test(image)) return image;
-  if (/^\/?uploads\//i.test(image)) return `${API_ORIGIN}/${image.replace(/^\/+/, "")}`;
-  return image;
+  return normalizeUploadUrl(image) || image;
 };
 
 const playerRecord = (value: Participant["lineup"][number]["Player"]) =>

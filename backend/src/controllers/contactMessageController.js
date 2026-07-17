@@ -100,7 +100,7 @@ export const updateContactMessageStatus = async (req, res) => {
         const message = await ContactMessage.findOneAndUpdate(
             { _id: req.params.id, deletedAt: null },
             { $set: update },
-            { new: true }
+            { returnDocument: 'after' }
         ).lean();
         if (!message) return res.status(404).json({ success: false, message: 'Không tìm thấy tin nhắn' });
         return res.json({ success: true, data: mapMessage(message) });
@@ -114,7 +114,7 @@ export const deleteContactMessage = async (req, res) => {
         const message = await ContactMessage.findOneAndUpdate(
             { _id: req.params.id, deletedAt: null },
             { $set: { deletedAt: new Date() } },
-            { new: true }
+            { returnDocument: 'after' }
         );
         if (!message) return res.status(404).json({ success: false, message: 'Không tìm thấy tin nhắn' });
         return res.json({ success: true, message: 'Đã xóa tin nhắn liên hệ' });

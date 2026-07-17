@@ -1,4 +1,5 @@
 import api from "@/libs/axios";
+import { teamPlacementService } from "@/services/teamPlacementService";
 import type { Participant } from "@/types/participant";
 
 type ApiList<T = unknown> = T[] | { data?: T[]; success?: boolean };
@@ -72,45 +73,30 @@ export const previewAutoSeed = async <TStage>(
   criterion: AutoSeedCriterion,
 ) => {
   const stageRecord = asRecord(stage);
-  const response = await api.post<{
-    success: boolean;
-    data?: {
-      placements?: Array<{
-        teamId: string;
-        teamName: string;
-        skillScore: number;
-        seed: number;
-        groupId?: string | null;
-        groupName?: string;
-        matchId?: string | null;
-        slotId: string;
-      }>;
-      warnings?: string[];
-      summary?: { placedTeams?: number; totalTeams?: number };
-    };
-  }>(
-    `/tournaments/${tournamentItemId}/team-placement/preview`,
-    {
-      stageId: String(stageRecord.id || ""),
-      strategy: criterion === "skill" ? "CLOSE_SKILL" : "SEEDED_BRACKET",
-    },
+  const data = await teamPlacementService.preview(
+    tournamentItemId,
+    String(stageRecord.id || ""),
+    criterion === "skill" ? "CLOSE_SKILL" : "SEEDED_BRACKET",
+    stage,
   );
-  const placements = response.data.data?.placements || [];
+  const placements = data.placements || [];
+  const resolvedStage = asRecord(data.stage);
+  const resolvedStageId = String(resolvedStage.id || stageRecord.id || "");
   return {
     assignments: placements.map((placement) => ({
       slotId: placement.slotId,
       participantId: placement.teamId,
       participantName: placement.teamName,
       sourceType: "PARTICIPANT",
-      stageId: String(stageRecord.id || ""),
+      stageId: resolvedStageId,
       groupName: placement.groupName || "",
       groupId: placement.groupId || "",
       nodeId: placement.matchId || "",
       slotLabel: placement.groupName || placement.matchId || "",
     })),
-    notes: response.data.data?.warnings || [],
-    assignedTeams: response.data.data?.summary?.placedTeams || placements.length,
-    totalTeams: response.data.data?.summary?.totalTeams || placements.length,
+    notes: data.warnings || [],
+    assignedTeams: data.summary?.placedTeams || placements.length,
+    totalTeams: data.summary?.totalTeams || placements.length,
   };
 };
 
@@ -119,9 +105,5 @@ export const confirmAutoSeed = async (
   stageId: string,
   criterion: AutoSeedCriterion,
 ) => {
-  const response = await api.post(`/tournaments/${tournamentItemId}/team-placement/confirm`, {
-    stageId,
-    strategy: criterion === "skill" ? "CLOSE_SKILL" : "SEEDED_BRACKET",
-  });
-  return response.data.data;
+  return teamPlacementService.confirm(tournamentItemId, stageId, criterion === "skill" ? "CLOSE_SKILL" : "SEEDED_BRACKET");
 };

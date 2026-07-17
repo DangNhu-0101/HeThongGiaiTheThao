@@ -1,4 +1,4 @@
-import api from "@/libs/axios";
+import api, { normalizeUploadUrl } from "@/libs/axios";
 import type { TeamMgmtStat, OrgTeamRecord } from "@/types/orgTeamMgmt";
 import type { Participant } from "@/types/participant";
 
@@ -7,10 +7,6 @@ type BackendParticipant = Participant & {
   paymentStatus?: "paid" | "unpaid" | "exempted";
   source?: "user" | "organization" | "import";
 };
-
-const API_ORIGIN = (import.meta.env.VITE_API_URL
-  || (import.meta.env.MODE === "development" ? "http://localhost:5001/api" : "/api"))
-  .replace(/\/api\/?$/, "");
 
 const mapRegistrationStatus = (status?: BackendParticipant["registrationStatus"]): OrgTeamRecord["status"] => {
   if (status === "approved") return "Approved";
@@ -22,9 +18,7 @@ const mapRegistrationStatus = (status?: BackendParticipant["registrationStatus"]
 const normalizeAvatarUrl = (value?: unknown) => {
   const avatar = String(value || "").trim();
   if (!avatar) return "";
-  if (/^(https?:\/\/|data:image\/|blob:)/i.test(avatar)) return avatar;
-  if (/^\/?uploads\//i.test(avatar)) return `${API_ORIGIN}/${avatar.replace(/^\/+/, "")}`;
-  return "";
+  return normalizeUploadUrl(avatar);
 };
 
 const emptyStats = (): TeamMgmtStat[] => [

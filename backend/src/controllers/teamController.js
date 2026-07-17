@@ -10,6 +10,7 @@ import TeamJoinRequest from '../models/teamJoinRequests.js';
 import Notification from '../models/notifications.js';
 import KnockoutResult from '../models/knockoutResults.js';
 import { checkPermission } from '../utils/tournamentHelper.js';
+import { ensurePlayerProfileForUser } from '../services/playerProfileService.js';
 
 import {
     buildImportTemplateBuffer,
@@ -214,10 +215,14 @@ export const createParticipant = async (req, res) => {
     session.startTransaction();
     try {
         const userId = req.user._id; // User ID
-        const playerProfile = req.profile; // Player document (từ middleware)
+        const playerProfile = req.profile || await ensurePlayerProfileForUser(req.user, { session }); // Player document
         if (!playerProfile) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'You must have an active player profile to register' });
+        }
+        if (!['actived', 'active'].includes(playerProfile.status)) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: 'Profile vận động viên của bạn chưa được kích hoạt.' });
         }
         const playerId = playerProfile._id; // Player._id
 
@@ -339,9 +344,12 @@ export const createParticipant = async (req, res) => {
 
         // Tạo invitations cho từng invitee (lưu User._id vì Invitation.receiverId là User)
         for (const inviteeUserId of invitedPlayerIds) {
-            // Kiểm tra invitee có player profile active không
-            const inviteePlayer = await Player.findOne({ userId: inviteeUserId, status: 'actived' }).session(session);
-            if (!inviteePlayer) continue;
+            if (!mongoose.Types.ObjectId.isValid(inviteeUserId)) continue;
+            const inviteeUser = await User.findById(inviteeUserId).session(session);
+            if (!inviteeUser) continue;
+            // Kiểm tra hoặc tự tạo player profile active cho invitee
+            const inviteePlayer = await ensurePlayerProfileForUser(inviteeUser, { session });
+            if (!inviteePlayer || !['actived', 'active'].includes(inviteePlayer.status)) continue;
             const inviteePlayerId = inviteePlayer._id;
 
             // Nếu đã có trong lineup thì bỏ qua
@@ -831,7 +839,7 @@ export const reviewJoinRequest = async (req, res) => {
         const request = await TeamJoinRequest.findOneAndUpdate(
             { _id: requestId, status: 'pending' },
             { $set: { status: decision === 'accept' ? 'accepted' : 'rejected' } },
-            { new: true, session }
+            { returnDocument: 'after', session }
         );
         if (!request) {
             await session.abortTransaction();
@@ -1422,7 +1430,7 @@ export const sendParticipantInvitation = async (req, res) => {
         const { participantId } = req.params;
         const { receiverId, message } = req.body;
         const senderId = req.user._id;
-        const playerProfile = req.profile;
+        const playerProfile = req.profile || await ensurePlayerProfileForUser(req.user, { session });
         if (!playerProfile) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
@@ -1445,11 +1453,26 @@ export const sendParticipantInvitation = async (req, res) => {
             return res.status(403).json({ success: false, message: perm.message });
         }
 
-        // Tìm Player của người nhận (dùng userId)
-        const receiverPlayer = await Player.findOne({ userId: receiverId, status: 'actived' }).session(session);
+        if (!mongoose.Types.ObjectId.isValid(receiverId)) {
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: 'Người nhận không hợp lệ' });
+        }
+
+        const receiverUser = await User.findById(receiverId).session(session);
+        if (!receiverUser) {
+            await session.abortTransaction();
+            return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản người nhận' });
+        }
+
+        // Tìm hoặc tự tạo Player của người nhận (dùng userId)
+        const receiverPlayer = await ensurePlayerProfileForUser(receiverUser, { session });
         if (!receiverPlayer) {
             await session.abortTransaction();
-            return res.status(400).json({ success: false, message: 'Receiver does not have an active player profile' });
+            return res.status(400).json({ success: false, message: 'Không thể tạo profile vận động viên cho người nhận' });
+        }
+        if (!['actived', 'active'].includes(receiverPlayer.status)) {
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: 'Profile vận động viên của người nhận chưa được kích hoạt' });
         }
         const receiverPlayerId = receiverPlayer._id;
 
@@ -1501,7 +1524,7 @@ export const acceptParticipantInvitation = async (req, res) => {
     try {
         const { invitationId } = req.params;
         const userId = req.user._id;
-        const playerProfile = req.profile;
+        const playerProfile = req.profile || await ensurePlayerProfileForUser(req.user, { session });
         if (!playerProfile) {
             await session.abortTransaction();
             return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
@@ -1511,7 +1534,7 @@ export const acceptParticipantInvitation = async (req, res) => {
         const invitation = await Invitation.findOneAndUpdate(
             { _id: invitationId, status: 'pending' },
             { $set: { status: 'accepted' } },
-            { new: true, session }
+            { returnDocument: 'after', session }
         );
         if (!invitation) {
             await session.abortTransaction();
@@ -1629,7 +1652,7 @@ export const getParticipantInvitations = async (req, res) => {
     try {
         const { participantId } = req.params;
         const userId = req.user._id;
-        const playerProfile = req.profile;
+        const playerProfile = req.profile || await ensurePlayerProfileForUser(req.user);
         if (!playerProfile) {
             return res.status(403).json({ success: false, message: 'Bạn cần có Player profile' });
         }

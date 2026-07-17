@@ -125,7 +125,7 @@ export const updateNews = async (req, res) => {
         };
         Object.keys(update).forEach((key) => update[key] === undefined && delete update[key]);
         if (payload.slug || payload.title) update.slug = await uniqueNewsSlug(payload.slug || payload.title, req.params.id);
-        const item = await News.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+        const item = await News.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true });
         if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy tin tức.' });
         return res.json({ success: true, data: item });
     } catch (error) {

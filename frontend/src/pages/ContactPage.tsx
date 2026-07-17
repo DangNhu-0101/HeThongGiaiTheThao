@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ChevronDown, Clock3, Mail, MapPin, Phone, Send, Trash2, Upload } from "lucide-react";
+import { ChevronDown, Clock3, Mail, Phone, Send, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -15,7 +15,6 @@ const contactHero = "https://images.unsplash.com/photo-1526232761682-d26e03ac148
 
 const faqItems = [
   ["Tôi có thể yêu cầu hỗ trợ tạo giải đấu ở đâu?", "Bạn có thể gửi thông tin qua form liên hệ. Đội ngũ vận hành sẽ phản hồi qua email hoặc số điện thoại đã cung cấp."],
-  ["TMS có hỗ trợ upload tài liệu hoặc hình ảnh không?", "Form liên hệ hỗ trợ ảnh JPG, PNG và WEBP để bạn gửi ảnh chụp lỗi, poster hoặc thông tin liên quan."],
   ["Bao lâu tôi sẽ nhận được phản hồi?", "Thông thường phản hồi được gửi trong giờ hành chính. Các yêu cầu khẩn sẽ được ưu tiên xử lý sớm hơn."],
 ];
 
@@ -34,7 +33,6 @@ const ContactPage = () => {
   useEffect(() => () => previews.forEach((item) => URL.revokeObjectURL(item.url)), [previews]);
 
   const contactItems = [
-    { icon: MapPin, label: "Địa chỉ", value: settings.contactAddress || "Địa chỉ liên hệ chưa cấu hình", tone: "bg-red-50 text-primary" },
     { icon: Mail, label: "Email", value: settings.supportEmail || "Email hỗ trợ chưa cấu hình", tone: "bg-blue-50 text-blue-700" },
     { icon: Phone, label: "Số điện thoại", value: settings.contactPhone || "Số điện thoại chưa cấu hình", tone: "bg-emerald-50 text-emerald-700" },
     { icon: Clock3, label: "Giờ làm việc", value: "Thứ 2 - Thứ 7, 08:00 - 17:30", tone: "bg-slate-100 text-slate-700" },
@@ -62,7 +60,7 @@ const ContactPage = () => {
       let attachments: ContactAttachment[] = [];
       if (files.length > 0) attachments = await uploadService.contactImages(files);
       await contactMessageService.create({ ...form, attachments });
-      toast.success("Đã gửi tin nhắn liên hệ. Chúng tôi sẽ phản hồi sớm.");
+      toast.success("Cảm ơn bạn đã gửi tin nhắn liên hệ. Chúng tôi sẽ phản hồi sớm nhất có thể.");
       setForm({ fullName: "", email: "", phoneNumber: "", subject: "", content: "" });
       setFiles([]);
     } catch (error) {
@@ -156,7 +154,7 @@ const ContactPage = () => {
 
           <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
             <span className="section-kicker">Bản đồ</span>
-            <h2 className="mt-3 text-2xl font-bold">Vị trí liên hệ</h2>
+            <h2 className="mt-3 text-2xl font-bold">Vị trí trụ sở</h2>
             <div className="mt-4 h-[320px] w-full overflow-hidden rounded-xl sm:h-[420px]">
               <iframe
                 title="Vị trí liên hệ"

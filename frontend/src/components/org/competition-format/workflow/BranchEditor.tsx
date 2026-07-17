@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,44 @@ const BranchEditor = ({ branch, index, focused, onFocus, onChange, onDelete, can
   const groupCount = branch.groups?.length || 0;
   const teamsPerGroup = Math.max(1, branch.groups?.[0]?.numberOfTeams || Math.ceil(branch.totalTeamsIn / Math.max(1, groupCount || 1)));
   const defaultMatchCount = Math.max(1, Math.ceil(Math.max(2, branch.totalTeamsIn || 2) / 2));
+  const externalTeamsIn = Math.max(2, branch.totalTeamsIn || 2);
+  const [teamsInInput, setTeamsInInput] = useState({ externalValue: externalTeamsIn, value: String(externalTeamsIn) });
+  const teamsInDraft = teamsInInput.externalValue === externalTeamsIn ? teamsInInput.value : String(externalTeamsIn);
+
+  const applyTeamsInDraft = (nextDraft: string, finalize = false) => {
+    const parsed = Number(nextDraft);
+    if (!Number.isFinite(parsed)) {
+      setTeamsInInput({ externalValue: externalTeamsIn, value: nextDraft });
+      return;
+    }
+    const rawTeamsIn = Math.max(2, Math.trunc(parsed));
+    const totalTeamsIn = rawTeamsIn % 2 === 0 ? rawTeamsIn : rawTeamsIn + 1;
+    setTeamsInInput({ externalValue: totalTeamsIn, value: finalize ? String(totalTeamsIn) : nextDraft });
+    if (totalTeamsIn === branch.totalTeamsIn) return;
+    onChange({
+      totalTeamsIn,
+      selection: {
+        ...branch.selection,
+        slots: Math.max(1, Math.ceil(totalTeamsIn / 2)),
+      },
+    });
+  };
+
+  const commitTeamsInDraft = () => {
+    const parsed = Number(teamsInDraft);
+    const rawTeamsIn = Number.isFinite(parsed) ? Math.max(2, Math.trunc(parsed)) : Math.max(2, branch.totalTeamsIn || 2);
+    const totalTeamsIn = rawTeamsIn % 2 === 0 ? rawTeamsIn : rawTeamsIn + 1;
+    setTeamsInInput({ externalValue: totalTeamsIn, value: String(totalTeamsIn) });
+    if (totalTeamsIn === branch.totalTeamsIn) return;
+    onChange({
+      totalTeamsIn,
+      selection: {
+        ...branch.selection,
+        slots: Math.max(1, Math.ceil(totalTeamsIn / 2)),
+      },
+    });
+  };
+
   const setGroupShape = (groups: number, perGroup: number) => {
     const safeGroups = Math.max(1, groups);
     const safePerGroup = Math.max(1, perGroup);
@@ -154,22 +193,19 @@ const BranchEditor = ({ branch, index, focused, onFocus, onChange, onDelete, can
         <div className="mt-3 rounded-lg border border-border bg-muted/25 p-3">
           <div className="mb-3 grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Sơ đồi / slot trong nhanh</Label>
+              <Label>Số đội / Slot trong nhánh</Label>
               <Input
                 type="number"
                 min={2}
-                step={2}
-                value={Math.max(2, branch.totalTeamsIn || 2)}
-                onChange={(event) => {
-                  const rawTeamsIn = Math.max(2, Number(event.target.value) || 2);
-                  const totalTeamsIn = rawTeamsIn % 2 === 0 ? rawTeamsIn : rawTeamsIn + 1;
-                  onChange({
-                    totalTeamsIn,
-                    selection: {
-                      ...branch.selection,
-                      slots: Math.max(1, Math.ceil(totalTeamsIn / 2)),
-                    },
-                  });
+                step={1}
+                inputMode="numeric"
+                value={teamsInDraft}
+                onChange={(event) => applyTeamsInDraft(event.target.value)}
+                onBlur={commitTeamsInDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
                 }}
               />
             </div>

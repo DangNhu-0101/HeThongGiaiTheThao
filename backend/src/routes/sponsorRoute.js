@@ -14,7 +14,7 @@ import { protectedRoute } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // ========== GET ==========
-router.get('/tournament-item/:tournamentItemId', protectedRoute(), getSponsorsByTournamentItem);
+router.get('/tournament-item/:tournamentItemId', getSponsorsByTournamentItem);
 router.get('/:id', protectedRoute(), getSponsorById);
 
 // ========== CREATE ==========

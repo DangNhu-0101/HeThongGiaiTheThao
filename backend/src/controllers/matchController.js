@@ -230,6 +230,7 @@ const normalizeRankSlotKey = (value) => {
 const rankKeyForGroup = (groupName, rank) => `${normalizeRankKey(groupName)}${rank}`;
 const COMPLETE_STATUSES = ['completed', 'walkover', 'forfeited'];
 const normalizeMatchCode = (value) => String(value || '').trim().toUpperCase();
+const normalizeId = (value) => String(value?._id || value || '');
 
 const branchKeyForMatch = (match) => {
     const nodeParts = String(match.formatNodeId || '').split(':').filter(Boolean);
@@ -237,7 +238,7 @@ const branchKeyForMatch = (match) => {
     return String(match.bracketId?._id || match.bracketId || '');
 };
 
-const idsEqual = (left, right) => String(left || '') === String(right || '');
+const idsEqual = (left, right) => normalizeId(left) === normalizeId(right);
 
 const slotIndexFromWinnerDependency = (targetMatch, sourceMatch) => {
     const sourceId = String(sourceMatch._id || '');
@@ -428,10 +429,12 @@ const resolveMatchDependencyParticipants = async (match, session) => {
         ensureWinnerSlotSource(match, slotIndex, sourceMatch);
     };
 
-    (match.previousMatches || []).forEach((entry, index) => {
+    (match.previousMatches || []).forEach((entry) => {
         if (String(entry?.position || 'WINNER').toUpperCase() !== 'WINNER') return;
         const source = sourceById.get(String(entry?.matchId?._id || entry?.matchId || ''));
-        if (source) assignSlot(index, source, source.name);
+        if (!source) return;
+        const slotIndex = slotIndexFromWinnerDependency(match, source);
+        if (slotIndex >= 0) assignSlot(slotIndex, source, source.name);
     });
 
     labels.forEach((label, index) => {
@@ -513,9 +516,89 @@ const canonicalizeDuplicateMatches = (matches) => {
     return [...passthrough, ...chosen.values()];
 };
 
+const applyConfiguredSlotLabelsForRead = (matches, config = {}) => {
+    const labelByNodeId = new Map();
+    for (const stage of Array.isArray(config.stages) ? config.stages : []) {
+        for (const branch of Array.isArray(stage.brackets) ? stage.brackets : []) {
+            if (branch.type !== 'knockout') continue;
+            const slots = Array.isArray(branch.flowSlots) ? branch.flowSlots : [];
+            const matchCount = Math.ceil(Math.max(slots.length, Number(branch.totalTeamsIn || 0)) / 2);
+            for (let index = 0; index < matchCount; index += 1) {
+                const nodeId = `${stage.id}:${branch.id}:m-${index + 1}`;
+                labelByNodeId.set(nodeId, [
+                    String(slots[index * 2]?.sourceLabel || slots[index * 2]?.label || '').trim(),
+                    String(slots[index * 2 + 1]?.sourceLabel || slots[index * 2 + 1]?.label || '').trim(),
+                ]);
+            }
+        }
+    }
+    matches.forEach((match) => {
+        const labels = labelByNodeId.get(String(match.formatNodeId || ''));
+        if (labels) {
+            const current = Array.isArray(match.formatSlotLabels) ? match.formatSlotLabels : [];
+            match.formatSlotLabels = labels.map((label, index) => (
+                label && !/^slot\s+\d+$/i.test(label)
+                    ? label
+                    : normalizeSlotLabel({ sourceLabel: current[index] }, index)
+            ));
+        }
+    });
+    return matches;
+};
+
+const matchCodeNumber = (match) => {
+    const code = normalizeMatchCode(match?.name);
+    const value = Number(code.match(/^M(\d+)$/)?.[1] || 0);
+    return Number.isFinite(value) ? value : 0;
+};
+
+const sortMatchesForAutoSchedule = (matches) => {
+    const byId = new Map(matches.map((match) => [String(match._id), match]));
+    const byCode = new Map(matches.map((match) => [normalizeMatchCode(match.name), match]).filter(([code]) => code));
+    const dependencyIds = new Map();
+
+    matches.forEach((match) => {
+        const deps = new Set();
+        (Array.isArray(match.previousMatches) ? match.previousMatches : []).forEach((entry) => {
+            const id = String(entry?.matchId?._id || entry?.matchId || '');
+            if (id && byId.has(id)) deps.add(id);
+        });
+        (Array.isArray(match.formatSlotLabels) ? match.formatSlotLabels : []).forEach((label) => {
+            const source = byCode.get(normalizeMatchCode(label));
+            if (source && String(source._id) !== String(match._id)) deps.add(String(source._id));
+        });
+        dependencyIds.set(String(match._id), deps);
+    });
+
+    const depthCache = new Map();
+    const depthOf = (match, visiting = new Set()) => {
+        const id = String(match._id);
+        if (depthCache.has(id)) return depthCache.get(id);
+        if (visiting.has(id)) return 0;
+        visiting.add(id);
+        const deps = dependencyIds.get(id) || new Set();
+        let depth = 0;
+        deps.forEach((depId) => {
+            const dep = byId.get(depId);
+            if (dep) depth = Math.max(depth, depthOf(dep, visiting) + 1);
+        });
+        visiting.delete(id);
+        depthCache.set(id, depth);
+        return depth;
+    };
+
+    return [...matches].sort((a, b) =>
+        depthOf(a) - depthOf(b)
+        || Number(a.round || 0) - Number(b.round || 0)
+        || matchCodeNumber(a) - matchCodeNumber(b)
+        || Number(a.scheduleOrder || 0) - Number(b.scheduleOrder || 0)
+        || String(a._id).localeCompare(String(b._id)),
+    );
+};
+
 const populateMatchReadQuery = (query) => query
     .populate('winnerParticipantId', 'name logo')
-    .populate('participants', 'name logo')
+    .populate({ path: 'participants', select: 'name logo', retainNullValues: true })
     .populate('groupId', 'name')
     .populate('bracketId', 'name type')
     .populate('stageId', 'name number')
@@ -574,7 +657,7 @@ const syncKnockoutFinalResult = async (match, session) => {
             finalScore,
             determinedAt: new Date(),
         },
-        { upsert: true, new: true, session },
+        { upsert: true, returnDocument: 'after', session },
     );
     console.info('[knockout.final] result synced', {
         tournamentItemId: String(match.tournamentItemId),
@@ -678,6 +761,300 @@ const syncKnockoutParticipantsFromStandings = async (tournamentItemId, session) 
         clearedMatches: cleared,
     });
     return { updated, cleared, keys: participantByKey.size, pendingKeys: allRankKeys.size - participantByKey.size };
+};
+
+const isLuckySlotKey = (value) => /^Lucky\d+$/i.test(String(value || '').trim());
+
+const normalizeWildcardCriterionType = (criterion) => {
+    const value = typeof criterion === 'string' ? criterion : criterion?.type;
+    const key = String(value || '').trim();
+    const map = {
+        POINTS: 'points',
+        POINT_DIFFERENCE: 'pointDiff',
+        POINT_DIFF: 'pointDiff',
+        WINS: 'wins',
+        POINTS_FOR: 'pointsFor',
+        POINTS_AGAINST: 'pointsAgainst',
+        HEAD_TO_HEAD: 'headToHead',
+        DRAW: 'draw',
+        SEED: 'seed',
+        SKILL: 'skill',
+        goalsFor: 'pointsFor',
+        goalsAgainst: 'pointsAgainst',
+        goalDifference: 'pointDiff',
+    };
+    return map[key] || key || 'points';
+};
+
+const wildcardCriteriaForMatchSync = (stage) => {
+    const raw = Array.isArray(stage?.wildcard?.criteria) && stage.wildcard.criteria.length
+        ? stage.wildcard.criteria
+        : (Array.isArray(stage?.luckyCriteria) && stage.luckyCriteria.length ? stage.luckyCriteria : ['points', 'pointDiff', 'wins', 'draw']);
+    return raw
+        .map((criterion, index) => ({
+            type: normalizeWildcardCriterionType(criterion),
+            priority: Number(criterion?.priority || index + 1),
+        }))
+        .sort((a, b) => a.priority - b.priority);
+};
+
+const drawRankForWildcard = (teamId, targetStageId) => {
+    const key = `${targetStageId}:${teamId}`;
+    let hash = 0;
+    for (let index = 0; index < key.length; index += 1) hash = ((hash << 5) - hash) + key.charCodeAt(index);
+    return Math.abs(hash) + 1;
+};
+
+const syncWildcardParticipantsFromStandings = async (tournamentItemId, session = null, options = {}) => {
+    const item = await TournamentItem.findById(tournamentItemId).select('competitionFormat').session(session);
+    const config = item?.competitionFormat?.config || {};
+    const stages = Array.isArray(config.stages) ? config.stages : [];
+    const targetStages = stages.filter((stage) =>
+        stage?.wildcard?.enabled && Number(stage.wildcard?.slots || stage.wildcard?.selection?.slots || 0) > 0,
+    );
+    if (!targetStages.length) return { updated: 0, resolved: 0, skipped: 0 };
+
+    let updated = 0;
+    let resolved = 0;
+    let skipped = 0;
+
+    for (const targetStage of targetStages) {
+        const targetOrder = Number(targetStage.order || 0);
+        const slots = Math.max(0, Number(targetStage.wildcard?.slots || targetStage.wildcard?.selection?.slots || 0));
+        if (!targetOrder || !slots) continue;
+        const sourceOrders = stages
+            .filter((stage) => Number(stage.order || 0) > 0 && Number(stage.order || 0) < targetOrder)
+            .map((stage) => Number(stage.order));
+        const sourceStageRules = sourceOrders.length
+            ? await StageRule.find({ tournamentItemId, number: { $in: sourceOrders } }).select('_id name number').lean().session(session)
+            : [];
+        if (!sourceStageRules.length) continue;
+        const sourceStageIds = sourceStageRules.map((stageRule) => stageRule._id);
+        const sourceMatches = await Match.find({ tournamentItemId, stageId: { $in: sourceStageIds } })
+            .select('_id stageId name status participants winnerParticipantId')
+            .lean()
+            .session(session);
+        if (!sourceMatches.length || sourceMatches.some((match) => !COMPLETE_STATUSES.includes(match.status))) {
+            skipped += 1;
+            continue;
+        }
+        const confirmedCount = await MatchResult.countDocuments({
+            matchId: { $in: sourceMatches.map((match) => match._id) },
+            status: 'confirmed',
+        }).session(session);
+        if (confirmedCount !== sourceMatches.length) {
+            skipped += 1;
+            continue;
+        }
+
+        const targetStageRule = await StageRule.findOne({ tournamentItemId, number: targetOrder }).select('_id').lean().session(session);
+        if (!targetStageRule?._id) continue;
+        const targetLocked = await Match.countDocuments({
+            tournamentItemId,
+            stageId: targetStageRule._id,
+            $or: [{ scheduleStatus: 'published' }, { status: { $ne: 'pending' } }],
+        }).session(session);
+        if (targetLocked > 0 && !options.allowTargetLocked) {
+            skipped += 1;
+            continue;
+        }
+
+        const officialIds = new Set();
+        (Array.isArray(targetStage.seedAssignments) ? targetStage.seedAssignments : []).forEach((assignment) => {
+            if (assignment.participantId) officialIds.add(String(assignment.participantId));
+        });
+        const targetMatches = await Match.find({ tournamentItemId, stageId: targetStageRule._id })
+            .select('participants formatNodeId formatSlotLabels status')
+            .session(session);
+        applyConfiguredSlotLabelsForRead(targetMatches, config);
+        targetMatches.forEach((match) => {
+            const labels = Array.isArray(match.formatSlotLabels) ? match.formatSlotLabels : [];
+            (match.participants || []).forEach((participantId, index) => {
+                if (!isLuckySlotKey(labels[index])) officialIds.add(String(participantId));
+            });
+        });
+        const sourceMatchByCode = new Map(sourceMatches.map((match) => [normalizeMatchCode(match.name), match]));
+        targetMatches.forEach((match) => {
+            const labels = Array.isArray(match.formatSlotLabels) ? match.formatSlotLabels : [];
+            labels.forEach((label) => {
+                const sourceKey = normalizeMatchCode(label);
+                const sourceCode = sourceKey.replace(/^L/, 'M');
+                if (!/^M\d+$/.test(sourceCode)) return;
+                const sourceMatch = sourceMatchByCode.get(sourceCode);
+                if (!sourceMatch) return;
+                const winnerId = normalizeId(sourceMatch.winnerParticipantId);
+                if (sourceKey.startsWith('L')) {
+                    const loserId = (sourceMatch.participants || [])
+                        .map(normalizeId)
+                        .find((participantId) => participantId && participantId !== winnerId);
+                    if (loserId) officialIds.add(loserId);
+                } else if (winnerId) {
+                    officialIds.add(winnerId);
+                }
+            });
+        });
+
+        const eliminatedIds = new Set();
+        sourceMatches.forEach((match) => {
+            const winnerId = normalizeId(match.winnerParticipantId);
+            (match.participants || []).map(normalizeId).filter(Boolean).forEach((participantId) => {
+                if (participantId !== winnerId && !officialIds.has(participantId)) {
+                    eliminatedIds.add(participantId);
+                }
+            });
+        });
+
+        const standings = await Standing.find({ tournamentItemId, stageId: { $in: sourceStageIds } })
+            .lean()
+            .session(session);
+        const standingParticipantIds = [...new Set(standings.map((standing) => normalizeId(standing.teamOrPlayerId)).filter(Boolean))];
+        const standingParticipantDocs = standingParticipantIds.length
+            ? await Participant.find({ _id: { $in: standingParticipantIds } })
+                .select('name skill seed rank ranking')
+                .lean()
+                .session(session)
+            : [];
+        const standingParticipantById = new Map(
+            standingParticipantDocs.map((participant) => [normalizeId(participant._id), participant]),
+        );
+        const candidateRows = new Map();
+        standings.forEach((standing) => {
+            const teamId = normalizeId(standing.teamOrPlayerId);
+            if (!teamId || !eliminatedIds.has(teamId)) return;
+            const participant = standingParticipantById.get(teamId) || {};
+            const losses = Number(standing.losses || 0);
+            const played = Number(standing.played || 0);
+            if (played <= 0) return;
+            const current = candidateRows.get(teamId) || {
+                teamId,
+                teamName: participant.name || '',
+                played: 0,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                points: 0,
+                pointDiff: 0,
+                pointsFor: 0,
+                pointsAgainst: 0,
+                skill: Number(participant.skill || 0),
+                seed: Number(participant.seed || participant.rank || participant.ranking || 999999),
+                standingStageIds: new Set(),
+            };
+            current.standingStageIds.add(normalizeId(standing.stageId));
+            current.played += played;
+            current.wins += Number(standing.wins || 0);
+            current.losses += losses;
+            current.draws += Number(standing.draws || 0);
+            current.points += Number(standing.points || 0);
+            current.pointDiff += Number(standing.goalDifference || standing.pointDiff || 0);
+            current.pointsFor += Number(standing.goalsFor || standing.pointsFor || 0);
+            current.pointsAgainst += Number(standing.goalsAgainst || standing.pointsAgainst || 0);
+            candidateRows.set(teamId, current);
+        });
+        const sourceMatchById = new Map(sourceMatches.map((match) => [normalizeId(match._id), match]));
+        const resultRows = await MatchResult.find({
+            matchId: { $in: sourceMatches.map((match) => match._id) },
+            status: 'confirmed',
+        }).select('matchId winnerParticipantId winnerScore loserScore isDraw').lean().session(session);
+        const resultParticipantIds = [...new Set(sourceMatches.flatMap((match) =>
+            (match.participants || []).map(normalizeId).filter(Boolean),
+        ))];
+        const participantDocs = resultParticipantIds.length
+            ? await Participant.find({ _id: { $in: resultParticipantIds } })
+                .select('name skill seed rank ranking')
+                .lean()
+                .session(session)
+            : [];
+        const participantById = new Map(participantDocs.map((participant) => [normalizeId(participant._id), participant]));
+        resultRows.forEach((result) => {
+            const match = sourceMatchById.get(normalizeId(result.matchId));
+            if (!match || result.isDraw || !result.winnerParticipantId) return;
+            const stageKey = normalizeId(match.stageId);
+            const winnerId = normalizeId(result.winnerParticipantId);
+            const loserId = (match.participants || []).map(normalizeId).find((participantId) => participantId && participantId !== winnerId);
+            if (!loserId || officialIds.has(loserId)) return;
+            const current = candidateRows.get(loserId);
+            if (current?.standingStageIds?.has(stageKey)) return;
+            const participant = participantById.get(loserId) || {};
+            const next = current || {
+                teamId: loserId,
+                teamName: participant.name || '',
+                played: 0,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                points: 0,
+                pointDiff: 0,
+                pointsFor: 0,
+                pointsAgainst: 0,
+                skill: Number(participant.skill || 0),
+                seed: Number(participant.seed || participant.rank || participant.ranking || 999999),
+                standingStageIds: new Set(),
+            };
+            const winnerScore = Number(result.winnerScore || 0);
+            const loserScore = Number(result.loserScore || 0);
+            next.played += 1;
+            next.losses += 1;
+            next.pointsFor += loserScore;
+            next.pointsAgainst += winnerScore;
+            next.pointDiff += loserScore - winnerScore;
+            candidateRows.set(loserId, next);
+        });
+        const criteria = wildcardCriteriaForMatchSync(targetStage);
+        const candidates = [...candidateRows.values()].map((candidate) => ({
+            ...candidate,
+            draw: drawRankForWildcard(candidate.teamId, targetStage.id),
+            winRate: candidate.played ? candidate.wins / candidate.played : 0,
+            pointsPerMatch: candidate.played ? candidate.points / candidate.played : 0,
+            pointDiffPerMatch: candidate.played ? candidate.pointDiff / candidate.played : 0,
+        }));
+        candidates.sort((a, b) => {
+            for (const criterion of criteria) {
+                const type = criterion.type;
+                if (type === 'headToHead') continue;
+                const aValue = Number(a[type] ?? 0);
+                const bValue = Number(b[type] ?? 0);
+                if (type === 'pointsAgainst' || type === 'seed' || type === 'draw') {
+                    if (aValue !== bValue) return aValue - bValue;
+                } else if (aValue !== bValue) {
+                    return bValue - aValue;
+                }
+            }
+            return String(a.teamName || '').localeCompare(String(b.teamName || ''), 'vi');
+        });
+        const selectedCandidates = candidates.slice(0, slots);
+        const luckyMap = new Map(selectedCandidates.map((candidate, index) => [`Lucky${index + 1}`, candidate.teamId]));
+        if (!luckyMap.size) continue;
+        for (const match of targetMatches) {
+            if (match.status !== 'pending' && !options.allowTargetLocked) continue;
+            const labels = Array.isArray(match.formatSlotLabels) ? match.formatSlotLabels : [];
+            if (!labels.some(isLuckySlotKey)) continue;
+            const nextParticipants = labels
+                .map((label, index) => {
+                    const luckyTeamId = luckyMap.get(String(label));
+                    const currentTeamId = match.participants?.[index] || null;
+                    if (!luckyTeamId) return currentTeamId;
+                    if (options.fillEmptyOnly && currentTeamId) return currentTeamId;
+                    return luckyTeamId;
+                });
+            const currentParticipants = labels.map((_, index) => normalizeId(match.participants?.[index]));
+            if (nextParticipants.some(Boolean) && JSON.stringify(nextParticipants.map(normalizeId)) !== JSON.stringify(currentParticipants)) {
+                match.participants = nextParticipants;
+                await match.save({ session });
+                updated += 1;
+            }
+        }
+        resolved += luckyMap.size;
+    }
+
+    const summary = { updated, resolved, skipped };
+    if (updated > 0) {
+        console.info('[wildcard.sync] reconciliation complete', {
+            tournamentItemId: String(tournamentItemId),
+            ...summary,
+        });
+    }
+    return summary;
 };
 
 const rebuildStageStandings = async (sourceMatch, context, session) => {
@@ -875,16 +1252,28 @@ const sameMinuteKey = (value) => {
 };
 
 const SCHEDULE_MATCH_MINUTES = 30;
-const scheduleWindow = (value) => {
+const matchDurationMinutes = (match) => {
+    const duration = Number(match?.durationMinutes);
+    return Number.isFinite(duration) && duration > 0 ? duration : SCHEDULE_MATCH_MINUTES;
+};
+const scheduleWindow = (value, durationMinutes = SCHEDULE_MATCH_MINUTES) => {
     const start = value ? new Date(value) : null;
     if (!start || Number.isNaN(start.getTime())) return null;
     return {
         start,
-        end: new Date(start.getTime() + SCHEDULE_MATCH_MINUTES * 60 * 1000),
+        end: new Date(start.getTime() + durationMinutes * 60 * 1000),
     };
 };
 
 const overlapsScheduleWindow = (a, b) => a && b && a.start < b.end && b.start < a.end;
+
+const durationMinutesFromEndTime = (scheduledTime, endTime) => {
+    const start = scheduledTime ? new Date(scheduledTime) : null;
+    const end = endTime ? new Date(endTime) : null;
+    if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
+    return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
+};
 
 const firstFiniteNumber = (...values) => {
     for (const value of values) {
@@ -909,6 +1298,7 @@ const getScheduleTiming = async (match, context, session) => {
     };
     return {
         matchMinutes: firstFiniteNumber(
+            match.durationMinutes,
             match.matchMinutes,
             stage.matchMinutes,
             stage.durationMinutes,
@@ -990,13 +1380,13 @@ const resolveScheduleDependencyMatches = async (match, session) => {
 };
 
 const assertNoScheduleConflicts = async (match, session) => {
-    const currentWindow = scheduleWindow(match.scheduledTime);
+    const currentWindow = scheduleWindow(match.scheduledTime, matchDurationMinutes(match));
     if (!currentWindow) return { ok: true };
     const courtId = match.courtId?._id || match.courtId;
     const refereeIds = (match.refereeIds || []).map((id) => id?.toString()).filter(Boolean);
     if (!courtId && refereeIds.length === 0) return { ok: true };
 
-    const rangeStart = new Date(currentWindow.start.getTime() - SCHEDULE_MATCH_MINUTES * 60 * 1000);
+    const rangeStart = new Date(currentWindow.start.getTime() - 24 * 60 * 60 * 1000);
     const rangeEnd = new Date(currentWindow.end.getTime());
     const candidates = await Match.find({
         _id: { $ne: match._id },
@@ -1012,15 +1402,15 @@ const assertNoScheduleConflicts = async (match, session) => {
         .session(session);
 
     for (const other of candidates) {
-        const otherWindow = scheduleWindow(other.scheduledTime);
+        const otherWindow = scheduleWindow(other.scheduledTime, matchDurationMinutes(other));
         if (!overlapsScheduleWindow(currentWindow, otherWindow)) continue;
         if (courtId && String(other.courtId?._id || other.courtId) === String(courtId)) {
             const start = other.scheduledTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            const end = new Date(other.scheduledTime.getTime() + SCHEDULE_MATCH_MINUTES * 60 * 1000).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            const end = new Date(other.scheduledTime.getTime() + matchDurationMinutes(other) * 60 * 1000).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
             return {
                 ok: false,
                 status: 409,
-                title: 'Trung lịch thi đấu',
+                title: 'Trùng lịch thi đấu',
                 message: `${other.courtId?.name || 'Sân thi đấu'} đã có trận ${other.name} từ ${start} đến ${end}. Vui lòng chọn thời gian hoặc sân khác.`,
             };
         }
@@ -1034,6 +1424,128 @@ const assertNoScheduleConflicts = async (match, session) => {
             };
         }
     }
+    return { ok: true };
+};
+
+const findAvailableTournamentReferees = async (tournamentItemId, refereeIds = null, session = null) => {
+    const query = {
+        tournamentItemId,
+        status: { $ne: 'unavailable' },
+        ...(Array.isArray(refereeIds) ? { _id: { $in: refereeIds } } : {}),
+    };
+    return TournamentReferee.find(query)
+        .sort({ matchesAssigned: 1, createdAt: 1 })
+        .session(session);
+};
+
+const inferStageScheduleMinutes = async (stageId, session) => {
+    const scheduledMatches = await Match.find({ stageId, scheduledTime: { $ne: null } })
+        .select('scheduledTime')
+        .sort({ scheduledTime: 1 })
+        .lean()
+        .session(session);
+    const timestamps = [...new Set(scheduledMatches.map((item) => new Date(item.scheduledTime).getTime()))]
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+    const gaps = timestamps.slice(1)
+        .map((timestamp, index) => (timestamp - timestamps[index]) / 60000)
+        .filter((minutes) => Number.isFinite(minutes) && minutes > 0);
+    return gaps.length > 0 ? Math.max(1, Math.min(...gaps)) : SCHEDULE_MATCH_MINUTES;
+};
+
+const assertNoRefereeTimeConflict = async (match, refereeIds, session, inferredDurationMinutes = null) => {
+    if (!match.scheduledTime || refereeIds.length === 0) return { ok: true };
+    const stageDurationMinutes = inferredDurationMinutes || await inferStageScheduleMinutes(match.stageId, session);
+    const currentDurationMinutes = match.durationMinutes || stageDurationMinutes;
+    const currentWindow = scheduleWindow(match.scheduledTime, currentDurationMinutes);
+    if (!currentWindow) return { ok: true };
+    const rangeStart = new Date(currentWindow.start.getTime() - 24 * 60 * 60 * 1000);
+    const rangeEnd = new Date(currentWindow.end.getTime());
+    const candidates = await Match.find({
+        _id: { $ne: match._id },
+        tournamentItemId: match.tournamentItemId,
+        scheduledTime: { $gte: rangeStart, $lt: rangeEnd },
+        refereeIds: { $in: refereeIds },
+    }).select('name scheduledTime durationMinutes refereeIds').session(session);
+    const conflictingMatch = candidates.find((other) =>
+        overlapsScheduleWindow(currentWindow, scheduleWindow(other.scheduledTime, other.durationMinutes || stageDurationMinutes)),
+    );
+    if (!conflictingMatch) return { ok: true };
+    return {
+        ok: false,
+        status: 409,
+        title: 'Trùng lịch trọng tài',
+        message: 'Trọng tài này đã được phân công cho một trận khác trong cùng khung giờ.',
+        conflictingMatch: conflictingMatch.name,
+    };
+};
+
+const assertStageScheduleChronology = async (match, session) => {
+    const currentWindow = scheduleWindow(match.scheduledTime, matchDurationMinutes(match));
+    if (!currentWindow) return { ok: true };
+    const currentStage = await StageRule.findById(match.stageId?._id || match.stageId)
+        .select('number name tournamentItemId')
+        .session(session);
+    const currentStageNumber = Number(currentStage?.number || match.stageId?.number || 0);
+    if (!currentStageNumber) return { ok: true };
+
+    const stages = await StageRule.find({ tournamentItemId: match.tournamentItemId })
+        .select('_id number name')
+        .lean()
+        .session(session);
+    const previousStageIds = stages
+        .filter((stage) => Number(stage.number || 0) < currentStageNumber)
+        .map((stage) => stage._id);
+    const nextStageIds = stages
+        .filter((stage) => Number(stage.number || 0) > currentStageNumber)
+        .map((stage) => stage._id);
+
+    if (previousStageIds.length) {
+        const previousMatches = await Match.find({
+            _id: { $ne: match._id },
+            tournamentItemId: match.tournamentItemId,
+            stageId: { $in: previousStageIds },
+            scheduledTime: { $ne: null },
+        })
+            .select('name scheduledTime durationMinutes stageId')
+            .populate('stageId', 'name number')
+            .session(session);
+        for (const previous of previousMatches) {
+            const previousWindow = scheduleWindow(previous.scheduledTime, matchDurationMinutes(previous));
+            if (previousWindow && previousWindow.end > currentWindow.start) {
+                return {
+                    ok: false,
+                    status: 409,
+                    title: 'Thá»© tá»± stage khÃ´ng há»£p lá»‡',
+                    message: `Trận ${previous.name} (${previous.stageId?.name || 'stage trÆ°á»›c'}) káº¿t thÃºc sau giá» báº¯t Ä‘áº§u tráº­n nÃ y. Stage trÆ°á»›c pháº£i Ä‘áº¥u xong trÆ°á»›c stage sau.`,
+                };
+            }
+        }
+    }
+
+    if (nextStageIds.length) {
+        const nextMatches = await Match.find({
+            _id: { $ne: match._id },
+            tournamentItemId: match.tournamentItemId,
+            stageId: { $in: nextStageIds },
+            scheduledTime: { $ne: null },
+        })
+            .select('name scheduledTime durationMinutes stageId')
+            .populate('stageId', 'name number')
+            .session(session);
+        for (const next of nextMatches) {
+            const nextWindow = scheduleWindow(next.scheduledTime, matchDurationMinutes(next));
+            if (nextWindow && currentWindow.end > nextWindow.start) {
+                return {
+                    ok: false,
+                    status: 409,
+                    title: 'Thá»© tá»± stage khÃ´ng há»£p lá»‡',
+                    message: `Tráº­n nÃ y káº¿t thÃºc sau giá» báº¯t Ä‘áº§u tráº­n ${next.name} (${next.stageId?.name || 'stage sau'}). Stage trÆ°á»›c pháº£i Ä‘áº¥u xong trÆ°á»›c stage sau.`,
+                };
+            }
+        }
+    }
+
     return { ok: true };
 };
 
@@ -1057,6 +1569,9 @@ const assertMatchReadyForScheduling = async (match, session, schedulingNow = fal
             message: 'Trận này chưa có đường đi/slot nguồn hợp lệ để kiểm tra thứ tự lịch đấu. Hãy kiểm tra lại cấu hình thể thức.',
         };
     }
+
+    const stageChronologyCheck = await assertStageScheduleChronology(match, session);
+    if (!stageChronologyCheck.ok) return stageChronologyCheck;
 
     if (!match.scheduledTime || dependencies.length === 0) return { ok: true };
 
@@ -1277,9 +1792,24 @@ export const getMatchesByTournamentItem = async (req, res) => {
         await syncLiveMatches();
         const { tournamentItemId } = req.params;
         await syncCompletedKnockoutAdvancement(tournamentItemId);
-        const matches = await populateMatchReadQuery(Match.find({ tournamentItemId }))
-            .sort({ round: 1, 'previousMatches.matchId': 1 });
-        return res.json({ success: true, data: canonicalizeDuplicateMatches(matches) });
+        try {
+            await syncWildcardParticipantsFromStandings(tournamentItemId, null, {
+                allowTargetLocked: true,
+                fillEmptyOnly: false,
+            });
+        } catch (syncError) {
+            console.error('[matches.read] wildcard reconciliation failed; returning persisted matches', {
+                tournamentItemId: String(tournamentItemId),
+                message: syncError?.message || String(syncError),
+            });
+        }
+        const [matches, tournamentItem] = await Promise.all([
+            populateMatchReadQuery(Match.find({ tournamentItemId })).sort({ round: 1, 'previousMatches.matchId': 1 }),
+            TournamentItem.findById(tournamentItemId).select('competitionFormat.config').lean(),
+        ]);
+        const canonicalMatches = canonicalizeDuplicateMatches(matches);
+        applyConfiguredSlotLabelsForRead(canonicalMatches, tournamentItem?.competitionFormat?.config);
+        return res.json({ success: true, data: canonicalMatches });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -1307,15 +1837,42 @@ export const getKnockoutBracketByTournamentItem = async (req, res) => {
         await syncLiveMatches();
         const { tournamentItemId } = req.params;
         await syncCompletedKnockoutAdvancement(tournamentItemId);
+        try {
+            await syncWildcardParticipantsFromStandings(tournamentItemId, null, {
+                allowTargetLocked: true,
+                fillEmptyOnly: false,
+            });
+        } catch (syncError) {
+            console.error('[matches.bracket] wildcard reconciliation failed; returning persisted matches', {
+                tournamentItemId: String(tournamentItemId),
+                message: syncError?.message || String(syncError),
+            });
+        }
         const matches = await populateMatchReadQuery(Match.find({ tournamentItemId }))
             .sort({ 'stageId.number': 1, round: 1, scheduleOrder: 1, createdAt: 1 });
         const knockoutMatches = canonicalizeDuplicateMatches(matches.filter((match) => String(match.bracketId?.type || '') === 'knockout'));
-        const finalStageByBranch = new Map();
-        knockoutMatches.forEach((match) => {
-            const branchKey = branchKeyForMatch(match);
-            const stageNumber = Number(match.stageId?.number || 0);
-            finalStageByBranch.set(branchKey, Math.max(finalStageByBranch.get(branchKey) || 0, stageNumber));
-        });
+        const tournamentItem = await TournamentItem.findById(tournamentItemId)
+            .select('competitionFormat.config')
+            .lean();
+        const configuredStages = Array.isArray(tournamentItem?.competitionFormat?.config?.stages)
+            ? tournamentItem.competitionFormat.config.stages
+            : [];
+        const stageOrderById = new Map(configuredStages.map((stage, index) => [
+            String(stage.id || ''),
+            Number(stage.order ?? index + 1),
+        ]));
+        const matchStageOrder = (match) => stageOrderById.get(String(match.formatStageId || ''))
+            ?? Number(match.stageId?.number || match.round || 0);
+        const finalStageOrder = knockoutMatches.length
+            ? Math.max(...knockoutMatches.map(matchStageOrder))
+            : 0;
+        const outgoingNodeIds = new Set(configuredStages.flatMap((stage) =>
+            (Array.isArray(stage.brackets) ? stage.brackets : []).flatMap((branch) =>
+                (Array.isArray(branch.flowConnections) ? branch.flowConnections : [])
+                    .map((connection) => String(connection.source || ''))
+                    .filter(Boolean),
+            ),
+        ));
         const results = await KnockoutResult.find({ tournamentItemId })
             .populate('championParticipantId', 'name logo')
             .populate('runnerUpParticipantId', 'name logo')
@@ -1326,11 +1883,28 @@ export const getKnockoutBracketByTournamentItem = async (req, res) => {
             success: true,
             data: {
                 stages: [...new Map(knockoutMatches.map((match) => [String(match.stageId?._id || match.stageId), match.stageId])).values()],
-                matches: knockoutMatches.map((match) => ({
-                    ...match.toObject(),
-                    branchKey: branchKeyForMatch(match),
-                    isFinalStageMatch: Number(match.stageId?.number || 0) === (finalStageByBranch.get(branchKeyForMatch(match)) || 0),
-                })),
+                matches: knockoutMatches.map((match) => {
+                    const record = match.toObject();
+                    const participants = Array.isArray(record.participants) ? record.participants : [];
+                    const winnerId = String(record.winnerParticipantId?._id || record.winnerParticipantId || '');
+                    const loserTeam = participants.find((participant) =>
+                        String(participant?._id || participant || '') !== winnerId,
+                    ) || null;
+                    const isConfirmedResult = record.status === 'completed'
+                        && record.matchResultId?.status === 'confirmed'
+                        && Boolean(winnerId)
+                        && Boolean(loserTeam);
+                    const isFinalMatch = matchStageOrder(record) === finalStageOrder
+                        && !outgoingNodeIds.has(String(record.formatNodeId || ''));
+                    return {
+                        ...record,
+                        branchKey: branchKeyForMatch(match),
+                        isFinalStageMatch: matchStageOrder(record) === finalStageOrder,
+                        isFinalMatch,
+                        winnerTeam: isFinalMatch && isConfirmedResult ? record.winnerParticipantId : null,
+                        loserTeam: isFinalMatch && isConfirmedResult ? loserTeam : null,
+                    };
+                }),
                 achievements: results,
             },
         });
@@ -1378,6 +1952,10 @@ export const getPublicStandingsByTournamentItem = async (req, res) => {
                 await rebuildStageStandings(sourceMatch, context);
             }
             await syncKnockoutParticipantsFromStandings(tournamentItemId);
+            await syncWildcardParticipantsFromStandings(tournamentItemId, null, {
+                allowTargetLocked: true,
+                fillEmptyOnly: false,
+            });
             rows = await Standing.find({ tournamentItemId })
                 .populate('stageId', 'name number')
                 .populate('groupId', 'name')
@@ -1470,13 +2048,174 @@ export const getMatchById = async (req, res) => {
 
 // ==================== CẬP NHẬT MATCH ====================
 
+export const updateMatchReferees = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const match = await Match.findById(req.params.id).session(session);
+        if (!match) {
+            await session.abortTransaction();
+            return res.status(404).json({ success: false, message: 'Match not found' });
+        }
+        const perm = await checkMatchPermission(req.user._id, match.tournamentItemId);
+        if (!perm.allowed) {
+            await session.abortTransaction();
+            return res.status(403).json({ success: false, message: perm.message });
+        }
+        if (!Array.isArray(req.body.refereeIds)) {
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: 'refereeIds phải là một mảng.' });
+        }
+        const refereeIds = [...new Set(req.body.refereeIds.map(String).filter(Boolean))];
+        if (refereeIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+            await session.abortTransaction();
+            return res.status(400).json({ success: false, message: 'Trọng tài không hợp lệ.' });
+        }
+        if (refereeIds.length > 0) {
+            const activeReferees = await findAvailableTournamentReferees(match.tournamentItemId, refereeIds, session);
+            if (activeReferees.length !== refereeIds.length) {
+                await session.abortTransaction();
+                return res.status(400).json({
+                    success: false,
+                    title: 'Trọng tài không hợp lệ',
+                    message: 'Trọng tài phải thuộc giải và đang ở trạng thái có thể phân công.',
+                });
+            }
+            const conflict = await assertNoRefereeTimeConflict(match, refereeIds, session);
+            if (!conflict.ok) {
+                await session.abortTransaction();
+                return res.status(conflict.status).json({ success: false, title: conflict.title, message: conflict.message });
+            }
+        }
+        match.refereeIds = refereeIds;
+        await match.save({ session });
+        await session.commitTransaction();
+        const populatedMatch = await populateMatchReadQuery(Match.findById(match._id));
+        return res.json({ success: true, data: populatedMatch });
+    } catch (error) {
+        return res.status(error.status || 500).json({ success: false, title: error.title, message: error.message });
+    }
+};
+
+export const quickAssignStageReferees = async (req, res) => {
+    try {
+        const stage = await StageRule.findById(req.params.stageId);
+        if (!stage) {
+            return res.status(404).json({ success: false, message: 'Stage not found' });
+        }
+        const perm = await checkMatchPermission(req.user._id, stage.tournamentItemId);
+        if (!perm.allowed) {
+            return res.status(403).json({ success: false, message: perm.message });
+        }
+        const referees = await findAvailableTournamentReferees(stage.tournamentItemId, null, null);
+        const stageMatches = await Match.find({ stageId: stage._id })
+            .sort({ scheduledTime: 1, scheduleOrder: 1, createdAt: 1 });
+        const validRefereeIds = new Set(referees.map((referee) => String(referee._id)));
+        const assignableMatches = stageMatches;
+        if (assignableMatches.length === 0) {
+            return res.status(409).json({
+                success: false,
+                title: 'Không thể phân công trọng tài',
+                message: 'Không còn trọng tài hoặc tất cả trận đã được phân công',
+                data: { successCount: 0, failedCount: 0, failures: [] },
+            });
+        }
+        if (referees.length === 0) {
+            const failures = assignableMatches.map((match) => ({
+                matchId: String(match._id),
+                matchName: match.name,
+                reason: 'Giải chưa có trọng tài ở trạng thái có thể phân công.',
+            }));
+            return res.status(409).json({
+                success: false,
+                title: 'Không thể phân công trọng tài',
+                message: 'Không còn trọng tài hoặc tất cả trận đã được phân công',
+                data: { successCount: 0, failedCount: failures.length, failures },
+            });
+        }
+        let refereeCursor = 0;
+        const inferredDurationMinutes = await inferStageScheduleMinutes(stage._id, null);
+        const occupiedMatches = await Match.find({
+            tournamentItemId: stage.tournamentItemId,
+            stageId: { $ne: stage._id },
+            scheduledTime: { $ne: null },
+            refereeIds: { $in: [...validRefereeIds] },
+        }).select('scheduledTime durationMinutes refereeIds').lean();
+        const busyWindowsByReferee = new Map(referees.map((referee) => [String(referee._id), []]));
+        occupiedMatches.forEach((match) => {
+            const window = scheduleWindow(match.scheduledTime, match.durationMinutes || SCHEDULE_MATCH_MINUTES);
+            if (!window) return;
+            (match.refereeIds || []).forEach((refereeId) => {
+                const windows = busyWindowsByReferee.get(String(refereeId));
+                if (windows) windows.push(window);
+            });
+        });
+        const assignedMatchIds = [];
+        const refereeUpdates = [];
+        const failures = [];
+        for (const match of assignableMatches) {
+            if (!match.scheduledTime) {
+                failures.push({ matchId: String(match._id), matchName: match.name, reason: 'Trận chưa có ngày giờ thi đấu.' });
+                continue;
+            }
+            const matchWindow = scheduleWindow(match.scheduledTime, match.durationMinutes || inferredDurationMinutes);
+            let assignedReferee = null;
+            for (let offset = 0; offset < referees.length; offset += 1) {
+                const index = (refereeCursor + offset) % referees.length;
+                const referee = referees[index];
+                const busyWindows = busyWindowsByReferee.get(String(referee._id)) || [];
+                const hasConflict = busyWindows.some((busyWindow) => overlapsScheduleWindow(matchWindow, busyWindow));
+                if (!hasConflict) {
+                    assignedReferee = referee;
+                    refereeCursor = (index + 1) % referees.length;
+                    break;
+                }
+            }
+            if (!assignedReferee) {
+                failures.push({
+                    matchId: String(match._id),
+                    matchName: match.name,
+                    reason: 'Không có trọng tài rảnh trong cùng khung giờ.',
+                });
+                continue;
+            }
+            busyWindowsByReferee.get(String(assignedReferee._id))?.push(matchWindow);
+            refereeUpdates.push({
+                updateOne: {
+                    filter: { _id: match._id },
+                    update: { $set: { refereeIds: [assignedReferee._id] } },
+                },
+            });
+            assignedMatchIds.push(String(match._id));
+        }
+        if (refereeUpdates.length > 0) {
+            await Match.bulkWrite(refereeUpdates, { ordered: true });
+        }
+        const assignedMatches = assignedMatchIds.length
+            ? await populateMatchReadQuery(Match.find({ _id: { $in: assignedMatchIds } }))
+            : [];
+        return res.json({
+            success: true,
+            message: `Đã phân công trọng tài cho ${assignedMatchIds.length} trận.`,
+            data: {
+                successCount: assignedMatchIds.length,
+                failedCount: failures.length,
+                failures,
+                matches: assignedMatches,
+            },
+        });
+    } catch (error) {
+        return res.status(error.status || 500).json({ success: false, title: error.title, message: error.message });
+    }
+};
+
 export const updateMatch = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
         const { id } = req.params;
         const userId = req.user._id;
-        const { scheduledTime, courtId, refereeIds, status, scheduleOrder, scheduleStatus, winnerParticipantId, participantScores } = req.body;
+        const { scheduledTime, endTime, durationMinutes, courtId, refereeIds, status, scheduleOrder, scheduleStatus, winnerParticipantId, participantScores } = req.body;
 
         const match = await Match.findById(id).session(session);
         if (!match) {
@@ -1485,6 +2224,13 @@ export const updateMatch = async (req, res) => {
         }
 
         // 1. Kiểm tra quyền
+        if (refereeIds !== undefined) {
+            await session.abortTransaction();
+            return res.status(400).json({
+                success: false,
+                message: 'Hãy dùng API phân công trọng tài riêng cho field refereeIds.',
+            });
+        }
         const perm = await checkMatchPermission(userId, match.tournamentItemId);
         if (!perm.allowed) {
             await session.abortTransaction();
@@ -1507,21 +2253,22 @@ export const updateMatch = async (req, res) => {
 
         // 4. Cập nhật các trường cơ bản
         if (scheduledTime !== undefined) match.scheduledTime = scheduledTime ? new Date(scheduledTime) : null;
-        if (courtId !== undefined) match.courtId = courtId || null;
-        if (Array.isArray(refereeIds)) {
-            const cleanedRefereeIds = refereeIds.filter(Boolean);
-            if (cleanedRefereeIds.length > 0) {
-                const validCount = await TournamentReferee.countDocuments({
-                    _id: { $in: cleanedRefereeIds },
-                    tournamentItemId: match.tournamentItemId,
-                }).session(session);
-                if (validCount !== cleanedRefereeIds.length) {
-                    await session.abortTransaction();
-                    return res.status(400).json({ success: false, message: 'Invalid refereeIds for this tournament item' });
-                }
+        if (endTime !== undefined) {
+            const nextDuration = durationMinutesFromEndTime(match.scheduledTime, endTime);
+            if (endTime && nextDuration === null) {
+                await session.abortTransaction();
+                return res.status(400).json({ success: false, title: 'Khung giờ chưa hợp lệ', message: 'Giờ kết thúc phải lớn hơn giờ bắt đầu.' });
             }
-            match.refereeIds = cleanedRefereeIds;
+            if (nextDuration !== null) match.durationMinutes = nextDuration;
+        } else if (durationMinutes !== undefined) {
+            const nextDuration = Number(durationMinutes);
+            if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
+                await session.abortTransaction();
+                return res.status(400).json({ success: false, title: 'Thời lượng chưa hợp lệ', message: 'Thời lượng trận phải lớn hơn 0 phút.' });
+            }
+            match.durationMinutes = Math.round(nextDuration);
         }
+        if (courtId !== undefined) match.courtId = courtId || null;
         if (scheduleOrder !== undefined) match.scheduleOrder = Number(scheduleOrder) || 0;
         if (scheduleStatus && ['draft', 'published'].includes(scheduleStatus)) match.scheduleStatus = scheduleStatus;
         if (status) {
@@ -1540,7 +2287,7 @@ export const updateMatch = async (req, res) => {
             match.status = status;
         }
 
-        if (scheduledTime !== undefined || courtId !== undefined) {
+        if (scheduledTime !== undefined || endTime !== undefined || durationMinutes !== undefined || courtId !== undefined) {
             const readinessCheck = await assertMatchReadyForScheduling(match, session);
             if (!readinessCheck.ok) {
                 await session.abortTransaction();
@@ -1552,7 +2299,7 @@ export const updateMatch = async (req, res) => {
             }
         }
 
-        if (scheduledTime !== undefined || courtId !== undefined || Array.isArray(refereeIds)) {
+        if (scheduledTime !== undefined || endTime !== undefined || durationMinutes !== undefined || courtId !== undefined) {
             const conflictCheck = await assertNoScheduleConflicts(match, session);
             if (!conflictCheck.ok) {
                 await session.abortTransaction();
@@ -1618,6 +2365,10 @@ export const updateMatch = async (req, res) => {
             knockoutAdvanceSync = await propagateWinnerToDependentMatches(match, participant._id, session);
             await rebuildStageStandings(match, context, session);
             await syncKnockoutParticipantsFromStandings(match.tournamentItemId, session);
+            await syncWildcardParticipantsFromStandings(match.tournamentItemId, session, {
+                allowTargetLocked: true,
+                fillEmptyOnly: false,
+            });
             await syncKnockoutFinalResult(match, session);
         }
 
@@ -1626,7 +2377,8 @@ export const updateMatch = async (req, res) => {
 
         // 7. Nếu match vừa hoàn thành và có nextMatchId, cập nhật next match
         await session.commitTransaction();
-        return res.json({ success: true, data: match, sync: { knockoutAdvance: knockoutAdvanceSync } });
+        const populatedMatch = await populateMatchReadQuery(Match.findById(match._id));
+        return res.json({ success: true, data: populatedMatch, sync: { knockoutAdvance: knockoutAdvanceSync } });
     } catch (error) {
         await session.abortTransaction();
         return res.status(error.status || 500).json({ success: false, title: error.title, message: error.clientMessage || error.message });
@@ -1840,6 +2592,10 @@ export const completeMatch = async (req, res) => {
         const knockoutAdvanceSync = await propagateWinnerToDependentMatches(match, participant._id, session);
         const standingsSync = await rebuildStageStandings(match, context, session);
         const knockoutSync = await syncKnockoutParticipantsFromStandings(match.tournamentItemId, session);
+        const wildcardSync = await syncWildcardParticipantsFromStandings(match.tournamentItemId, session, {
+            allowTargetLocked: true,
+            fillEmptyOnly: false,
+        });
         const finalSync = await syncKnockoutFinalResult(match, session);
         if (context.stageRule) {
             context.stageRule.standingsStatus = 'published';
@@ -1849,7 +2605,7 @@ export const completeMatch = async (req, res) => {
         }
 
         await session.commitTransaction();
-        return res.json({ success: true, data: match, sync: { standings: standingsSync, knockout: knockoutSync, final: finalSync, knockoutAdvance: knockoutAdvanceSync } });
+        return res.json({ success: true, data: match, sync: { standings: standingsSync, knockout: knockoutSync, wildcard: wildcardSync, final: finalSync, knockoutAdvance: knockoutAdvanceSync } });
     } catch (error) {
         await session.abortTransaction();
         return res.status(error.status || 500).json({ success: false, title: error.title, message: error.clientMessage || error.message });
@@ -1863,72 +2619,125 @@ export const getMatchStatusTags = async (req, res) => {
 };
 
 export const autoScheduleStage = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
     try {
         const { stageId } = req.params;
         const userId = req.user._id;
         const { startAt, intervalMinutes = 30 } = req.body;
         const baseStart = startAt ? new Date(startAt) : null;
         if (!baseStart || Number.isNaN(baseStart.getTime())) {
-            await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'startAt is required' });
         }
 
-        const stage = await StageRule.findById(stageId).session(session);
+        const stage = await StageRule.findById(stageId);
         if (!stage) {
-            await session.abortTransaction();
             return res.status(404).json({ success: false, message: 'Stage not found' });
         }
 
         const perm = await checkTournamentItemPermission(stage.tournamentItemId, userId);
         if (!perm.allowed) {
-            await session.abortTransaction();
             return res.status(403).json({ success: false, message: perm.message });
         }
 
-        const syncResult = await syncMatchesFromCompetitionConfig(stage.tournamentItemId, userId, session);
+        const syncResult = await syncMatchesFromCompetitionConfig(stage.tournamentItemId, userId, null);
         if (!syncResult.ok) {
-            await session.abortTransaction();
             return res.status(syncResult.status || 400).json({ success: false, message: syncResult.message });
         }
 
-        const [courts, rawMatches] = await Promise.all([
-            Court.find({ tournamentItemId: stage.tournamentItemId, status: { $nin: ['inactived', 'maintenance'] } }).sort({ createdAt: 1 }).session(session),
-            Match.find({ stageId }).sort({ scheduleOrder: 1, round: 1, createdAt: 1 }).session(session),
-        ]);
-        const matches = canonicalizeDuplicateMatches(rawMatches);
+        const courts = await Court.find({ tournamentItemId: stage.tournamentItemId, status: { $nin: ['inactived', 'maintenance'] } })
+            .sort({ createdAt: 1 });
+        const initialRawMatches = await Match.find({ stageId })
+            .sort({ scheduleOrder: 1, round: 1, createdAt: 1 });
+        let rawMatches = initialRawMatches;
+        if (rawMatches.length === 0) {
+            const item = await TournamentItem.findById(stage.tournamentItemId).select('competitionFormat');
+            const ensureResult = await ensureGroupRoundRobinMatchesForStage({
+                tournamentItemId: stage.tournamentItemId,
+                stageRule: stage,
+                config: item?.competitionFormat?.config,
+                session: null,
+            });
+            if (!ensureResult.ok) {
+                return res.status(ensureResult.status || 400).json({
+                    success: false,
+                    title: ensureResult.title,
+                    message: ensureResult.message,
+                });
+            }
+            if (ensureResult.created) {
+                rawMatches = await Match.find({ stageId }).sort({ scheduleOrder: 1, round: 1, createdAt: 1 });
+            }
+        }
+        const matches = sortMatchesForAutoSchedule(canonicalizeDuplicateMatches(rawMatches));
         if (courts.length === 0) {
-            await session.abortTransaction();
             return res.status(400).json({ success: false, message: 'No active courts available' });
+        }
+        if (matches.length === 0) {
+            return res.status(409).json({
+                success: false,
+                title: 'Chưa có trận để xếp lịch',
+                message: 'Stage này chưa có trận đấu. Hãy sinh trận vòng bảng/vòng đấu trước khi xếp lịch tự động.',
+            });
         }
 
         const minutes = Math.max(1, Number(intervalMinutes) || 30);
+        const bracketIds = [...new Set(matches.map((match) => String(match.bracketId || '')).filter(Boolean))];
+        const brackets = bracketIds.length
+            ? await Bracket.find({ _id: { $in: bracketIds } }).select('type').lean()
+            : [];
+        const groupBracketIds = new Set(
+            brackets.filter((bracket) => String(bracket.type || '').toLowerCase() === 'group').map((bracket) => String(bracket._id)),
+        );
+        const matchUpdates = [];
         for (let index = 0; index < matches.length; index++) {
             const match = matches[index];
             const slotIndex = Math.floor(index / courts.length);
-            match.scheduledTime = addMinutes(baseStart, slotIndex * minutes);
-            match.courtId = courts[index % courts.length]._id;
+            const scheduledTime = addMinutes(baseStart, slotIndex * minutes);
+            const courtId = courts[index % courts.length]._id;
+            match.scheduledTime = scheduledTime;
+            match.durationMinutes = minutes;
+            match.courtId = courtId;
             match.scheduleOrder = index + 1;
-            const readinessCheck = await assertMatchReadyForScheduling(match, session, true);
-            if (!readinessCheck.ok) {
-                await session.abortTransaction();
-                return res.status(readinessCheck.status || 409).json({
-                    success: false,
-                    title: readinessCheck.title,
-                    message: readinessCheck.message,
-                });
+            const isIndependentGroupMatch = Boolean(match.groupId) || groupBracketIds.has(String(match.bracketId || ''));
+            if (!isIndependentGroupMatch) {
+                const readinessCheck = await assertMatchReadyForScheduling(match, null, true);
+                if (!readinessCheck.ok) {
+                    return res.status(readinessCheck.status || 409).json({
+                        success: false,
+                        title: readinessCheck.title,
+                        message: readinessCheck.message,
+                    });
+                }
             }
-            await match.save({ session });
+            matchUpdates.push({
+                updateOne: {
+                    filter: { _id: match._id },
+                    update: {
+                        $set: {
+                            scheduledTime,
+                            durationMinutes: minutes,
+                            courtId,
+                            scheduleOrder: index + 1,
+                        },
+                    },
+                },
+            });
+        }
+        if (matchUpdates.length > 0) {
+            await Match.bulkWrite(matchUpdates, { ordered: true });
         }
 
-        await session.commitTransaction();
         return res.json({ success: true, message: 'Stage scheduled', data: { updated: matches.length } });
     } catch (error) {
-        await session.abortTransaction();
-        return res.status(500).json({ success: false, message: error.message });
-    } finally {
-        session.endSession();
+        console.error('[matches.autoScheduleStage] failed', {
+            stageId: req.params.stageId,
+            message: error.message,
+            stack: error.stack,
+        });
+        return res.status(error.status || 500).json({
+            success: false,
+            title: error.title || 'Không thể xếp lịch tự động',
+            message: error.clientMessage || error.message,
+        });
     }
 };
 
@@ -2074,19 +2883,259 @@ const normalizeSlotLabel = (slot, fallbackIndex) => {
     return `Seed ${fallbackIndex + 1}`;
 };
 
+const slotSourceForLabel = (label, slotIndex, sourceMatchByCode = new Map()) => {
+    const sourceKey = normalizeSlotLabel({ sourceLabel: label }, slotIndex);
+    const matchRef = sourceMatchByCode.get(sourceKey) || sourceMatchByCode.get(sourceKey.replace(/^L/i, 'M'));
+    if (/^L\d+$/i.test(sourceKey)) {
+        return {
+            slotIndex,
+            sourceType: 'loserOfMatch',
+            sourceMatchId: matchRef?._id || null,
+            sourceMatchCode: sourceKey.replace(/^L/i, 'M'),
+            sourceKey,
+        };
+    }
+    if (/^M\d+$/i.test(sourceKey)) {
+        return {
+            slotIndex,
+            sourceType: 'winnerOfMatch',
+            sourceMatchId: matchRef?._id || null,
+            sourceMatchCode: sourceKey,
+            sourceKey,
+        };
+    }
+    if (/^[A-Z]+\d+$/i.test(sourceKey)) {
+        return {
+            slotIndex,
+            sourceType: 'groupRank',
+            sourceStageId: null,
+            sourceBranchKey: sourceKey.replace(/\d+$/, ''),
+            sourceKey,
+        };
+    }
+    return {
+        slotIndex,
+        sourceType: 'manual',
+        sourceKey,
+    };
+};
+
+const syncExistingMatchesFromFormat = async (tournamentItemId, config, session = null, options = {}) => {
+    const plans = collectFormatMatchPlans(config);
+    if (!plans.length) return { ok: true, updated: 0, locked: 0, warnings: [] };
+
+    const matches = await Match.find({ tournamentItemId });
+    const byNodeId = new Map(matches.filter((match) => match.formatNodeId).map((match) => [match.formatNodeId, match]));
+    const byCode = new Map(matches.map((match) => [normalizeMatchCode(match.name), match]));
+    const resultCountsQuery = MatchResult.aggregate([
+        { $match: { matchId: { $in: matches.map((match) => match._id) } } },
+        { $group: { _id: '$matchId', count: { $sum: 1 } } },
+    ]);
+    if (session) resultCountsQuery.session(session);
+    const resultCounts = await resultCountsQuery;
+    const resultMatchIds = new Set(resultCounts.map((item) => String(item._id)));
+    const planByNodeId = new Map(plans.map((plan) => [plan.nodeId, plan]));
+    const incomingByTarget = new Map();
+    for (const stageConfig of Array.isArray(config.stages) ? config.stages : []) {
+        for (const branch of Array.isArray(stageConfig.brackets) ? stageConfig.brackets : []) {
+            for (const connection of Array.isArray(branch.flowConnections) ? branch.flowConnections : []) {
+                const target = String(connection.target || '');
+                const source = String(connection.source || '');
+                if (!target || !source) continue;
+                const sourcePlan = planByNodeId.get(source);
+                const sourceMatch = byNodeId.get(source);
+                if (!sourcePlan || !sourceMatch) continue;
+                const zeroBasedSlot = Number(connection.targetSlotIndex ?? connection.slotIndex);
+                const oneBasedSlot = Number(connection.targetSlot || String(connection.targetSlotId || '').match(/slot-(\d+)$/)?.[1]);
+                const targetSlotIndex = Number.isInteger(zeroBasedSlot) && zeroBasedSlot >= 0 && zeroBasedSlot <= 1
+                    ? zeroBasedSlot
+                    : (oneBasedSlot === 1 || oneBasedSlot === 2 ? oneBasedSlot - 1 : 0);
+                const output = String(connection.output || connection.sourceResult || 'WINNER').toUpperCase() === 'LOSER' ? 'LOSER' : 'WINNER';
+                incomingByTarget.set(target, [
+                    ...(incomingByTarget.get(target) || []),
+                    {
+                        matchId: sourceMatch._id,
+                        position: output,
+                        slotIndex: Number.isFinite(targetSlotIndex) ? targetSlotIndex : 0,
+                        sourceLabel: String(connection.label || sourceLabelForMatchPlan(sourcePlan, output) || sourceMatch.name || '').trim(),
+                    },
+                ]);
+            }
+        }
+    }
+
+    let updated = 0;
+    let locked = 0;
+    const warnings = [];
+    for (const plan of plans) {
+        const match = byNodeId.get(plan.nodeId);
+        if (!match) continue;
+        const hasResult = resultMatchIds.has(String(match._id));
+        const isLocked = hasResult || match.status !== 'pending';
+        const incoming = (incomingByTarget.get(plan.nodeId) || [])
+            .sort((a, b) => a.slotIndex - b.slotIndex);
+        const nextLabels = plan.slots.map((slot, slotIndex) => normalizeSlotLabel(slot, slotIndex));
+        incoming.forEach((entry) => {
+            if (entry.slotIndex >= 0 && entry.slotIndex <= 1 && entry.sourceLabel) nextLabels[entry.slotIndex] = entry.sourceLabel;
+        });
+        const nextPreviousMatches = incoming
+            .map((entry) => ({ matchId: entry.matchId, position: entry.position }));
+        const nextSlotSources = nextLabels.map((label, slotIndex) => slotSourceForLabel(label, slotIndex, byCode));
+        const changed = JSON.stringify(match.formatSlotLabels || []) !== JSON.stringify(nextLabels)
+            || JSON.stringify((match.previousMatches || []).map((entry) => ({
+                matchId: normalizeId(entry.matchId),
+                position: entry.position,
+            }))) !== JSON.stringify(nextPreviousMatches.map((entry) => ({
+                matchId: normalizeId(entry.matchId),
+                position: entry.position,
+            })));
+        if (!changed) continue;
+        if (isLocked && !options.allowLocked) {
+            locked += 1;
+            warnings.push(`Tráº­n ${match.name} Ä‘Ã£ thi Ä‘áº¥u hoáº·c cÃ³ káº¿t quáº£, chÆ°a tá»± Ä‘á»“ng bá»™ key/slot.`);
+            continue;
+        }
+        match.name = plan.matchCode || match.name;
+        match.formatSlotLabels = nextLabels;
+        match.slotSources = nextSlotSources;
+        match.previousMatches = nextPreviousMatches;
+        if (!isLocked) match.participants = participantIdsForPlan(plan);
+        await match.save({ session });
+        updated += 1;
+    }
+    return { ok: true, updated, locked, warnings };
+};
+
 const assignmentMapForStage = (stage) => new Map(
     (Array.isArray(stage.seedAssignments) ? stage.seedAssignments : []).map((assignment) => [assignment.slotId, assignment]),
 );
 
 const participantIdsForPlan = (plan) => {
     const assignments = assignmentMapForStage(plan.stage);
-    const ids = [];
-    plan.slots.forEach((slot, slotIndex) => {
+    return plan.slots.map((slot, slotIndex) => {
         const globalIndex = slot.globalIndex ?? slotIndex;
         const direct = assignments.get(`${plan.nodeId}:seed-${globalIndex}`);
-        if (direct?.participantId) ids.push(direct.participantId);
+        return direct?.participantId || null;
     });
-    return ids;
+};
+
+const eligibleTeamIdsForTournament = async (tournamentItemId, session) => {
+    const teams = await Participant.find({
+        tournamentItemId,
+        type: 'team',
+        registrationStatus: { $nin: ['rejected', 'suspended'] },
+    })
+        .select('_id createdAt seed rank ranking')
+        .sort({ seed: 1, rank: 1, ranking: 1, createdAt: 1 })
+        .session(session);
+    return teams.map((team) => team._id);
+};
+
+const teamIdsForGroupConfig = (stageConfig, branch, groupIndex, groupConfig, fallbackTeamIds, fallbackOffset) => {
+    const assignments = assignmentMapForStage(stageConfig);
+    const configuredSlots = Math.max(1, Number(groupConfig.numberOfTeams || branch.totalTeamsIn || 1));
+    const assigned = Array.from({ length: configuredSlots }, (_, slotIndex) => {
+        const slotId = `${stageConfig.id}:${branch.id}:group-${groupIndex + 1}:slot-${slotIndex + 1}`;
+        return assignments.get(slotId)?.participantId;
+    }).filter(Boolean);
+    if (assigned.length >= 2) return { teamIds: assigned, nextOffset: fallbackOffset };
+
+    const fallback = fallbackTeamIds.slice(fallbackOffset, fallbackOffset + configuredSlots);
+    return { teamIds: fallback, nextOffset: fallbackOffset + configuredSlots };
+};
+
+const ensureGroupRoundRobinMatchesForStage = async ({ tournamentItemId, stageRule, config, session }) => {
+    const stageConfig = (Array.isArray(config?.stages) ? config.stages : [])
+        .find((stage) => Number(stage.order || 0) === Number(stageRule.number || 0));
+    if (!stageConfig) return { ok: false, status: 400, message: 'Không tìm thấy cấu hình stage trong thể thức.' };
+
+    const groupBranches = (Array.isArray(stageConfig.brackets) ? stageConfig.brackets : [])
+        .filter((branch) => branch.type === 'group');
+    if (!groupBranches.length) return { ok: true, skipped: 'notGroupStage' };
+
+    const existingForStage = await Match.countDocuments({ stageId: stageRule._id }).session(session);
+    if (existingForStage > 0) return { ok: true, skipped: 'stageHasMatches', created: 0 };
+
+    const oldGroupBrackets = await Bracket.find({ stageId: stageRule._id, type: 'group' }).select('_id').session(session);
+    const oldGroupBracketIds = oldGroupBrackets.map((bracket) => bracket._id);
+    if (oldGroupBracketIds.length) {
+        await Group.deleteMany({ bracketId: { $in: oldGroupBracketIds } }).session(session);
+        await Bracket.deleteMany({ _id: { $in: oldGroupBracketIds } }).session(session);
+    }
+
+    const fallbackTeamIds = await eligibleTeamIdsForTournament(tournamentItemId, session);
+    let fallbackOffset = 0;
+    let created = 0;
+
+    for (const branch of groupBranches) {
+        const bracket = await Bracket.create([{
+            TournamentItem: tournamentItemId,
+            stageId: stageRule._id,
+            type: 'group',
+            name: branch.name || stageConfig.name || stageRule.name,
+            totalTeamsIn: Number(branch.totalTeamsIn || stageConfig.input?.teams || 2),
+            group: [],
+        }], { session }).then((items) => items[0]);
+
+        const groups = Array.isArray(branch.groups) && branch.groups.length
+            ? branch.groups
+            : [{ name: branch.name || 'Bảng A', numberOfTeams: branch.totalTeamsIn || 2 }];
+
+        for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+            const groupConfig = groups[groupIndex];
+            const { teamIds, nextOffset } = teamIdsForGroupConfig(stageConfig, branch, groupIndex, groupConfig, fallbackTeamIds, fallbackOffset);
+            fallbackOffset = nextOffset;
+            if (teamIds.length < 2) continue;
+
+            const group = await Group.create([{
+                name: groupConfig.name || `Bảng ${String.fromCharCode(65 + groupIndex)}`,
+                tournamentItemId,
+                bracketId: bracket._id,
+                sport: config.sportType || 'Pickleball',
+                stageRuleId: stageRule._id,
+                status: 'pending',
+                matches: [],
+            }], { session }).then((items) => items[0]);
+            bracket.group.push(group._id);
+
+            const rounds = generateRoundRobinPairs(teamIds.map(String));
+            let localIndex = 1;
+            for (let roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
+                for (const [teamA, teamB] of rounds[roundIndex]) {
+                    const match = await Match.create([{
+                        tournamentItemId,
+                        stageId: stageRule._id,
+                        bracketId: bracket._id,
+                        groupId: group._id,
+                        name: `${group.name} - Match ${localIndex}`,
+                        round: roundIndex + 1,
+                        participants: [teamA, teamB],
+                        formatStageId: stageConfig.id,
+                        formatNodeId: `${stageConfig.id}:${branch.id}:group-${groupIndex + 1}:match-${localIndex}`,
+                        formatSlotLabels: [String(teamA), String(teamB)],
+                        status: 'pending',
+                        scheduleStatus: 'draft',
+                        previousMatches: [],
+                    }], { session }).then((items) => items[0]);
+                    group.matches.push(match._id);
+                    localIndex += 1;
+                    created += 1;
+                }
+            }
+            await group.save({ session });
+        }
+        await bracket.save({ session });
+    }
+
+    if (created === 0) {
+        return {
+            ok: false,
+            status: 409,
+            title: 'Chưa đủ đội để sinh vòng bảng',
+            message: 'Cần ít nhất 2 đội trong một bảng để tự sinh trận vòng tròn 1 lượt.',
+        };
+    }
+    return { ok: true, created };
 };
 
 export const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId, session, options = {}) => {
@@ -2098,11 +3147,28 @@ export const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId,
 
     const existingMatchCount = await Match.countDocuments({ tournamentItemId }).session(session);
     if (existingMatchCount > 0 && !options.force) {
-        console.info('[matches.syncFromFormat] skipped: existing matches preserved', {
+        const existingSync = await syncExistingMatchesFromFormat(tournamentItemId, config, session, {
+            allowLocked: Boolean(options.allowLocked),
+        });
+        console.info('[matches.syncFromFormat] existing matches synchronized without recreation', {
             tournamentItemId: String(tournamentItemId),
             existingMatchCount,
+            updated: existingSync.updated,
+            locked: existingSync.locked,
         });
-        return { ok: true, skipped: 'existingMatches', existingMatchCount };
+        const wildcardSync = await syncWildcardParticipantsFromStandings(tournamentItemId, session, {
+            allowTargetLocked: Boolean(options.allowLocked),
+            fillEmptyOnly: false,
+        });
+        return {
+            ok: true,
+            skipped: 'existingMatches',
+            existingMatchCount,
+            updated: existingSync.updated,
+            locked: existingSync.locked,
+            warnings: existingSync.warnings,
+            wildcard: wildcardSync,
+        };
     }
 
     const completedCount = await Match.countDocuments({ tournamentItemId, status: 'completed' }).session(session);
@@ -2130,7 +3196,7 @@ export const syncMatchesFromCompetitionConfig = async (tournamentItemId, userId,
                 hasBracket: true,
                 status: number === 1 ? 'actived' : 'pending',
             },
-            { new: true, upsert: true, session },
+            { returnDocument: 'after', upsert: true, session },
         );
         stageRuleByFormatId.set(stageConfig.id, stageRule);
         structureStageIds.push(stageRule._id);

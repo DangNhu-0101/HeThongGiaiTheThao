@@ -50,6 +50,8 @@ export interface ScheduleMatchRecord {
   teamB: ScheduleTeam;
   date?: string;
   time?: string;
+  endTime?: string;
+  durationMinutes?: number;
   venue?: string;
   order?: number;
   referee?: string;

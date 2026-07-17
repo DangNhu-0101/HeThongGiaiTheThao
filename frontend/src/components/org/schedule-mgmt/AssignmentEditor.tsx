@@ -20,9 +20,26 @@ const toInputDate = (value?: string) => {
   return value;
 };
 
+const minutesOfDay = (value?: string) => {
+  if (!value) return null;
+  const [hour, minute] = value.slice(0, 5).split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+};
+
+const timeFromMinutes = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+const defaultEndTime = (start?: string, durationMinutes?: number) => {
+  const startMinutes = minutesOfDay(start);
+  if (startMinutes === null) return "";
+  return timeFromMinutes(startMinutes + Math.max(1, Number(durationMinutes || 30)));
+};
+
 const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: Props) => {
   const [date, setDate] = useState(toInputDate(match.date));
   const [time, setTime] = useState((match.time || "").slice(0, 5));
+  const [endTime, setEndTime] = useState((match.endTime || defaultEndTime(match.time, match.durationMinutes)).slice(0, 5));
   const [venue, setVenue] = useState(match.venue || "");
   const [order, setOrder] = useState(match.order || 1);
   const [refereeIds, setRefereeIds] = useState<string[]>(match.refereeIds || []);
@@ -32,12 +49,13 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
     queueMicrotask(() => {
       setDate(toInputDate(match.date));
       setTime((match.time || "").slice(0, 5));
+      setEndTime((match.endTime || defaultEndTime(match.time, match.durationMinutes)).slice(0, 5));
       setVenue(match.venue || "");
       setOrder(match.order || 1);
       setRefereeIds(match.refereeIds || []);
       setRefereeSearch("");
     });
-  }, [match.id, match.date, match.time, match.venue, match.order, match.refereeIds]);
+  }, [match.id, match.date, match.time, match.endTime, match.durationMinutes, match.venue, match.order, match.refereeIds]);
 
   const selectedReferees = referees.filter((referee) => refereeIds.includes(referee.id));
   const filteredReferees = referees.filter((referee) => {
@@ -49,7 +67,7 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
     setRefereeIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
   const save = () => {
-    void Promise.resolve(onSave(match.id, { date, time, venue, order, refereeIds })).catch(() => undefined);
+    void Promise.resolve(onSave(match.id, { date, time, endTime, venue, order, refereeIds })).catch(() => undefined);
   };
 
   return (
@@ -73,15 +91,15 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
 
       <div className="space-y-4 mb-6">
         <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">Ngay & gio</label>
-          <div className="flex gap-2">
+          <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">Ngày & giờ</label>
+          <div className="grid grid-cols-1 gap-2">
             <div className="relative flex-1">
               <CalIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="date"
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                className="h-10 w-full pl-9 pr-3 text-sm font-semibold border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
               />
             </div>
             <div className="relative flex-1">
@@ -89,11 +107,28 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
               <input
                 type="time"
                 value={time}
-                onChange={(event) => setTime(event.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                onChange={(event) => {
+                  const nextStart = event.target.value;
+                  setTime(nextStart);
+                  if (!endTime || minutesOfDay(endTime) !== null && minutesOfDay(endTime)! <= (minutesOfDay(nextStart) ?? 0)) {
+                    setEndTime(defaultEndTime(nextStart, match.durationMinutes));
+                  }
+                }}
+                className="h-10 w-full pl-9 pr-3 text-sm font-semibold border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              />
+            </div>
+            <div className="relative flex-1">
+              <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="time"
+                value={endTime}
+                onChange={(event) => setEndTime(event.target.value)}
+                className="h-10 w-full pl-9 pr-3 text-sm font-semibold border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                title="Giờ kết thúc"
               />
             </div>
           </div>
+          <p className="mt-1 text-[10px] font-semibold text-muted-foreground">Bắt đầu và kết thúc được dùng để kiểm tra trùng sân/trọng tài.</p>
         </div>
 
         <div>
@@ -187,6 +222,7 @@ const AssignmentEditor = ({ match, venues, referees, saving = false, onSave }: P
         <Button variant="outline" className="w-9 h-9 p-0 border-border text-muted-foreground hover:text-foreground" onClick={() => {
           setDate(toInputDate(match.date));
           setTime((match.time || "").slice(0, 5));
+          setEndTime((match.endTime || defaultEndTime(match.time, match.durationMinutes)).slice(0, 5));
           setVenue(match.venue || "");
           setOrder(match.order || 1);
           setRefereeIds(match.refereeIds || []);

@@ -43,7 +43,7 @@ const ensureRole = async (roleName) => {
             permissions: config.permissions,
             isDefault: false
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 };
 
@@ -183,7 +183,7 @@ export const editProfile = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             { $set: updateData },
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         ).select('-hashedPassword').populate('roles', 'name');
 
         return res.status(200).json({
@@ -715,7 +715,7 @@ export const updateUserByAdmin = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { $set: updateData },
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         ).select('-hashedPassword').populate('roles', 'name');
 
         if (!updatedUser) {

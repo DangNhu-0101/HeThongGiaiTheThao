@@ -10,6 +10,20 @@ export const syncLiveMatches = async (now = new Date()) => {
     {
       status: 'pending',
       scheduledTime: { $ne: null, $lte: cutoff },
+      $expr: {
+        $eq: [
+          {
+            $size: {
+              $filter: {
+                input: { $ifNull: ['$participants', []] },
+                as: 'participant',
+                cond: { $ne: ['$$participant', null] },
+              },
+            },
+          },
+          2,
+        ],
+      },
     },
     { $set: { status: 'live' } },
   );

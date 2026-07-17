@@ -47,7 +47,7 @@ const textFromRef = (value: unknown, fallback = "") => {
   if (typeof value === "string") return value;
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
-    return String(record.name || record.displayName || record.username || fallback);
+    return String(record.fullName || record.name || record.displayName || record.username || fallback);
   }
   return String(value);
 };
@@ -62,6 +62,7 @@ const normalizeLocation = (location: unknown): Tournament["location"] => {
   return {
     city: typeof record.city === "string" ? record.city : "",
     district: typeof record.district === "string" ? record.district : "",
+    detail: typeof record.detail === "string" ? record.detail : "",
   };
 };
 
@@ -104,14 +105,16 @@ export const normalizeTournament = (rawValue: unknown): Tournament => {
   const item = readTournamentItem(raw);
   const timeline = asRecord(raw.timeLine || item.timeLine);
   const categoryRule = readCategoryRule(raw, item);
+  const rawMediaConfig = asRecord(raw.mediaConfig);
+  const itemMediaConfig = asRecord(item.mediaConfig);
   const sportType = categoryRule.sportType ? [String(categoryRule.sportType)] : raw.numberOfSport ? [`${raw.numberOfSport} môn`] : [];
 
   return {
     _id: String(item._id || raw._id || ""),
     name: String(raw.name || item.name || "Giải đấu"),
     description: String(raw.description || item.description || ""),
-    logo: String(raw.logo || item.logo || ""),
-    banner: firstImage(raw.banner || item.banner),
+    logo: String(raw.logo || item.logo || rawMediaConfig.logoUrl || itemMediaConfig.logoUrl || ""),
+    banner: firstImage(rawMediaConfig.bannerUrls || itemMediaConfig.bannerUrls || raw.banner || item.banner),
     sportType,
     timeLine: {
       registrationStart: dateOrNow(timeline.registrationStart || raw.startDate),
@@ -119,7 +122,7 @@ export const normalizeTournament = (rawValue: unknown): Tournament => {
       tournamentStart: dateOrNow(timeline.tournamentStart || raw.startDate),
       tournamentEnd: dateOrNow(timeline.tournamentEnd || raw.endDate),
     },
-    paymentQR: String(raw.paymentQR || item.paymentQR || ""),
+    paymentQR: String(raw.paymentQR || item.paymentQR || rawMediaConfig.paymentQRUrl || itemMediaConfig.paymentQRUrl || ""),
     prizes: String(raw.prizes || item.prizes || ""),
     galaConfig: {
       hasGala: Boolean(asRecord(raw.galaConfig).hasGala || asRecord(item.galaConfig).hasGala),
@@ -205,6 +208,7 @@ export const getBackendTournamentDetail = async (id: string): Promise<{
   );
   const maxTeams = Number(asRecord(categoryRule.customFields).maxTeams || raw.maxTeams || item.maxTeams || registeredTeams || 1);
   const registrationConfig = asRecord(item.registrationConfig || raw.registrationConfig);
+  const sponsorshipConfig = asRecord(item.sponsorshipConfig || raw.sponsorshipConfig);
 
   let detail: TournamentDetail = {
     ...tournament,
@@ -222,6 +226,7 @@ export const getBackendTournamentDetail = async (id: string): Promise<{
     registrationFormUrl: String(registrationConfig.formUrl || ""),
     registrationInstructions: String(registrationConfig.instructions || ""),
     supportContacts: String(registrationConfig.supportContacts || ""),
+    sponsorContact: String(sponsorshipConfig.contact || ""),
   };
   let teams: Team[] = [];
   let publicMatches: unknown[] = [];
@@ -255,6 +260,29 @@ export const getBackendTournamentDetail = async (id: string): Promise<{
       publicMatches = asArray(matchesResponse.data);
     } catch {
       publicMatches = [];
+    }
+    try {
+      const sponsorsResponse = await api.get<ApiList>(`/sponsors/tournament-item/${tournament._id}`);
+      detail = {
+        ...detail,
+        sponsors: asArray(sponsorsResponse.data)
+          .map((value) => {
+            const sponsor = asRecord(value);
+            return {
+              _id: String(sponsor._id || sponsor.id || ""),
+              name: String(sponsor.name || ""),
+              logo: String(sponsor.logo || ""),
+              website: String(sponsor.website || ""),
+              sponsorType: String(sponsor.sponsorType || ""),
+              sponsorshipType: String(sponsor.sponsorshipType || ""),
+              amount: Number(sponsor.amount || 0),
+              status: sponsor.status === "inactive" ? "inactive" as const : "actived" as const,
+            };
+          })
+          .filter((sponsor) => sponsor.name && sponsor.status !== "inactive"),
+      };
+    } catch {
+      detail = { ...detail, sponsors: [] };
     }
   }
 
@@ -442,6 +470,7 @@ export const getBackendResources = async (tournamentItemId: string): Promise<{
     return {
       id: String(raw._id || raw.id || ""),
       name: String(raw.name || "Trọng tài"),
+      phoneNumber: String(raw.phoneNumber || user.phoneNumber || ""),
       avatar: String(raw.name || "T").trim().slice(0, 1).toUpperCase(),
       refId: String(raw._id || raw.id || ""),
       qualification: String(raw.qualification || "Chưa cập nhật"),
@@ -504,5 +533,3 @@ export const getBackendSportsConfig = async (): Promise<{ stats: SportStat[]; sp
     formats: sports.map((sport) => ({ name: sport.name, value: sport.formatsCount })),
   };
 };
-
-

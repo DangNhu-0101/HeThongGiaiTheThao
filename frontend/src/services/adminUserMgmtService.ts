@@ -1,4 +1,4 @@
-import api from '@/libs/axios';
+﻿import api, { normalizeUploadUrl } from '@/libs/axios';
 import type { AdminUserRecord, AdminUserRole, AdminUserStatus, UserStatItem } from '@/types/adminUserMgmt';
 
 interface ApiUser {
@@ -23,18 +23,33 @@ const roleLabel = (user: ApiUser): AdminUserRole => {
   return 'Vận động viên';
 };
 
+const initials = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'U';
+
+const profileText = (value: unknown, fallback = 'Chưa cập nhật') => {
+  if (!value) return fallback;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value !== 'object') return fallback;
+  const record = value as Record<string, unknown>;
+  return [record.detail, record.district, record.city, record.province, record.country]
+    .filter(Boolean)
+    .map(String)
+    .join(', ') || fallback;
+};
+
 const mapUser = (user: ApiUser): AdminUserRecord => {
   const name = String(user.requestedProfile?.orgName || user.requestedProfile?.name || user.username);
+  const avatar = normalizeUploadUrl(user.avatar) || initials(name);
   return {
     id: user._id,
     name,
     email: user.email,
-    avatar: user.avatar || name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase(),
+    avatar,
     role: roleLabel(user),
     status: user.roleRequestStatus === 'pending' ? 'Chờ duyệt' : user.status === 'actived' ? 'Hoạt động' : 'Đang khóa',
     accessLevel: user.roles.includes('admin') ? 'Toàn quyền' : 'Giới hạn',
     lastLogin: user.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'Chưa có',
-    region: String(user.requestedProfile?.address || 'Chưa cập nhật'),
+    region: profileText(user.requestedProfile?.address),
     requestedRole: user.requestedRole,
   };
 };

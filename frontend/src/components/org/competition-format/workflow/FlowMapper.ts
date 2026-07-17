@@ -24,6 +24,31 @@ const evenSlotCount = (value: number) => {
   return safe % MATCH_SLOT_COUNT === 0 ? safe : safe + 1;
 };
 
+const isLuckyLabel = (value?: string) => /^Lucky\d+$/i.test(String(value || "").trim());
+
+const getVisibleDeletedMatchIds = (
+  stage: CompetitionStageConfig,
+  branch: StageBracketConfig,
+  teamCount: number,
+) => {
+  const deletedIds = new Set(branch.flowDeletedMatchIds || []);
+  const flowSlots = branch.flowSlots || [];
+  const wildcardSlotCount = flowSlots.filter((slot) => slot.reservedForWildcard || isLuckyLabel(slot.sourceLabel)).length;
+  if (!wildcardSlotCount) return deletedIds;
+
+  const baseSlotCount = evenSlotCount(Math.max(
+    MATCH_SLOT_COUNT,
+    flowSlots.filter((slot) => !slot.reservedForWildcard && !isLuckyLabel(slot.sourceLabel)).length,
+    teamCount - wildcardSlotCount,
+  ));
+  const previousDefaultMatchCount = Math.max(1, Math.ceil(baseSlotCount / MATCH_SLOT_COUNT));
+  const nextDefaultMatchCount = Math.max(1, Math.ceil(teamCount / MATCH_SLOT_COUNT));
+  for (let index = previousDefaultMatchCount; index < nextDefaultMatchCount; index += 1) {
+    deletedIds.delete(`${stage.id}:${branch.id}:m-${index + 1}`);
+  }
+  return deletedIds;
+};
+
 const ensureFlowSlots = (branch: StageBracketConfig, countHint?: number) => {
   const count = evenSlotCount(countHint || branch.totalTeamsIn || MATCH_SLOT_COUNT);
   return Array.from({ length: count }, (_, index) => branch.flowSlots?.[index] || {
@@ -52,25 +77,32 @@ const mergeIncomingSlots = (
   allNodes: FlowNodeModel[],
 ) => {
   const seedSlots = ensureTwoSeedSlots(node.id, node.seedSlots);
+  const usedSlots = new Set<number>();
   incoming.slice(0, MATCH_SLOT_COUNT).forEach((edge, index) => {
     const sourceNode = allNodes.find((item) => item.id === edge.source);
     const sourceIsMatch = sourceNode?.kind === "match";
     const label = edge.label || winnerLabelForNode(sourceNode);
+    const explicitSlotIndex = edge.targetSlot ? edge.targetSlot - 1 : undefined;
+    const fallbackSlotIndex = seedSlots.findIndex((slot, slotIndex) => !usedSlots.has(slotIndex) && !slot.sourceLabel);
+    const slotIndex = explicitSlotIndex !== undefined && explicitSlotIndex >= 0 && explicitSlotIndex < MATCH_SLOT_COUNT
+      ? explicitSlotIndex
+      : fallbackSlotIndex >= 0 ? fallbackSlotIndex : index;
+    usedSlots.add(slotIndex);
     if (!sourceIsMatch) {
-      seedSlots[index] = {
-        ...seedSlots[index],
-        id: `${node.id}:incoming-open-${index + 1}`,
+      seedSlots[slotIndex] = {
+        ...seedSlots[slotIndex],
+        id: `${node.id}:incoming-open-${slotIndex + 1}`,
         locked: false,
       };
       return;
     }
-    seedSlots[index] = {
-      ...seedSlots[index],
-      id: `${node.id}:incoming-${index + 1}`,
+    seedSlots[slotIndex] = {
+      ...seedSlots[slotIndex],
+      id: `${node.id}:incoming-${slotIndex + 1}`,
       label,
       sourceLabel: label,
       locked: sourceIsMatch,
-      globalIndex: sourceIsMatch ? undefined : seedSlots[index].globalIndex,
+      globalIndex: sourceIsMatch ? undefined : seedSlots[slotIndex].globalIndex,
     };
   });
   return seedSlots;
@@ -155,7 +187,7 @@ const makeKnockoutNodes = (
   const teamCount = evenSlotCount(Math.max(branch.flowSlots?.length || 0, branch.totalTeamsIn || MATCH_SLOT_COUNT));
   const flowSlots = ensureFlowSlots(branch, teamCount);
   const defaultMatchCount = Math.max(1, Math.ceil(teamCount / MATCH_SLOT_COUNT));
-  const deletedMatchIds = new Set(branch.flowDeletedMatchIds || []);
+  const deletedMatchIds = getVisibleDeletedMatchIds(stage, branch, teamCount);
 
   for (let index = 0; index < defaultMatchCount; index += 1) {
     const matchCode = nextMatchCode();
@@ -225,6 +257,7 @@ const makeKnockoutNodes = (
       source: connection.source,
       target: connection.target,
       label: connection.label || winnerLabelForNode(sourceNode),
+      targetSlot: connection.targetSlot,
       route: branch.flowConnectionRoutes?.[connection.id],
     });
   });
@@ -276,6 +309,7 @@ export const mapStagesToFlow = (stages: CompetitionStageConfig[]) => {
           source: connection.source,
           target: connection.target,
           label: connection.label || winnerLabelForNode(sourceNode),
+          targetSlot: connection.targetSlot,
           route: branch.flowConnectionRoutes?.[connection.id],
         });
       });
@@ -310,6 +344,7 @@ export const mapStagesToFlow = (stages: CompetitionStageConfig[]) => {
   const slottedEdges = cappedEdges.map((edge) => {
     const target = nodes.find((node) => node.id === edge.target);
     if (target?.kind !== "match") return edge;
+    if (edge.targetSlot === 1 || edge.targetSlot === 2) return edge;
     const slotIndex = incomingEdgesByTarget.get(edge.target)?.findIndex((item) => item.id === edge.id) ?? -1;
     if (slotIndex < 0 || slotIndex >= MATCH_SLOT_COUNT) return edge;
     return { ...edge, targetSlot: (slotIndex + 1) as 1 | 2 };
@@ -334,7 +369,7 @@ export const mapStagesToFlow = (stages: CompetitionStageConfig[]) => {
     if (node.kind !== "match") return;
     const incoming = incomingEdgesByTarget.get(node.id) || [];
     node.seedSlots = incoming.length
-      ? mergeIncomingSlots(node, incoming, nodes)
+      ? mergeIncomingSlots(node, incoming.map((edge) => slottedEdges.find((item) => item.id === edge.id) || edge), nodes)
       : ensureTwoSeedSlots(node.id, node.seedSlots);
   });
 

@@ -24,6 +24,8 @@ type AssignedSlotDrag = {
   label: string;
 };
 
+const isLuckyLabel = (value?: string) => /^Lucky\d+$/i.test(String(value || "").trim());
+
 const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: Props) => {
   const graph = useMemo(() => mapStagesToFlow(stages), [stages]);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -122,6 +124,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
       flowSlots[payload.globalIndex] = {
         ...flowSlots[payload.globalIndex],
         sourceLabel: undefined,
+        reservedForWildcard: undefined,
         sourceStageId: undefined,
         sourceGroupName: undefined,
         sourceRank: undefined,
@@ -172,7 +175,17 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
     );
     return graph.edges
       .filter((edge) => sourceNodeIds.has(edge.source) && nodeById.get(edge.target)?.kind === "match")
-      .map((edge) => ({ id: edge.id, source: edge.source, target: edge.target, label: edge.label }));
+      .map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: edge.label,
+        output: "WINNER" as const,
+        targetSlot: edge.targetSlot,
+        targetSlotId: edge.targetSlot ? `${edge.target}:slot-${edge.targetSlot}` : undefined,
+        sourceStageId: nodeById.get(edge.source)?.stageId,
+        targetStageId: nodeById.get(edge.target)?.stageId,
+      }));
   };
 
   const updateBranchByNode = (node: FlowNodeModel, patcher: (branch: NonNullable<ReturnType<typeof getStageAndBranch>["branch"]>) => NonNullable<ReturnType<typeof getStageAndBranch>["branch"]>) => {
@@ -205,7 +218,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
   const connectTargets = (sourceId: string, targetIds: string[]) => {
     const source = nodeById.get(sourceId);
     const uniqueTargetIds = [...new Set(targetIds)].filter((targetId) => targetId !== sourceId && nodeById.get(targetId)?.kind === "match");
-    if (!source || uniqueTargetIds.length === 0) return;
+    if (!source) return;
 
     updateBranchByNode(source, (branch) => {
       const nodeIds = new Set(graph.nodes.map((node) => node.id));
@@ -214,15 +227,31 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
       let nextConnections = source.kind === "match"
         ? baseConnections.filter((connection) => connection.source !== source.id)
         : baseConnections.filter((connection) => !(connection.source === source.id && uniqueTargetIds.includes(connection.target)));
-      const graphConnections = graph.edges
+      const graphEdgesAfterSourceRemoval = graph.edges
+        .filter((edge) => edge.source !== source.id && nodeIds.has(edge.source) && nodeIds.has(edge.target));
+      const graphConnections = graphEdgesAfterSourceRemoval
         .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
         .map((edge) => ({ source: edge.source, target: edge.target }));
       const skipped: string[] = [];
+      const nextIncomingByTarget = new Map<string, number[]>();
+      graphEdgesAfterSourceRemoval.forEach((edge) => {
+        if (edge.targetSlot === 1 || edge.targetSlot === 2) {
+          nextIncomingByTarget.set(edge.target, [...(nextIncomingByTarget.get(edge.target) || []), edge.targetSlot]);
+        }
+      });
+      nextConnections.forEach((connection) => {
+        if (connection.targetSlot === 1 || connection.targetSlot === 2) {
+          const occupied = nextIncomingByTarget.get(connection.target) || [];
+          if (!occupied.includes(connection.targetSlot)) {
+            nextIncomingByTarget.set(connection.target, [...occupied, connection.targetSlot]);
+          }
+        }
+      });
 
       uniqueTargetIds.forEach((targetId) => {
         const target = nodeById.get(targetId);
         if (!target) return;
-        const incomingCount = graph.edges.filter((edge) => edge.target === targetId && !(edge.source === source.id && edge.target === targetId)).length;
+        const incomingCount = graphEdgesAfterSourceRemoval.filter((edge) => edge.target === targetId).length;
         if (incomingCount >= 2) {
           skipped.push(target.matchCode || target.title);
           return;
@@ -231,17 +260,38 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
           skipped.push(target.matchCode || target.title);
           return;
         }
-        if (wouldCreateCycle(source.id, targetId, [...graphConnections, ...nextConnections])) {
+        if (wouldCreateCycle(source.id, targetId, graphConnections)) {
+          skipped.push(target.matchCode || target.title);
+          return;
+        }
+        const occupiedSlots = new Set(nextIncomingByTarget.get(targetId) || []);
+        const removedSourceSlots = new Set(
+          graph.edges
+            .filter((edge) => edge.source === source.id && edge.target === targetId && (edge.targetSlot === 1 || edge.targetSlot === 2))
+            .map((edge) => edge.targetSlot),
+        );
+        target.seedSlots.forEach((slot, index) => {
+          const slotNumber = (index + 1) as 1 | 2;
+          if (slot.sourceLabel && !removedSourceSlots.has(slotNumber)) occupiedSlots.add(slotNumber);
+        });
+        const targetSlot = (!occupiedSlots.has(1) ? 1 : !occupiedSlots.has(2) ? 2 : undefined) as 1 | 2 | undefined;
+        if (!targetSlot) {
           skipped.push(target.matchCode || target.title);
           return;
         }
         const connection = {
-          id: `${source.id}->${targetId}`,
+          id: `${source.id}->${targetId}:slot-${targetSlot}`,
           source: source.id,
           target: targetId,
           label: source.matchCode || source.title,
+          output: "WINNER" as const,
+          targetSlot,
+          targetSlotId: `${targetId}:slot-${targetSlot}`,
+          sourceStageId: source.stageId,
+          targetStageId: target.stageId,
         };
         if (!nextConnections.some((item) => item.id === connection.id)) nextConnections = [...nextConnections, connection];
+        nextIncomingByTarget.set(targetId, [...(nextIncomingByTarget.get(targetId) || []), targetSlot]);
       });
 
       if (skipped.length) window.alert(`Một số match không thể nối: ${skipped.join(", ")}.`);
@@ -253,6 +303,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
         ...branch,
         flowConnections: nextConnections,
         flowConnectionRoutes,
+        flowConnectionsConfigured: true,
       };
     });
   };
@@ -314,6 +365,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
     slots[globalIndex] = {
       ...slots[globalIndex],
       sourceLabel: entrant.label,
+      reservedForWildcard: isLuckyLabel(entrant.label) ? true : slots[globalIndex].reservedForWildcard,
       sourceStageId: entrant.sourceNodeId.split(":")[0],
       sourceRank: entrant.rank,
     };
@@ -364,6 +416,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
     slots[payload.globalIndex] = {
       ...slots[payload.globalIndex],
       sourceLabel: undefined,
+      reservedForWildcard: slots[payload.globalIndex].reservedForWildcard && isLuckyLabel(slots[payload.globalIndex].sourceLabel) ? true : undefined,
       sourceStageId: undefined,
       sourceGroupName: undefined,
       sourceRank: undefined,
@@ -411,6 +464,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
             [id]: { x, y },
           },
           flowConnections: item.flowConnections || graphConnectionsForBranch(item.id),
+          flowConnectionsConfigured: true,
         }
         : item),
     });
@@ -442,6 +496,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
           ? branch.flowDeletedMatchIds
           : Array.from(new Set([...(branch.flowDeletedMatchIds || []), node.id])),
         flowConnections,
+        flowConnectionsConfigured: true,
         flowConnectionRoutes: Object.fromEntries(
           Object.entries(branch.flowConnectionRoutes || {}).filter(([edgeId]) => routeIds.has(edgeId)),
         ),
@@ -496,6 +551,7 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
     updateBranchByNode(source, (branch) => ({
       ...branch,
       flowConnections: branch.flowConnections || graphConnectionsForBranch(branch.id),
+      flowConnectionsConfigured: true,
       flowConnectionRoutes: {
         ...(branch.flowConnectionRoutes || {}),
         [edgeId]: {
@@ -772,7 +828,6 @@ const FlowCanvas = ({ stages, focusedBranchId, onFocusBranch, onChangeStage }: P
               <Button
                 type="button"
                 size="sm"
-                disabled={selectedConnectionTargetIds.length === 0}
                 onClick={() => {
                   connectTargets(connectionPickerSourceId, selectedConnectionTargetIds);
                   setConnectionPickerSourceId(undefined);

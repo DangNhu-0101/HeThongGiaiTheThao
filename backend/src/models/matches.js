@@ -42,6 +42,7 @@ const matchSchema = new mongoose.Schema({
     // Trạng thái
     status: { type: String, enum: MATCH_STATUS_VALUES, default: 'pending' },
     scheduledTime: { type: Date },
+    durationMinutes: { type: Number, min: 1 },
     courtId: { type: mongoose.Schema.Types.ObjectId, ref: 'Court' },
     refereeIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TournamentReferee' }],
     scheduleOrder: { type: Number, default: 0 },

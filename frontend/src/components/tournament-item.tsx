@@ -21,7 +21,7 @@ export function TournamentItem() {
                             variant="secondary"
                             className="border-l-4 border-red-500 bg-red-50 px-3 py-1 text-sm font-semibold uppercase text-red-700 shadow-sm dark:bg-red-950/40 dark:text-red-300"
                         >
-                            🏓 SÁP DIỆN RA
+                            🏓 SẮP DIỄN RA
                         </Badge>
 
                         {/* Season indicator */}

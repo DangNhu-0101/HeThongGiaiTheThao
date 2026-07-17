@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { HelpCircle, Loader2, Menu, Search } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import AccountMenu from "../AccountMenu";
 import NotificationCenter from "../NotificationCenter";
@@ -124,8 +124,12 @@ const OrgHeader = ({ setSidebarOpen }: { setSidebarOpen: (value: boolean) => voi
 
       <div className="flex items-center gap-2 sm:gap-4">
         <Button variant="ghost" size="icon" className="hidden text-muted-foreground hover:text-foreground sm:inline-flex" aria-label="Trợ giúp">
-          <HelpCircle className="size-5" />
+          <Link to="/contact" target="_blank" rel="noopener noreferrer">
+                  <HelpCircle className="size-5" />
+          </Link>
+    
         </Button>
+        
         <NotificationCenter variant="dashboard" />
         <div className="mx-1 hidden h-8 w-px bg-border sm:block" />
         <AccountMenu compact />

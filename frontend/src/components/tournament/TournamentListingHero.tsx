@@ -1,5 +1,4 @@
 import PublicHero from "@/components/layout/PublicHero";
-
 import heroImage from "@/assets/spectator.png";
 
 interface TournamentListingHeroProps {
@@ -18,7 +17,7 @@ const TournamentListingHero = ({ total, active, open, sportCount }: TournamentLi
       imageSrc={heroImage}
       imageAlt="Vận động viên thi đấu trên sân thể thao"
       stats={[
-        { value: total, label: "Tổng sự kiện" },
+        { value: total, label: "Tổng giải" },
         { value: active, label: "Đang diễn ra" },
         { value: open, label: "Mở đăng ký" },
         { value: sportCount, label: "Môn thể thao" },

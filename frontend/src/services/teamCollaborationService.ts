@@ -1,4 +1,4 @@
-import api from "@/libs/axios";
+import api, { normalizeUploadUrl } from "@/libs/axios";
 import type {
   MemberFee,
   PlayerProfileSummary,
@@ -6,10 +6,6 @@ import type {
   TeamJoinRequest,
   TeamNotification,
 } from "@/types/teamCollaboration";
-
-const API_ORIGIN = (import.meta.env.VITE_API_URL
-  || (import.meta.env.MODE === "development" ? "http://localhost:5001/api" : "/api"))
-  .replace(/\/api\/?$/, "");
 
 const unwrap = <T>(value: { data?: T } | T): T =>
   value && typeof value === "object" && "data" in value
@@ -22,9 +18,7 @@ const asRecord = (value: unknown): Record<string, unknown> =>
 const normalizeImage = (value?: unknown) => {
   const image = String(value || "").trim();
   if (!image) return "";
-  if (/^(https?:\/\/|data:image\/|blob:)/i.test(image)) return image;
-  if (/^\/?uploads\//i.test(image)) return `${API_ORIGIN}/${image.replace(/^\/+/, "")}`;
-  return image;
+  return normalizeUploadUrl(image) || image;
 };
 
 const genderLabel = (value?: string) => {

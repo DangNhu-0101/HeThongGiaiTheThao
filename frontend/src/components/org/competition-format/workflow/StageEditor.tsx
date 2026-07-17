@@ -1,10 +1,7 @@
 import { GripVertical, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { competitionFormatService } from "@/services/competitionFormatService";
 import type { RankingCriterion, StageBracketConfig } from "@/types/competitionFormat";
 import BranchEditor from "./BranchEditor";
 import type { StageEditorProps } from "./flowTypes";
@@ -69,23 +66,6 @@ const moveItem = <T,>(items: T[], from: number, to: number) => {
   return next;
 };
 
-interface WildcardPreviewRow {
-  key?: string;
-  rank: number;
-  teamName: string;
-  stageNames?: string[];
-  played: number;
-  points: number;
-  pointDiff: number;
-}
-
-interface WildcardPreviewState {
-  readyToResolve?: boolean;
-  pendingReasons?: string[];
-  criteria?: Array<{ type: string; priority: number }>;
-  candidates?: WildcardPreviewRow[];
-  selected?: WildcardPreviewRow[];
-}
 
 const CriteriaOrder = ({
   label,
@@ -146,15 +126,12 @@ const CriteriaOrder = ({
 const StageEditor = ({
   stage,
   allStages,
-  tournamentItemId,
   focusedBranchId,
   onFocusBranch,
   onChange,
   onDelete,
   canDelete,
 }: StageEditorProps) => {
-  const [wildcardPreview, setWildcardPreview] = useState<WildcardPreviewState | null>(null);
-  const [wildcardLoading, setWildcardLoading] = useState(false);
   const updateStage = <K extends keyof typeof stage>(key: K, value: (typeof stage)[K]) => {
     onChange({ ...stage, [key]: value });
   };
@@ -167,34 +144,6 @@ const StageEditor = ({
     type: criterion,
     priority: index + 1,
   }));
-  const previewWildcard = async () => {
-    if (!tournamentItemId) return toast.error("Chưa chọn giải để xem trước vé vớt.");
-    setWildcardLoading(true);
-    try {
-      const data = await competitionFormatService.previewWildcard(tournamentItemId, stage.id);
-      setWildcardPreview(data);
-      toast.success("Đã tính thử danh sách vé vớt.");
-    } catch (error) {
-      console.error(error);
-      toast.error("Không thể xem trước vé vớt.");
-    } finally {
-      setWildcardLoading(false);
-    }
-  };
-  const confirmWildcard = async () => {
-    if (!tournamentItemId) return toast.error("Chưa chọn giải để xác nhận vé vớt.");
-    setWildcardLoading(true);
-    try {
-      const data = await competitionFormatService.confirmWildcard(tournamentItemId, stage.id);
-      setWildcardPreview(data);
-      toast.success("Đã xác nhận vé vớt.");
-    } catch (error) {
-      console.error(error);
-      toast.error("Chưa thể xác nhận vé vớt. Kiểm tra trạng thái trận/kết quả ở stage nguồn.");
-    } finally {
-      setWildcardLoading(false);
-    }
-  };
   const updateBranch = (branchId: string, patch: Partial<StageBracketConfig>) => {
     const brackets = stage.brackets.map((branch) => branch.id === branchId ? normalizeBranchSlots({ ...branch, ...patch }) : branch);
     const groupBranch = brackets.find((branch) => branch.type === "group");
@@ -373,53 +322,6 @@ const StageEditor = ({
                 },
               })}
             />
-            <div className="rounded-lg border border-border bg-card p-3">
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => void previewWildcard()} disabled={wildcardLoading}>
-                  {wildcardLoading ? "Đang tính..." : "Xem trước vé vớt"}
-                </Button>
-                <Button type="button" size="sm" onClick={() => void confirmWildcard()} disabled={wildcardLoading || !wildcardPreview}>
-                  Xác nhận
-                </Button>
-              </div>
-              {wildcardPreview && (
-                <div className="mt-3 space-y-2">
-                  {!wildcardPreview.readyToResolve && (
-                    <p className="rounded-md bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-                      Chờ xác định: {(wildcardPreview.pendingReasons || []).join(" ")}
-                    </p>
-                  )}
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[520px] text-left text-xs">
-                      <thead className="text-muted-foreground">
-                        <tr>
-                          <th className="py-2">Hạng</th>
-                          <th>Đội</th>
-                          <th>Stage đã tham gia</th>
-                          <th>Trận</th>
-                          <th>Điểm</th>
-                          <th>Hiệu số</th>
-                          <th>Key</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(wildcardPreview.selected || []).map((row) => (
-                          <tr key={`${row.key || row.rank}-${row.teamName}`} className="border-t border-border">
-                            <td className="py-2 font-black">{row.rank}</td>
-                            <td className="font-bold">{row.teamName}</td>
-                            <td>{(row.stageNames || []).join(", ")}</td>
-                            <td>{row.played}</td>
-                            <td>{row.points}</td>
-                            <td>{row.pointDiff}</td>
-                            <td className="font-black text-primary">{row.key}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         )}
       </div>
@@ -428,3 +330,4 @@ const StageEditor = ({
 };
 
 export default StageEditor;
+

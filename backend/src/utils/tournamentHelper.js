@@ -124,10 +124,11 @@ export const releaseCategoryRules = async (categoryRuleIds, session = null) => {
  * @param {string|Date} tournamentEnd
  * @returns {Object} { success, data, errors }
  */
-export const validateTimeline = (registrationStart, registrationEnd, tournamentStart, tournamentEnd) => {
+export const validateTimeline = (registrationStart, registrationEnd, tournamentStart, tournamentEnd, options = {}) => {
     const errors = [];
     const now = new Date();
     const allowedClockSkewMs = 5 * 60 * 1000;
+    const allowPast = Boolean(options.allowPast);
     const regStart = new Date(registrationStart);
     const regEnd = new Date(registrationEnd);
     const tourStart = new Date(tournamentStart);
@@ -145,7 +146,7 @@ export const validateTimeline = (registrationStart, registrationEnd, tournamentS
     if (tourStart >= tourEnd) {
         errors.push('Tournament start must be before tournament end');
     }
-    if (regStart.getTime() + allowedClockSkewMs < now.getTime()) {
+    if (!allowPast && regStart.getTime() + allowedClockSkewMs < now.getTime()) {
         errors.push('Registration start must be in the future');
     }
     if (errors.length) {
@@ -168,12 +169,13 @@ export const validateTimeline = (registrationStart, registrationEnd, tournamentS
  * @param {Object} body - chứa registrationStart, registrationEnd, tournamentStart, tournamentEnd
  * @returns {Object} { success, data, errors }
  */
-export const buildTimeline = (body) => {
+export const buildTimeline = (body, options = {}) => {
     return validateTimeline(
         body.registrationStart,
         body.registrationEnd,
         body.tournamentStart,
-        body.tournamentEnd
+        body.tournamentEnd,
+        options
     );
 };
 

@@ -35,7 +35,7 @@ export const markNotificationRead = async (req, res) => {
         const notification = await Notification.findOneAndUpdate(
             { _id: req.params.id, userId: req.user._id, deletedAt: null },
             { $set: { isRead: true, readAt: new Date() } },
-            { new: true }
+            { returnDocument: 'after' }
         );
         if (!notification) return res.status(404).json({ success: false, message: 'Không tìm thấy thông báo' });
         return res.json({ success: true, data: mapNotification(notification) });
@@ -61,7 +61,7 @@ export const deleteNotification = async (req, res) => {
         const notification = await Notification.findOneAndUpdate(
             { _id: req.params.id, userId: req.user._id, deletedAt: null },
             { $set: { deletedAt: new Date(), isRead: true, readAt: new Date() } },
-            { new: true }
+            { returnDocument: 'after' }
         );
         if (!notification) return res.status(404).json({ success: false, message: 'Không tìm thấy thông báo' });
         return res.json({ success: true, message: 'Đã xóa thông báo' });

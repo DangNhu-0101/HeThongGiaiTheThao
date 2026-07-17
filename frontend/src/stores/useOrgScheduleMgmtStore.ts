@@ -20,6 +20,11 @@ type ApiStoreError = Error & {
     data?: {
       title?: string;
       message?: string;
+      data?: {
+        successCount?: number;
+        failedCount?: number;
+        failures?: Array<{ matchId: string; matchName: string; reason: string }>;
+      };
     };
   };
 };
@@ -31,11 +36,30 @@ const minutesOfDay = (time?: string) => {
   return hour * 60 + minute;
 };
 
-const windowsOverlap = (aStart: number, bStart: number, duration = MATCH_DURATION_MINUTES) =>
-  aStart < bStart + duration && bStart < aStart + duration;
+const durationOf = (match: Pick<ScheduleMatchRecord, "durationMinutes">) =>
+  Math.max(1, Number(match.durationMinutes || MATCH_DURATION_MINUTES));
+
+const timeFromMinutes = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+const durationFromTimeRange = (time?: string, endTime?: string) => {
+  const start = minutesOfDay(time);
+  const end = minutesOfDay(endTime);
+  if (start === null || end === null) return null;
+  return end > start ? end - start : null;
+};
+
+const windowsOverlap = (aStart: number, bStart: number, aDuration: number, bDuration: number) =>
+  aStart < bStart + bDuration && bStart < aStart + aDuration;
 
 const sameSlotKey = (match: ScheduleMatchRecord) =>
   match.venue && match.date && match.time ? `${match.venue}:${match.date}:${match.time.slice(0, 5)}` : "";
+
+const hasSchedule = (match: Pick<ScheduleMatchRecord, "date" | "time" | "venue">) =>
+  Boolean(match.date && match.time && match.venue);
+
+const isUnscheduledMatch = (match: ScheduleMatchRecord) =>
+  match.status !== "Live" && !hasSchedule(match);
 
 const applyConflicts = (matches: ScheduleMatchRecord[]): ScheduleMatchRecord[] => {
   const counts = new Map<string, number>();
@@ -49,7 +73,7 @@ const applyConflicts = (matches: ScheduleMatchRecord[]): ScheduleMatchRecord[] =
       ? "Conflict"
       : match.status === "Live"
         ? "Live"
-        : match.date && match.time && match.venue ? "Scheduled" : "Unscheduled";
+        : hasSchedule(match) ? "Scheduled" : "Unscheduled";
     return {
       ...match,
       status,
@@ -61,16 +85,24 @@ const applyConflicts = (matches: ScheduleMatchRecord[]): ScheduleMatchRecord[] =
 const getRefereeNames = (refereeIds: string[] = [], referees: ScheduleReferee[]) =>
   referees.filter((referee) => refereeIds.includes(referee.id)).map((referee) => referee.name).join(", ");
 
+const sameIds = (left: string[] = [], right: string[] = []) =>
+  [...new Set(left)].sort().join(":") === [...new Set(right)].sort().join(":");
+
 const validateScheduleUpdate = (
   targetId: string,
   candidate: ScheduleMatchRecord,
   matches: ScheduleMatchRecord[],
   venues: VenueColumn[],
-  referees: ScheduleReferee[],
 ) => {
   if (!candidate.date || !candidate.time) return;
   const start = minutesOfDay(candidate.time);
   if (start === null) return;
+  const explicitDuration = candidate.endTime ? durationFromTimeRange(candidate.time, candidate.endTime) : durationOf(candidate);
+  if (explicitDuration === null) {
+    throw Object.assign(new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu."), {
+      title: "Khung giờ chưa hợp lệ",
+    });
+  }
   const venueName = venues.find((venue) => venue.id === candidate.venue)?.name || candidate.venue || "Sân thi đấu";
   const refereeIds = candidate.refereeIds || [];
 
@@ -78,57 +110,80 @@ const validateScheduleUpdate = (
     if (match.id === targetId || !match.date || !match.time || match.status === "Unscheduled") continue;
     if (match.date !== candidate.date) continue;
     const otherStart = minutesOfDay(match.time);
-    if (otherStart === null || !windowsOverlap(start, otherStart)) continue;
+    if (otherStart === null || !windowsOverlap(start, otherStart, explicitDuration, durationOf(match))) continue;
 
     if (candidate.venue && match.venue === candidate.venue) {
-      throw Object.assign(new Error(`${venueName} đã có trận ${match.code} từ ${match.time.slice(0, 5)} đến ${String(Math.floor((otherStart + MATCH_DURATION_MINUTES) / 60)).padStart(2, "0")}:${String((otherStart + MATCH_DURATION_MINUTES) % 60).padStart(2, "0")}. Vui lòng chọn thời gian hoặc sân khác.`), {
+      const otherEnd = otherStart + durationOf(match);
+      throw Object.assign(new Error(`${venueName} đã có trận ${match.code} từ ${match.time.slice(0, 5)} đến ${String(Math.floor(otherEnd / 60)).padStart(2, "0")}:${String(otherEnd % 60).padStart(2, "0")}. Vui lòng chọn thời gian hoặc sân khác.`), {
         title: "Trung lịch thi đấu",
       });
     }
 
     const duplicatedRefereeId = refereeIds.find((id) => (match.refereeIds || []).includes(id));
     if (duplicatedRefereeId) {
-      const refereeName = referees.find((referee) => referee.id === duplicatedRefereeId)?.name || "Trọng tài";
-      throw Object.assign(new Error(`${refereeName} đã được phân công ở trận ${match.code} trong cùng khung giờ. Vui lòng chọn trọng tài khác.`), {
+      throw Object.assign(new Error("Trọng tài này đã được phân công cho một trận khác trong cùng khung giờ."), {
         title: "Trùng lịch trọng tài",
       });
     }
   }
 };
 
+const validateRefereeUpdate = (
+  targetId: string,
+  candidate: ScheduleMatchRecord,
+  matches: ScheduleMatchRecord[],
+) => {
+  const start = minutesOfDay(candidate.time);
+  if (!candidate.date || start === null || !(candidate.refereeIds || []).length) return;
+  const explicitDuration = candidate.endTime ? durationFromTimeRange(candidate.time, candidate.endTime) : durationOf(candidate);
+  if (explicitDuration === null) {
+    throw Object.assign(new Error("Giờ kết thúc phải lớn hơn giờ bắt đầu."), {
+      title: "Khung giờ chưa hợp lệ",
+    });
+  }
+  const hasConflict = matches.some((match) => {
+    if (match.id === targetId || match.date !== candidate.date) return false;
+    if (!(match.refereeIds || []).some((id) => (candidate.refereeIds || []).includes(id))) return false;
+    const otherStart = minutesOfDay(match.time);
+    return otherStart !== null && windowsOverlap(start, otherStart, explicitDuration, durationOf(match));
+  });
+  if (hasConflict) {
+    throw Object.assign(new Error("Trọng tài này đã được phân công cho một trận khác trong cùng khung giờ."), {
+      title: "Trùng lịch trọng tài",
+    });
+  }
+};
+
 const buildStats = (matches: ScheduleMatchRecord[]): ScheduleStat[] => {
   const scheduled = matches.filter((match) => match.status === "Scheduled" || match.status === "Live").length;
   const conflicts = matches.filter((match) => match.status === "Conflict").length;
+  const unscheduled = matches.filter(isUnscheduledMatch).length;
   const assignedReferees = new Set(matches.flatMap((match) => match.refereeIds || [])).size;
   return [
     { id: "total", label: "Tổng trận", value: matches.length, iconType: "total", color: "text-blue-600 bg-blue-100" },
     { id: "scheduled", label: "Đã xếp lịch", value: scheduled, iconType: "scheduled", color: "text-green-600 bg-green-100" },
-    { id: "unscheduled", label: "Chưa xếp", value: matches.length - scheduled - conflicts, iconType: "unscheduled", color: "text-amber-600 bg-amber-100" },
+    { id: "unscheduled", label: "Chưa xếp", value: unscheduled, iconType: "unscheduled", color: "text-amber-600 bg-amber-100" },
     { id: "conflict", label: "Xung đột", value: conflicts, iconType: "conflict", color: "text-red-600 bg-red-100" },
     { id: "referee", label: "Trọng tài", value: assignedReferees, iconType: "referee", color: "text-purple-600 bg-purple-100" },
   ];
 };
 
+const chooseVisibleStageId = (
+  stages: ScheduleStageOption[],
+  matches: ScheduleMatchRecord[],
+  currentStageId: string | null,
+) => {
+  if (!stages.length) return null;
+  const currentStageExists = Boolean(currentStageId && stages.some((stage) => stage.id === currentStageId));
+  if (currentStageExists && matches.some((match) => match.stageId === currentStageId)) return currentStageId;
+  const firstStageWithMatches = stages.find((stage) => matches.some((match) => match.stageId === stage.id));
+  return firstStageWithMatches?.id || (currentStageExists ? currentStageId : stages[0]?.id) || null;
+};
+
 const addMinutes = (time: string, minutes: number) => {
   const start = minutesOfDay(time) ?? 8 * 60;
   const next = start + minutes;
-  return `${String(Math.floor(next / 60)).padStart(2, "0")}:${String(next % 60).padStart(2, "0")}`;
-};
-
-const isScheduled = (match: ScheduleMatchRecord) => Boolean(match.date && match.time && match.venue);
-
-const findRefereeConflict = (
-  refereeId: string,
-  candidate: ScheduleMatchRecord,
-  matches: ScheduleMatchRecord[],
-) => {
-  const start = minutesOfDay(candidate.time);
-  if (!candidate.date || start === null) return undefined;
-  return matches.find((match) => {
-    if (match.id === candidate.id || match.date !== candidate.date || !(match.refereeIds || []).includes(refereeId)) return false;
-    const otherStart = minutesOfDay(match.time);
-    return otherStart !== null && windowsOverlap(start, otherStart);
-  });
+  return timeFromMinutes(next);
 };
 
 export interface OrgScheduleMgmtState {
@@ -143,6 +198,7 @@ export interface OrgScheduleMgmtState {
   selectedMatchId: string | null;
   currentTournamentItemId: string | null;
   loading: boolean;
+  error: string | null;
   savingMatchIds: string[];
   fetchData: (tournamentItemId?: string, silent?: boolean) => Promise<void>;
   setSelectedStageId: (id: string | null) => void;
@@ -172,16 +228,15 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
   selectedMatchId: null,
   currentTournamentItemId: null,
   loading: false,
+  error: null,
   savingMatchIds: [],
 
   fetchData: async (tournamentItemId, silent = false) => {
-    if (!silent) set({ loading: true });
+    if (!silent) set({ loading: true, error: null });
     try {
       const data = await orgScheduleMgmtService.getScheduleData(tournamentItemId);
       const matches = applyConflicts(data.matches);
-      const selectedStageId = get().selectedStageId && data.stages.some((stage) => stage.id === get().selectedStageId)
-        ? get().selectedStageId
-        : data.stages[0]?.id || null;
+      const selectedStageId = chooseVisibleStageId(data.stages, matches, get().selectedStageId);
       set({
         stats: buildStats(matches),
         capacity: data.capacity,
@@ -193,9 +248,16 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         currentTournamentItemId: tournamentItemId || null,
         selectedStageId,
         selectedMatchId: null,
+        error: null,
       });
     } catch (error) {
       console.error("Lỗi tai dữ liệu lịch thi đấu:", error);
+      const apiError = error as ApiStoreError;
+      set({
+        matches: [],
+        needsGroupSetup: false,
+        error: apiError.response?.data?.message || apiError.message || "Không thể tải dữ liệu trận đấu. Vui lòng thử lại.",
+      });
     } finally {
       if (!silent) set({ loading: false });
     }
@@ -222,8 +284,22 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
     const current = previousMatches.find((match) => match.id === id);
     if (!current) return;
     const candidate = { ...current, ...updates };
+    const rangeDuration = candidate.endTime ? durationFromTimeRange(candidate.time, candidate.endTime) : null;
+    if (rangeDuration !== null) candidate.durationMinutes = rangeDuration;
+    const scheduleChanged = candidate.date !== current.date
+      || candidate.time !== current.time
+      || candidate.endTime !== current.endTime
+      || candidate.durationMinutes !== current.durationMinutes
+      || candidate.venue !== current.venue
+      || candidate.order !== current.order;
+    const refereeChanged = !sameIds(candidate.refereeIds, current.refereeIds);
+    if (!scheduleChanged && !refereeChanged) return;
     try {
-      validateScheduleUpdate(id, candidate, previousMatches, get().venues, get().referees);
+      if (scheduleChanged) {
+        validateScheduleUpdate(id, candidate, previousMatches, get().venues);
+      } else {
+        validateRefereeUpdate(id, candidate, previousMatches);
+      }
     } catch (error: unknown) {
       toast.error((error as ApiStoreError).title || "Không thể lưu phân công", {
         description: (error as ApiStoreError).message || "Dữ liệu lịch thi đấu chưa hợp lệ.",
@@ -236,8 +312,34 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
     const nextMatches = applyConflicts(previousMatches.map((match) => match.id === id ? { ...candidate, referee, referees: refereeRecords } : match));
     set((state) => ({ savingMatchIds: [...new Set([...state.savingMatchIds, id])], matches: nextMatches, stats: buildStats(nextMatches) }));
     try {
-      const updated = nextMatches.find((match) => match.id === id);
-      await orgScheduleMgmtService.updateMatchAssignment(id, { ...updated, ...updates });
+      if (scheduleChanged) {
+        await orgScheduleMgmtService.updateMatchAssignment(id, {
+          date: candidate.date,
+          time: candidate.time,
+          endTime: candidate.endTime,
+          durationMinutes: candidate.durationMinutes,
+          venue: candidate.venue,
+          order: candidate.order,
+        });
+      }
+      if (refereeChanged) {
+        await orgScheduleMgmtService.updateMatchReferees(id, candidate.refereeIds || []);
+        const tournamentItemId = get().currentTournamentItemId;
+        if (tournamentItemId) {
+          const data = await orgScheduleMgmtService.getScheduleData(tournamentItemId);
+          const matches = applyConflicts(data.matches);
+          set({
+            stats: buildStats(matches),
+            capacity: data.capacity,
+            venues: data.venues,
+            referees: data.referees,
+            stages: data.stages,
+            matches,
+            needsGroupSetup: data.needsGroupSetup,
+            selectedStageId: chooseVisibleStageId(data.stages, matches, get().selectedStageId),
+          });
+        }
+      }
       toast.success("Đã lưu thành công!");
     } catch (error) {
       const message = (error as ApiStoreError).response?.data?.message || (error as Error)?.message || "Có lỗi xảy ra khi lưu dữ liệu. Vui lòng thử lại.";
@@ -268,6 +370,8 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       venue: "",
       date: "",
       time: "",
+      endTime: "",
+      durationMinutes: MATCH_DURATION_MINUTES,
       order: 0,
     });
   },
@@ -280,6 +384,7 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       if (tournamentItemId) {
         const data = await orgScheduleMgmtService.getScheduleData(tournamentItemId);
         const matches = applyConflicts(data.matches);
+        const nextSelectedStageId = chooseVisibleStageId(data.stages, matches, selectedStageId);
         set({
           stats: buildStats(matches),
           capacity: data.capacity,
@@ -288,7 +393,7 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
           stages: data.stages,
           matches,
           needsGroupSetup: data.needsGroupSetup,
-          selectedStageId,
+          selectedStageId: nextSelectedStageId,
           selectedMatchId: null,
         });
       }
@@ -321,9 +426,10 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
           venue: venue.id,
           date: match.date || date,
           time: match.time || addMinutes(startTime, round * MATCH_DURATION_MINUTES),
+          endTime: match.endTime || addMinutes(match.time || addMinutes(startTime, round * MATCH_DURATION_MINUTES), durationOf(match)),
           order: index + 1,
         };
-        validateScheduleUpdate(match.id, candidate, nextMatches, venues, get().referees);
+        validateScheduleUpdate(match.id, candidate, nextMatches, venues);
         nextMatches = nextMatches.map((item) => item.id === match.id ? candidate : item);
       });
     } catch (error: unknown) {
@@ -352,63 +458,42 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
   },
 
   quickAssignReferees: async (stageId) => {
-    const referees = get().referees.filter((referee) => referee.status !== "unavailable");
-    const stageMatches = get().matches
-      .filter((match) => match.stageId === stageId)
-      .sort((a, b) => `${a.date || ""} ${a.time || ""}`.localeCompare(`${b.date || ""} ${b.time || ""}`) || (a.order || 0) - (b.order || 0));
-    if (referees.length === 0) {
-      toast.error("Không thể phân công trọng tài", { description: "Chưa có trọng tài khả dụng cho giải này." });
-      return;
-    }
-    const missingSchedule = stageMatches.find((match) => !isScheduled(match));
-    if (missingSchedule) {
-      toast.error("Cần xếp sân và giờ trước", {
-        description: `Trận ${missingSchedule.code} chưa có đủ sân, ngày và giờ. Hãy xếp lịch tự động/phân sân trước khi phân công trọng tài.`,
-      });
-      return;
-    }
-
-    const previousMatches = get().matches;
-    let nextMatches = previousMatches;
     try {
-      stageMatches.forEach((match) => {
-        const referee = referees.find((item) => !findRefereeConflict(item.id, match, nextMatches));
-        if (!referee) {
-          throw Object.assign(new Error(`Không còn trọng tài rảnh cho trận ${match.code} lúc ${match.time} ngày ${match.date}.`), {
-            title: "Xung đột trọng tài",
-          });
-        }
-        const candidate = {
-          ...match,
-          refereeIds: [referee.id],
-          referee: referee.name,
-          referees: [referee],
-        };
-        validateScheduleUpdate(match.id, candidate, nextMatches, get().venues, referees);
-        nextMatches = nextMatches.map((item) => item.id === match.id ? candidate : item);
-      });
+      const result = await orgScheduleMgmtService.quickAssignStageReferees(stageId);
+      const tournamentItemId = get().currentTournamentItemId;
+      if (tournamentItemId) {
+        const data = await orgScheduleMgmtService.getScheduleData(tournamentItemId);
+        const matches = applyConflicts(data.matches);
+        set({
+          stats: buildStats(matches),
+          capacity: data.capacity,
+          venues: data.venues,
+          referees: data.referees,
+          stages: data.stages,
+          matches,
+          needsGroupSetup: data.needsGroupSetup,
+          selectedStageId: chooseVisibleStageId(data.stages, matches, stageId),
+        });
+      }
+      const failureDetails = result.failures.map((failure) => `${failure.matchName}: ${failure.reason}`).join("; ");
+      if (result.successCount > 0) {
+        toast.success(`Đã phân công trọng tài cho ${result.successCount} trận.`, {
+          description: result.failedCount > 0
+            ? `${result.failedCount} trận chưa phân công được. ${failureDetails}`
+            : undefined,
+        });
+      } else {
+        toast.error("Không có trận nào được phân công trọng tài", {
+          description: failureDetails || "Không có trọng tài phù hợp với các khung giờ hiện tại.",
+        });
+      }
     } catch (error: unknown) {
-      toast.error((error as ApiStoreError).title || "Không thể phân công trọng tài", {
-        description: (error as ApiStoreError).message || "Có xung đột trọng tài trong cùng khung giờ.",
+      const response = (error as ApiStoreError).response?.data;
+      const failures = response?.data?.failures || [];
+      const failureDetails = failures.map((failure) => `${failure.matchName}: ${failure.reason}`).join("; ");
+      toast.error(response?.title || "Không thể phân công trọng tài", {
+        description: [response?.message, failureDetails].filter(Boolean).join(". ") || "Có lỗi xảy ra khi phân công trọng tài.",
       });
-      throw error;
-    }
-
-    const applied = applyConflicts(nextMatches);
-    set({ matches: applied, stats: buildStats(applied) });
-    try {
-      await Promise.all(stageMatches.map((match) => {
-        const updated = applied.find((item) => item.id === match.id);
-        return updated ? orgScheduleMgmtService.updateMatchAssignment(match.id, { refereeIds: updated.refereeIds }) : Promise.resolve();
-      }));
-      toast.success("Đã phân công trọng tài nhanh.");
-    } catch (error: unknown) {
-      const rolledBack = applyConflicts(previousMatches);
-      set({ matches: rolledBack, stats: buildStats(rolledBack) });
-      toast.error("Không thể lưu phân công trọng tài", {
-        description: (error as ApiStoreError).response?.data?.message || "Dữ liệu đã được khôi phục. Vui lòng thử lại.",
-      });
-      throw error;
     }
   },
 
@@ -432,6 +517,7 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       await orgScheduleMgmtService.publishScheduledMatches(tournamentItemId);
       const data = await orgScheduleMgmtService.getScheduleData(tournamentItemId);
       const matches = applyConflicts(data.matches);
+      const selectedStageId = chooseVisibleStageId(data.stages, matches, get().selectedStageId);
       set({
         stats: buildStats(matches),
         capacity: data.capacity,
@@ -440,6 +526,7 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         stages: data.stages,
         matches,
         needsGroupSetup: data.needsGroupSetup,
+        selectedStageId,
         selectedMatchId: null,
       });
       toast.success("Đã công bố tất cả trận đã xếp lịch.");
@@ -457,6 +544,7 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
       await orgScheduleMgmtService.generateGroupStageMatches(payload);
       const data = await orgScheduleMgmtService.getScheduleData(payload.tournamentItemId);
       const matches = applyConflicts(data.matches);
+      const selectedStageId = chooseVisibleStageId(data.stages, matches, data.stages[0]?.id || null);
       set({
         stats: buildStats(matches),
         capacity: data.capacity,
@@ -466,7 +554,7 @@ export const useOrgScheduleMgmtStore = create<OrgScheduleMgmtState>((set, get) =
         matches,
         needsGroupSetup: data.needsGroupSetup,
         currentTournamentItemId: payload.tournamentItemId,
-        selectedStageId: data.stages[0]?.id || null,
+        selectedStageId,
         selectedMatchId: null,
       });
       toast.success("Đã sinh trận vòng bảng.");

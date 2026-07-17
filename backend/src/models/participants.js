@@ -95,7 +95,7 @@ const participantSchema = new mongoose.Schema({
 },
 {timestamps:true});
 
-participantSchema.pre('validate', async function ensureSlug(next) {
+participantSchema.pre('validate', async function ensureSlug() {
     if (!this.slug) {
         const base = slugify(this.name) || 'doi-thi';
         let candidate = base;
@@ -109,7 +109,6 @@ participantSchema.pre('validate', async function ensureSlug(next) {
         }
         this.slug = candidate;
     }
-    next();
 });
 
 participantSchema.index({ slug: 1 }, { unique: true, sparse: true });

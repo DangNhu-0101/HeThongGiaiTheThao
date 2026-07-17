@@ -6,6 +6,7 @@ import Role from '../models/roles.js';
 import User from '../models/users.js';
 import PasswordResetToken from '../models/passwordResetTokens.js';
 import { sendPasswordResetCode } from '../services/mailService.js';
+import { ensurePlayerProfileForUser } from '../services/playerProfileService.js';
 
 const ACCESS_TOKEN_TTL = '30m';
 const REFRESH_TOKEN_TTL = 12 * 24 * 60 * 60 * 1000;
@@ -72,7 +73,7 @@ const ensureDefaultPlayerRole = async () => {
     const playerRole = await Role.findOneAndUpdate(
         { name: DEFAULT_PLAYER_ROLE.name },
         { $set: DEFAULT_PLAYER_ROLE },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     await Role.updateMany(
@@ -260,6 +261,7 @@ export const register = async (req, res) => {
             roles: [defaultRole._id]
         });
         await newUser.save();
+        await ensurePlayerProfileForUser(newUser);
         await newUser.populate('roles', 'name');
 
         const { accessToken, refreshToken } = generateTokens(newUser._id);
@@ -328,4 +330,3 @@ export const logout = async (req, res) => {
         return res.status(500).json({ message: 'Lỗi server' });
     }
 };
-

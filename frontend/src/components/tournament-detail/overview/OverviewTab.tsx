@@ -23,17 +23,68 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
   const registrationClosed = remainingSlots === 0 || (now !== null && new Date(detail.timeLine.registrationEnd).getTime() < now);
   const progress = Math.min(100, (registeredTeams / Math.max(1, detail.maxTeams)) * 100);
   const usesExternalRegistration = detail.registrationMode === "external" && Boolean(detail.registrationFormUrl);
+  const sponsorItems = detail.sponsors.filter((sponsor) => sponsor.status !== "inactive" && (sponsor.logo || sponsor.name));
+  const marqueeSponsors = sponsorItems.length
+    ? Array.from({ length: Math.max(2, Math.ceil(8 / sponsorItems.length)) }).flatMap(() => sponsorItems)
+    : [];
+  const formatDateTime = (date: Date) => date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className="grid grid-cols-1 gap-8 py-8 md:grid-cols-3">
       <div className="space-y-8 md:col-span-2">
+        {marqueeSponsors.length > 0 && (
+          <section className="overflow-hidden rounded-xl border border-border bg-card py-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between px-5">
+              <h3 className="border-l-4 border-primary pl-2 text-sm font-bold uppercase text-foreground">Nhà tài trợ</h3>
+            </div>
+            <div className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-card to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-card to-transparent" />
+              <div className="tournament-sponsor-marquee flex w-max gap-4 px-5">
+                {marqueeSponsors.map((sponsor, index) => {
+                  const content = (
+                    <div className="flex h-16 min-w-48 items-center gap-3 rounded-lg border border-border bg-background px-4 shadow-sm">
+                      {sponsor.logo ? (
+                        <img src={sponsor.logo} alt={sponsor.name} className="h-10 w-16 object-contain" />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-sm font-black text-primary">
+                          {sponsor.name.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-foreground">{sponsor.name}</p>
+                        {sponsor.sponsorType && <p className="truncate text-xs text-muted-foreground">{sponsor.sponsorType}</p>}
+                      </div>
+                    </div>
+                  );
+                  return sponsor.website ? (
+                    <a key={`${sponsor._id || sponsor.name}-${index}`} href={sponsor.website} target="_blank" rel="noreferrer" className="shrink-0">
+                      {content}
+                    </a>
+                  ) : (
+                    <div key={`${sponsor._id || sponsor.name}-${index}`} className="shrink-0">
+                      {content}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <h3 className="mb-4 border-l-4 border-primary pl-2 text-lg font-bold uppercase">Về giải đấu này</h3>
           <RichTextRenderer html={detail.about} />
         </section>
 
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <SportsCarousel sports={sports} />
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <SportsCarousel sports={sports} compact hideControlsWhenSingle />
         </div>
 
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -78,7 +129,7 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
           <p className="mb-4 text-xs text-white/80">
             {registrationClosed
               ? `Đã có ${registeredTeams}/${detail.maxTeams} đội. Giải đấu không còn nhận thêm đội.`
-              : `Chỉ còn ${remainingSlots} suất. Đăng ký trước ${new Date(detail.timeLine.registrationEnd).toLocaleDateString("vi-VN")}.`}
+              : `Chỉ còn ${remainingSlots} suất. Đăng ký trước ${formatDateTime(new Date(detail.timeLine.registrationEnd))}.`}
           </p>
           <div className="mb-4 h-2 w-full rounded-full bg-black/20">
             <div className="h-2 rounded-full bg-accent" style={{ width: `${progress}%` }} />
@@ -101,7 +152,7 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
           {usesExternalRegistration && detail.registrationInstructions && !registrationClosed && (
             <p className="mb-3 text-xs text-white/80">{detail.registrationInstructions}</p>
           )}
-          <Button variant="outline" className="w-full border-white/30 bg-white/8 !text-white hover:bg-white/14">
+          <Button render={<Link to="/contact" />} variant="outline" className="w-full border-white/30 bg-white/8 !text-white hover:bg-white/14">
             {detail.supportContacts || "Liên hệ Ban tổ chức"}
           </Button>
         </div>
@@ -110,8 +161,11 @@ const OverviewTab = ({ detail, sports, upcomingMatches, recentResults }: Overvie
           <h3 className="mb-4 text-sm font-bold uppercase text-muted-foreground">Thông tin giải</h3>
           <ul className="space-y-4 text-sm">
             <li className="flex flex-col"><span className="text-xs text-muted-foreground">Môn thi đấu</span><span className="font-semibold">{detail.sportType[0]}</span></li>
-            <li className="flex flex-col"><span className="text-xs text-muted-foreground">Giải thưởng</span><span className="font-semibold text-accent-foreground">{detail.prizes[0].amount}</span></li>
-            <li className="flex flex-col"><span className="text-xs text-muted-foreground">Ban tổ chức</span><span className="font-semibold">{detail.organizer}</span></li>
+           
+            <li className="flex flex-col"><span className="text-xs text-muted-foreground">Thời gian đăng ký</span><span className="font-semibold">{formatDateTime(new Date(detail.timeLine.registrationStart))} - {formatDateTime(new Date(detail.timeLine.registrationEnd))}</span></li>
+            <li className="flex flex-col"><span className="text-xs text-muted-foreground">Thời gian thi đấu</span><span className="font-semibold">{formatDateTime(new Date(detail.timeLine.tournamentStart))} - {formatDateTime(new Date(detail.timeLine.tournamentEnd))}</span></li>
+            <li className="flex flex-col"><span className="text-xs text-muted-foreground">Địa điểm thi đấu</span><span className="font-semibold">{detail.location.detail || "Chưa cập nhật"}</span></li>
+            
           </ul>
         </div>
 

@@ -5,6 +5,61 @@ import TournamentItem from '../models/tournamentItem.js';
 import CategoryRule from '../models/rules/categories.js';
 import { releaseCategoryRules, buildTimeline, isValidStatusTransition } from '../utils/tournamentHelper.js';
 
+const normalizeGalaConfig = (config = {}) => ({
+    hasGala: Boolean(config.hasGala),
+    time: config.time || config.start || config.galaStart || null,
+    start: config.start || config.galaStart || config.time || null,
+    end: config.end || config.galaEnd || null,
+    venue: config.venue || config.galaVenue || '',
+    description: config.description || config.galaDescription || ''
+});
+
+const normalizeRegistrationConfig = (config = {}, operations = {}) => {
+    const mode = config.mode || operations.registrationMode || 'system';
+    return {
+        mode: mode === 'external' ? 'external' : 'system',
+        formUrl: config.formUrl || config.registrationFormUrl || operations.registrationFormUrl || '',
+        zaloGroupUrl: config.zaloGroupUrl || operations.zaloGroupUrl || '',
+        maxRegistrations: Number(config.maxRegistrations ?? operations.maxRegistrations ?? 0),
+        instructions: config.instructions || config.registrationInstructions || operations.registrationInstructions || '',
+        supportContacts: config.supportContacts || operations.supportContacts || ''
+    };
+};
+
+const normalizePaymentConfig = (config = {}, operations = {}) => ({
+    feeIncludes: config.feeIncludes ?? (operations.feeIncludes ? operations.feeIncludes.split(',').map(item => item.trim()).filter(Boolean) : []),
+    bankName: config.bankName || operations.bankName || '',
+    accountName: config.accountName || operations.accountName || '',
+    accountNumber: config.accountNumber || operations.accountNumber || '',
+    transferContent: config.transferContent || operations.transferContent || '',
+    instructions: config.instructions || config.paymentInstructions || operations.paymentInstructions || '',
+    refundPolicy: config.refundPolicy || operations.refundPolicy || ''
+});
+
+const normalizeMediaConfig = (config = {}, operations = {}, fallback = {}) => {
+    const bannerUrls = Array.isArray(config.bannerUrls)
+        ? config.bannerUrls
+        : Array.isArray(config.bannerUrl)
+            ? config.bannerUrl
+            : Array.isArray(operations.banner)
+                ? operations.banner
+                : fallback.banner
+                    ? [fallback.banner]
+                    : [];
+    return {
+        consent: Boolean(config.consent ?? config.mediaConsent ?? operations.mediaConsent),
+        usageTerms: config.usageTerms || config.mediaUsageTerms || operations.mediaUsageTerms || '',
+        logoUrl: config.logoUrl || operations.logo || fallback.logo || '',
+        bannerUrls,
+        paymentQRUrl: config.paymentQRUrl || operations.paymentQR || fallback.paymentQR || ''
+    };
+};
+
+const normalizeSponsorshipConfig = (config = {}, operations = {}) => ({
+    contact: config.contact || operations.sponsorContact || '',
+    tiers: Array.isArray(config.tiers) ? config.tiers : Array.isArray(operations.sponsorTiers) ? operations.sponsorTiers : []
+});
+
 class TournamentService {
     // === CREATE SINGLE ===
     static async createSingleTournament(userId, data) {
@@ -12,7 +67,8 @@ class TournamentService {
             const {
                 name, description, categoryRuleId,
                 location, banner, logo, prizes, galaConfig, paymentQR,
-                sportType, maxTeams, format, feeEntry, sponsorshipConfig
+                sportType, maxTeams, format, feeEntry, sponsorshipConfig,
+                registrationConfig, paymentConfig, mediaConfig
             } = data;
 
             if (!categoryRuleId) throw new Error('Thiếu categoryRuleId');
@@ -41,15 +97,18 @@ class TournamentService {
                 timeLine: timeline,
                 feeEntry: feeEntry || 0,
                 paymentQR: paymentQR || '',
+                registrationConfig: normalizeRegistrationConfig(registrationConfig),
+                paymentConfig: normalizePaymentConfig(paymentConfig),
+                mediaConfig: normalizeMediaConfig(mediaConfig, {}, { logo, banner, paymentQR }),
                 prizes: prizes || '',
                 location: {
                     city: location?.city || '',
                     district: location?.district || '',
                     detail: location?.detail || ''
                 },
-                galaConfig: galaConfig || { hasGala: false },
+                galaConfig: normalizeGalaConfig(galaConfig),
                 sponsors: [],
-                sponsorshipConfig: sponsorshipConfig || { contact: '', tiers: [] },
+                sponsorshipConfig: normalizeSponsorshipConfig(sponsorshipConfig),
                 status: 'upcoming',
                 sportType: sportType || categoryRule.sportType || '',
                 maxTeams: maxTeams || 0,
@@ -131,6 +190,13 @@ class TournamentService {
                 const itemBanner = Array.isArray(itemConfig.itemBanners)
                     ? itemConfig.itemBanners[0]
                     : itemConfig.operations?.banner?.[0];
+                const itemLogo = itemConfig.itemLogo || itemConfig.operations?.logo || logo || '';
+                const itemPaymentQR = itemConfig.operations?.paymentQR || paymentQR || '';
+                const itemMediaConfig = normalizeMediaConfig(
+                    itemConfig.mediaConfig,
+                    itemConfig.operations,
+                    { logo: itemLogo, banner: itemBanner || banner || '', paymentQR: itemPaymentQR }
+                );
                 const item = new TournamentItem({
                     tournamentId: tournament._id,
                     organization: userId,
@@ -138,19 +204,22 @@ class TournamentService {
                     name: itemConfig.itemName || categoryRule.name,
                     description: itemConfig.itemDescription || '',
                     banner: itemBanner || banner || '',
-                    logo: itemConfig.itemLogo || itemConfig.operations?.logo || logo || '',
+                    logo: itemLogo,
                     timeLine: itemTimelineResult.data,
                     feeEntry: itemConfig.feePerAthlete || 0,
-                    paymentQR: itemConfig.operations?.paymentQR || paymentQR || '',
+                    paymentQR: itemPaymentQR,
+                    registrationConfig: normalizeRegistrationConfig(itemConfig.registrationConfig, itemConfig.operations),
+                    paymentConfig: normalizePaymentConfig(itemConfig.paymentConfig, itemConfig.operations),
+                    mediaConfig: itemMediaConfig,
                     prizes: itemConfig.prizes || prizes || '',
                     location: {
                         city: location?.city || '',
                         district: location?.district || '',
                         detail: itemConfig.location || location?.detail || ''
                     },
-                    galaConfig: galaConfig || { hasGala: false },
+                    galaConfig: normalizeGalaConfig(itemConfig.galaConfig || itemConfig.operations || galaConfig),
                     sponsors: [],
-                    sponsorshipConfig: itemConfig.sponsorshipConfig || itemConfig.operations?.sponsorshipConfig || sponsorshipConfig || { contact: '', tiers: [] },
+                    sponsorshipConfig: normalizeSponsorshipConfig(itemConfig.sponsorshipConfig || sponsorshipConfig, itemConfig.operations),
                     status: 'upcoming',
                     sportType: itemConfig.sport || categoryRule.sportType || '',
                     maxTeams: itemConfig.maxTeams || 0,
@@ -183,18 +252,25 @@ class TournamentService {
 
             const isLocked = ['playing', 'completed'].includes(item.status);
             if (isLocked) {
-                const allowed = ['description', 'banner', 'logo', 'prizes', 'paymentQR', 'galaConfig'];
-                const invalid = Object.keys(updateData).some(k => !allowed.includes(k));
-                if (invalid) throw new Error('Giải đấu đã bắt đầu, chỉ cập nhật được thông tin hiển thị');
+                const allowed = new Set(['name', 'description', 'banner', 'logo', 'prizes', 'paymentQR', 'galaConfig', 'location', 'sponsorshipConfig']);
+                Object.keys(updateData).forEach((key) => {
+                    if (!allowed.has(key)) delete updateData[key];
+                });
             }
 
             // Cập nhật các field
             const fields = ['name', 'description', 'banner', 'logo', 'prizes', 'paymentQR', 'feeEntry', 'sportType', 'maxTeams', 'format'];
             fields.forEach(f => { if (updateData[f] !== undefined) item[f] = updateData[f]; });
             if (updateData.location) item.location = { ...item.location, ...updateData.location };
-            if (updateData.galaConfig) item.galaConfig = { ...item.galaConfig, ...updateData.galaConfig };
+            if (updateData.registrationConfig) item.registrationConfig = { ...item.registrationConfig, ...normalizeRegistrationConfig(updateData.registrationConfig) };
+            if (updateData.paymentConfig) item.paymentConfig = { ...item.paymentConfig, ...normalizePaymentConfig(updateData.paymentConfig) };
+            if (updateData.mediaConfig) item.mediaConfig = { ...item.mediaConfig, ...normalizeMediaConfig(updateData.mediaConfig, {}, { logo: updateData.logo || item.logo, banner: updateData.banner || item.banner, paymentQR: updateData.paymentQR || item.paymentQR }) };
+            if (updateData.sponsorshipConfig) item.sponsorshipConfig = { ...item.sponsorshipConfig, ...normalizeSponsorshipConfig(updateData.sponsorshipConfig) };
+            if (updateData.galaConfig) item.galaConfig = { ...item.galaConfig, ...normalizeGalaConfig(updateData.galaConfig) };
             if (updateData.timeLine && !isLocked) {
-                item.timeLine = buildTimeline(updateData.timeLine);
+                const timelineResult = buildTimeline(updateData.timeLine, { allowPast: true });
+                if (!timelineResult.success) throw new Error(timelineResult.errors.join('; '));
+                item.timeLine = timelineResult.data;
             }
 
             await item.save({ session });
@@ -218,9 +294,10 @@ class TournamentService {
 
             const isLocked = ['playing', 'completed'].includes(tournament.status);
             if (isLocked) {
-                const allowed = ['description', 'banner', 'logo'];
-                const invalid = Object.keys(updateData).some(k => !allowed.includes(k));
-                if (invalid) throw new Error('Hội thao đã bắt đầu, chỉ cập nhật được mô tả, banner, logo');
+                const allowed = new Set(['name', 'description', 'banner', 'logo', 'location']);
+                Object.keys(updateData).forEach((key) => {
+                    if (!allowed.has(key)) delete updateData[key];
+                });
             }
 
             const fields = ['name', 'description', 'banner', 'logo'];
@@ -230,10 +307,77 @@ class TournamentService {
             if (updateData.endDate) tournament.endDate = new Date(updateData.endDate);
 
             if (updateData.timeLine && !isLocked) {
-                const timeline = buildTimeline(updateData.timeLine);
+                const timelineResult = buildTimeline(updateData.timeLine, { allowPast: true });
+                if (!timelineResult.success) throw new Error(timelineResult.errors.join('; '));
+                const timeline = timelineResult.data;
                 await TournamentItem.updateMany({ tournamentId: tournament._id }, { timeLine: timeline }, { session });
                 tournament.startDate = timeline.tournamentStart;
                 tournament.endDate = timeline.tournamentEnd;
+            }
+
+            if (!isLocked && Array.isArray(updateData.sportRules)) {
+                for (const itemConfig of updateData.sportRules) {
+                    if (!itemConfig?.categoryRuleId) continue;
+                    const item = await TournamentItem.findOne({
+                        tournamentId: tournament._id,
+                        categoryRule: itemConfig.categoryRuleId
+                    }).session(session);
+                    if (!item) continue;
+
+                    const itemTimelineResult = itemConfig.registrationStart
+                        ? buildTimeline(itemConfig, { allowPast: true })
+                        : null;
+                    if (itemTimelineResult && !itemTimelineResult.success) {
+                        throw new Error(itemTimelineResult.errors.join('; '));
+                    }
+
+                    const itemBanner = Array.isArray(itemConfig.itemBanners)
+                        ? itemConfig.itemBanners[0]
+                        : itemConfig.operations?.banner?.[0];
+                    const itemLogo = itemConfig.itemLogo || itemConfig.operations?.logo || item.logo || '';
+                    const itemPaymentQR = itemConfig.operations?.paymentQR || item.paymentQR || '';
+
+                    item.name = itemConfig.itemName || item.name;
+                    item.description = itemConfig.itemDescription ?? item.description;
+                    item.banner = itemBanner || item.banner;
+                    item.logo = itemLogo;
+                    item.feeEntry = itemConfig.feePerAthlete ?? item.feeEntry;
+                    item.paymentQR = itemPaymentQR;
+                    item.prizes = itemConfig.prizes ?? item.prizes;
+                    item.maxTeams = itemConfig.maxTeams ?? item.maxTeams;
+                    item.format = itemConfig.categoryName || item.format;
+                    item.sportType = itemConfig.sport || item.sportType;
+                    item.location = {
+                        ...item.location,
+                        detail: itemConfig.location || item.location?.detail || ''
+                    };
+                    if (itemTimelineResult) item.timeLine = itemTimelineResult.data;
+                    item.registrationConfig = {
+                        ...item.registrationConfig,
+                        ...normalizeRegistrationConfig(itemConfig.registrationConfig, itemConfig.operations)
+                    };
+                    item.paymentConfig = {
+                        ...item.paymentConfig,
+                        ...normalizePaymentConfig(itemConfig.paymentConfig, itemConfig.operations)
+                    };
+                    item.mediaConfig = {
+                        ...item.mediaConfig,
+                        ...normalizeMediaConfig(itemConfig.mediaConfig, itemConfig.operations, {
+                            logo: itemLogo,
+                            banner: itemBanner || item.banner,
+                            paymentQR: itemPaymentQR
+                        })
+                    };
+                    item.galaConfig = {
+                        ...item.galaConfig,
+                        ...normalizeGalaConfig(itemConfig.galaConfig || itemConfig.operations)
+                    };
+                    item.sponsorshipConfig = {
+                        ...item.sponsorshipConfig,
+                        ...normalizeSponsorshipConfig(itemConfig.sponsorshipConfig, itemConfig.operations)
+                    };
+                    await item.save({ session });
+                }
             }
 
             if (!isLocked && updateData.addCategoryRuleIds) {
@@ -306,8 +450,9 @@ class TournamentService {
             if (!item) throw new Error('Không tìm thấy giải đấu');
             if (item.tournamentId) throw new Error('API này chỉ dùng cho giải đơn môn độc lập');
 
-            if (['playing', 'completed'].includes(item.status)) {
-                throw new Error(`Không thể hủy giải đấu đang ${item.status}`);
+            if (item.status === 'cancelled') {
+                await session.commitTransaction();
+                return item;
             }
 
             // Giải phóng categoryRule
@@ -335,8 +480,9 @@ class TournamentService {
             const tournament = await Tournament.findById(tournamentId).session(session);
             if (!tournament) throw new Error('Không tìm thấy hội thao');
 
-            if (['playing', 'completed'].includes(tournament.status)) {
-                throw new Error(`Không thể hủy hội thao đang ${tournament.status}`);
+            if (tournament.status === 'cancelled') {
+                await session.commitTransaction();
+                return tournament;
             }
 
             // Lấy tất cả item và giải phóng categoryRule

@@ -11,6 +11,22 @@ interface Props {
 
 const tabs: Array<"Tất cả" | AdminUserRole> = ["Tất cả", "Tổ chức", "Trọng tài", "Vận động viên"];
 
+const isImageSource = (value: string) =>
+  /^(https?:\/\/|data:image\/|blob:|\/?uploads\/)/i.test(value.trim());
+
+const UserAvatar = ({ user, size = "default" }: { user: AdminUserRecord; size?: "default" | "sm" }) => {
+  const className = size === "sm" ? "h-9 w-9 text-sm" : "h-10 w-10";
+  const fallback = user.avatar?.trim().slice(0, 2).toUpperCase() || user.name.slice(0, 1).toUpperCase();
+
+  return (
+    <div className={`flex ${className} shrink-0 items-center justify-center overflow-hidden rounded-full border border-amber-100 bg-amber-50 font-bold text-amber-600`}>
+      {isImageSource(user.avatar)
+        ? <img src={user.avatar} alt={`Ảnh đại diện của ${user.name}`} className="h-full w-full object-cover" />
+        : fallback}
+    </div>
+  );
+};
+
 const UserMgmtList = ({ records, isMobile, onUpdateStatus }: Props) => {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Tất cả");
   const filteredRecords = records.filter((record) => activeTab === "Tất cả" || record.role === activeTab);
@@ -70,7 +86,7 @@ const UserMgmtList = ({ records, isMobile, onUpdateStatus }: Props) => {
           {filteredRecords.map((user) => (
             <div key={user.id} className="relative rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 font-bold text-amber-600">{user.avatar}</div>
+                <UserAvatar user={user} />
                 <div className="min-w-0 flex-1">
                   <h4 className="truncate text-sm font-bold text-foreground">{user.name}</h4>
                   <p className="truncate text-xs text-muted-foreground">{user.email}</p>
@@ -106,7 +122,7 @@ const UserMgmtList = ({ records, isMobile, onUpdateStatus }: Props) => {
                   <tr key={user.id} className="group transition-colors hover:bg-muted/10">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-amber-100 bg-amber-50 text-sm font-bold text-amber-600">{user.avatar}</div>
+                        <UserAvatar user={user} size="sm" />
                         <div><p className="text-sm font-bold leading-tight">{user.name}</p><p className="text-[10px] text-muted-foreground">{user.email}</p></div>
                       </div>
                     </td>

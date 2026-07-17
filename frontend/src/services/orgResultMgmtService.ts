@@ -76,7 +76,7 @@ export const orgResultMgmtService = {
       const [stagesResponse, statusResponse, matchesResponse] = await Promise.all([
         api.get<ApiList>("/stages/tournament-item/" + tournamentItemId),
         api.get<{ data?: MatchStatusTag[] }>("/matches/status-tags"),
-        api.get<ApiList>("/matches/tournament-item/" + tournamentItemId).catch(() => ({ data: [] as unknown[] })),
+        api.get<ApiList>("/matches/tournament-item/" + tournamentItemId),
       ]);
 
       const tags = asArray(statusResponse.data);
