@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { UserStatItem, AdminUserRecord } from "@/types/adminUserMgmt";
+import type { UserStatItem, AdminRoleName, AdminUserRecord } from "@/types/adminUserMgmt";
 import { adminUserMgmtService } from "@/services/adminUserMgmtService";
 
 export interface AdminUserMgmtState {
@@ -8,6 +8,7 @@ export interface AdminUserMgmtState {
   loading: boolean;
   fetchData: () => Promise<void>;
   updateUserStatus: (id: string, status: AdminUserRecord['status']) => Promise<void>;
+  updateUserRoles: (id: string, roles: AdminRoleName[]) => Promise<void>;
 }
 
 export const useAdminUserMgmtStore = create<AdminUserMgmtState>((set) => ({
@@ -38,5 +39,10 @@ export const useAdminUserMgmtStore = create<AdminUserMgmtState>((set) => ({
     await adminUserMgmtService.updateUserStatus(id, status);
     const data = await adminUserMgmtService.getUserMgmtData();
     set({ stats: data.stats, records: data.records });
-  }
+  },
+  updateUserRoles: async (id, roles) => {
+    await adminUserMgmtService.updateUserRoles(id, roles);
+    const data = await adminUserMgmtService.getUserMgmtData();
+    set({ stats: data.stats, records: data.records });
+  },
 }));

@@ -714,9 +714,28 @@ export const updateUserByAdmin = async (req, res) => {
         if (email) updateData.email = email;
         if (phoneNumber) updateData.phoneNumber = phoneNumber;
 
-        if (roles) {
-            // roles là mảng tên role, ví dụ ['org', 'referee']
-            const roleDocs = await Role.find({ name: { $in: roles } });
+        if (roles !== undefined) {
+            if (!Array.isArray(roles) || roles.length === 0) {
+                return res.status(400).json({ success: false, message: "Người dùng phải có ít nhất một vai trò" });
+            }
+            const normalizedRoles = [...new Set(roles.map(role => role === 'organization' ? 'org' : role))];
+            const allowedRoles = ['player', 'coach', 'referee', 'org', 'admin'];
+            const invalidRoles = normalizedRoles.filter(role => !allowedRoles.includes(role));
+            if (invalidRoles.length > 0) {
+                return res.status(400).json({ success: false, message: `Vai trò không hợp lệ: ${invalidRoles.join(', ')}` });
+            }
+            const roleDefaults = {
+                player: { displayName: 'Cầu thủ', permissions: ['view_tournament', 'join_team'], isDefault: true },
+                coach: { displayName: 'Huấn luyện viên', permissions: ['view_tournament', 'manage_team'], isDefault: false },
+                referee: { displayName: 'Trọng tài', permissions: ['view_tournament', 'enter_match_result'], isDefault: false },
+                org: { displayName: 'Ban tổ chức', permissions: ['create_tournament', 'manage_tournament'], isDefault: false },
+                admin: { displayName: 'Quản trị viên', permissions: ['*'], isDefault: false },
+            };
+            const roleDocs = await Promise.all(normalizedRoles.map(name => Role.findOneAndUpdate(
+                { name },
+                { $setOnInsert: { name, ...roleDefaults[name] } },
+                { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+            )));
             updateData.roles = roleDocs.map(r => r._id);
         }
 

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Court from "../models/courts.js";
+import TournamentItem from "../models/tournamentItem.js";
 
 const statuses = ['empty', 'busy', 'maintenance', 'inactived'];
 const cleanSports = (value) => Array.isArray(value)
@@ -8,10 +9,15 @@ const cleanSports = (value) => Array.isArray(value)
 
 export const getCourtsByTournamentItem = async (req, res) => {
     try {
-        const { page = 1, limit = 100, status, sportType } = req.query;
+        const { page = 1, limit = 100, status } = req.query;
         const filter = {};
         if (status) filter.status = status;
-        if (sportType) filter.$or = [{ sportTypes: { $size: 0 } }, { sportTypes: sportType }];
+        let sportType = String(req.query.sportType || '').trim();
+        if (!sportType && req.params.tournamentItemId && mongoose.Types.ObjectId.isValid(req.params.tournamentItemId)) {
+            const item = await TournamentItem.findById(req.params.tournamentItemId).select('sportType').lean();
+            sportType = String(item?.sportType || '').trim();
+        }
+        if (sportType) filter.sportTypes = { $regex: `^${sportType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
         const pageNumber = Math.max(1, Number(page) || 1);
         const limitNumber = Math.min(200, Math.max(1, Number(limit) || 100));
         const [courts, total] = await Promise.all([

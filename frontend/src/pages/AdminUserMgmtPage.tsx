@@ -8,7 +8,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 const AdminUserMgmtPage = () => {
   const isMobile = useIsMobile();
-  const { stats, records, loading, fetchData, updateUserStatus } = useAdminUserMgmtStore();
+  const { stats, records, loading, fetchData, updateUserStatus, updateUserRoles } = useAdminUserMgmtStore();
 
   useEffect(() => { 
     fetchData(); 
@@ -39,6 +39,7 @@ const AdminUserMgmtPage = () => {
         records={records} 
         isMobile={isMobile} 
         onUpdateStatus={updateUserStatus} 
+        onUpdateRoles={updateUserRoles}
       />
 
     </div>

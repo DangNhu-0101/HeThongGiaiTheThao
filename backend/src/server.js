@@ -4,7 +4,6 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
 
 import { connectDB } from './libs/db.js';
@@ -85,13 +84,8 @@ app.use(express.static(frontendDistPath));
 
 connectDB().then(async () => {
     try {
-        const roleCount = await mongoose.model('Role').countDocuments();
-        if (roleCount === 0) {
-            await initRoles();
-            console.log(' Roles initialized');
-        } else {
-            console.log(' Roles already exist, skipping init.');
-        }
+        await initRoles();
+        console.log(' Roles synchronized');
     } catch (error) {
         console.warn(' Không thể kiểm tra roles, bỏ qua init:', error.message);
     }
@@ -106,4 +100,3 @@ connectDB().then(async () => {
     console.error(" Kết nối Database thất bại:", error);
     process.exit(1);
 });
-

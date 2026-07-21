@@ -132,10 +132,10 @@ export function ForgotPasswordPage() {
             </div>
             <Input type={showPassword ? "text" : "password"} className="h-12" placeholder="Xac nhan mật khẩu moi" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" />
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <span className={passwordChecks.length ? "text-green-600" : "text-muted-foreground"}>It nhất 8 ky tu</span>
-              <span className={passwordChecks.letter ? "text-green-600" : "text-muted-foreground"}>Co chu cai</span>
-              <span className={passwordChecks.number ? "text-green-600" : "text-muted-foreground"}>Co chu so</span>
-              <span className={passwordChecks.match ? "text-green-600" : "text-muted-foreground"}>Khop xac nhan</span>
+              <span className={passwordChecks.length ? "text-green-600" : "text-muted-foreground"}>Ít nhất 8 ky tu</span>
+              <span className={passwordChecks.letter ? "text-green-600" : "text-muted-foreground"}>Có chữ cái</span>
+              <span className={passwordChecks.number ? "text-green-600" : "text-muted-foreground"}>Có chữ số</span>
+              <span className={passwordChecks.match ? "text-green-600" : "text-muted-foreground"}>Khớp xác nhận</span>
             </div>
             <Button disabled={loading || !passwordValid} onClick={completeReset} className="h-12 w-full font-bold">
               {loading ? "Đang cập nhật..." : "Hoàn tất"}

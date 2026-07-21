@@ -88,7 +88,7 @@ const PASSWORD_RESET_TTL_MINUTES = Number(process.env.PASSWORD_RESET_CODE_TTL_MI
 const PASSWORD_RESET_TOKEN_TTL_MINUTES = Number(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES || 10);
 const PASSWORD_RESET_MAX_ATTEMPTS = Number(process.env.PASSWORD_RESET_MAX_ATTEMPTS || 5);
 const PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = Number(process.env.PASSWORD_RESET_RESEND_COOLDOWN_SECONDS || 60);
-const GENERIC_RESET_MESSAGE = 'Nếu email tồn tại trong hệ thống, mã xác minh đã được gửi.';
+
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const isEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);

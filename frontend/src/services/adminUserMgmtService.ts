@@ -1,5 +1,5 @@
 ﻿import api, { normalizeUploadUrl } from '@/libs/axios';
-import type { AdminUserRecord, AdminUserRole, AdminUserStatus, UserStatItem } from '@/types/adminUserMgmt';
+import type { AdminRoleName, AdminUserRecord, AdminUserRole, AdminUserStatus, UserStatItem } from '@/types/adminUserMgmt';
 
 interface ApiUser {
   _id: string;
@@ -46,6 +46,9 @@ const mapUser = (user: ApiUser): AdminUserRecord => {
     email: user.email,
     avatar,
     role: roleLabel(user),
+    roles: user.roles.map((role) => role === 'organization' ? 'org' : role).filter((role): role is AdminRoleName =>
+      ['player', 'coach', 'referee', 'org', 'admin'].includes(role)
+    ),
     status: user.roleRequestStatus === 'pending' ? 'Chờ duyệt' : user.status === 'actived' ? 'Hoạt động' : 'Đang khóa',
     accessLevel: user.roles.includes('admin') ? 'Toàn quyền' : 'Giới hạn',
     lastLogin: user.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'Chưa có',
@@ -85,5 +88,9 @@ export const adminUserMgmtService = {
   async updateUserStatus(userId: string, status: AdminUserStatus): Promise<void> {
     const value = status === 'Hoạt động' ? 'actived' : 'inactive';
     await api.put(`/admin/users/${userId}`, { status: value });
+  },
+
+  async updateUserRoles(userId: string, roles: AdminRoleName[]): Promise<void> {
+    await api.put(`/admin/users/${userId}`, { roles });
   },
 };

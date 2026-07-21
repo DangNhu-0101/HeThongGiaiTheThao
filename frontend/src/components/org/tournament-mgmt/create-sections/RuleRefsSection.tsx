@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Plus, Trash2, Trophy } from "lucide-react";
 import { competitionFormatService } from "@/services/competitionFormatService";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -42,7 +42,6 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
   const normalized = rules.length ? rules : [emptyRuleForSport("pickleball")];
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
   const [openKeys, setOpenKeys] = useState<string[]>(["rule-0"]);
-  const selectedSport = normalized[0]?.sport || "pickleball";
 
   useEffect(() => {
     competitionFormatService
@@ -81,11 +80,6 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
     return values.length ? values : ["pickleball"];
   }, [categoryOptions]);
 
-  const contentOptions = useMemo(
-    () => categoryOptions.filter((option) => normalizeSport(option.sportType) === normalizeSport(selectedSport)),
-    [categoryOptions, selectedSport],
-  );
-
   const updateRule = (index: number, patch: Partial<TournamentRuleRef>) => {
     onChange(normalized.map((rule, current) => (current === index ? { ...rule, ...patch } : rule)));
   };
@@ -102,11 +96,13 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
       onChange(next.length ? next : [emptyRuleForSport("pickleball")]);
     } else {
       onChange([...normalized, emptyRuleForSport(sport)]);
+      setOpenKeys((current) => [...current, `rule-${normalized.length}`]);
     }
   };
 
   const selectCategory = (index: number, optionId: string) => {
-    const option = contentOptions.find((item) => item.id === optionId);
+    const ruleSport = normalized[index]?.sport || "pickleball";
+    const option = categoryOptions.find((item) => normalizeSport(item.sportType) === normalizeSport(ruleSport) && item.id === optionId);
     if (!option) {
       updateRule(index, { categoryRuleId: "", categoryTemplateId: undefined, categoryName: "", itemName: "" });
       return;
@@ -116,26 +112,32 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
       categoryRuleId: "",
       categoryTemplateId: option.categoryTemplateId,
       categoryName: contentName,
-      itemName: normalized[index]?.itemName?.trim() || `${selectedSport} - ${contentName}`,
+      itemName: normalized[index]?.itemName?.trim() || `${ruleSport} - ${contentName}`,
       itemDescription: normalized[index]?.itemDescription || option.description || "",
     });
   };
 
-  const addContent = () => {
-    onChange([...normalized, emptyRuleForSport(selectedSport)]);
-    setOpenKeys((current) => [...current, `rule-${normalized.length}`]);
+  const addContent = (sport: string) => {
+    let insertAt = normalized.length;
+    normalized.forEach((rule, index) => {
+      if (normalizeSport(rule.sport) === normalizeSport(sport)) insertAt = index + 1;
+    });
+    const next = [...normalized];
+    next.splice(insertAt, 0, emptyRuleForSport(sport));
+    onChange(next);
+    setOpenKeys((current) => [...current, `rule-${insertAt}`]);
   };
 
   const removeContent = (index: number) => {
     const next = normalized.filter((_, current) => current !== index);
-    onChange(next.length ? next : [emptyRuleForSport(selectedSport)]);
+    onChange(next.length ? next : [emptyRuleForSport("pickleball")]);
   };
 
   const toggleOpen = (key: string) => {
     setOpenKeys((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
 
-  const selectedSports = new Set(normalized.map((rule) => rule.sport));
+  const selectedSports = new Set(normalized.map((rule) => normalizeSport(rule.sport)));
 
   return (
     <section className="space-y-5">
@@ -150,15 +152,17 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
         <Label>{kind === "single" ? "Chọn 1 môn thi đấu *" : "Chọn môn thi đấu *"}</Label>
         <div className="flex flex-wrap gap-2">
           {sportOptions.map((sport) => {
-            const selected = selectedSports.has(sport);
+            const selected = selectedSports.has(normalizeSport(sport));
             return (
               <button
                 key={sport}
                 type="button"
-                onClick={() => selectSport(sport)}
+                onClick={() => (kind === "multi" || !selected) && selectSport(sport)}
                 className={cn(
                   "flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-bold transition-colors",
-                  selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
+                  selected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
                 )}
               >
                 {selected ? <Check className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}
@@ -169,51 +173,58 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <Label>Nội dung thi đấu của {selectedSport} *</Label>
-          <p className="mt-1 text-xs text-muted-foreground">Bấm thêm nội dung nếu giải có nhiều hạng mục trong cùng môn.</p>
-        </div>
-        <Button type="button" size="sm" variant="outline" onClick={addContent}>
-          <Plus className="mr-1 h-4 w-4" /> Thêm nội dung
-        </Button>
-      </div>
-
-      <div className="space-y-3">
+      <div className="space-y-6">
         {normalized.map((rule, index) => {
           const key = `rule-${index}`;
           const open = openKeys.includes(key);
+          const firstForSport = normalized.findIndex((item) => normalizeSport(item.sport) === normalizeSport(rule.sport)) === index;
+          const sportContentIndex = normalized
+            .slice(0, index + 1)
+            .filter((item) => normalizeSport(item.sport) === normalizeSport(rule.sport)).length;
           const usedTemplateIds = new Set(
             normalized
               .filter((_, current) => current !== index)
               .map((item) => item.categoryTemplateId)
               .filter(Boolean),
           );
-          const options = contentOptions.filter((option) => !usedTemplateIds.has(option.categoryTemplateId));
+          const options = categoryOptions
+            .filter((option) => normalizeSport(option.sportType) === normalizeSport(rule.sport))
+            .filter((option) => !usedTemplateIds.has(option.categoryTemplateId));
 
           return (
-            <Collapsible key={key} open={open} onOpenChange={() => toggleOpen(key)} className="overflow-hidden rounded-lg border border-border">
-              <CollapsibleTrigger className="flex w-full items-center gap-3 bg-muted/25 px-4 py-3 text-left">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 font-black text-primary">{index + 1}</div>
+            <Fragment key={key}>
+              {firstForSport && (
+                <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+                  <div>
+                    <Label>Nội dung thi đấu của {rule.sport} *</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Môn thứ {Array.from(selectedSports).findIndex((sport) => sport === normalizeSport(rule.sport)) + 1} theo thứ tự đã chọn.</p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" onClick={() => addContent(rule.sport)}>
+                    <Plus className="mr-1 h-4 w-4" /> Thêm nội dung
+                  </Button>
+                </div>
+              )}
+            <Collapsible open={open} onOpenChange={() => toggleOpen(key)} className="overflow-hidden rounded-lg border border-border">
+              <div className="flex items-center bg-muted/25">
+              <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 font-black text-primary">{sportContentIndex}</div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">{rule.itemName || `${selectedSport} - nội dung ${index + 1}`}</p>
+                  <p className="truncate text-sm font-bold text-foreground">{rule.itemName || `${rule.sport} - nội dung ${sportContentIndex}`}</p>
                   <p className="truncate text-xs text-muted-foreground">{rule.categoryName || "Chưa chọn nội dung thi đấu"}</p>
                 </div>
+                {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </CollapsibleTrigger>
                 {normalized.length > 1 && (
                   <button
                     type="button"
-                    className="rounded-md p-2 text-red-600 hover:bg-red-50"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeContent(index);
-                    }}
+                    className="mr-2 rounded-md p-2 text-red-600 hover:bg-red-50"
+                    onClick={() => removeContent(index)}
                     aria-label="Xóa nội dung"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
-                {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-              </CollapsibleTrigger>
+              </div>
 
               <CollapsibleContent>
                 <div className="space-y-5 border-t border-border p-4">
@@ -237,7 +248,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
                           </option>
                         ))}
                       </select>
-                      {contentOptions.length === 0 && (
+                      {options.length === 0 && !rule.categoryTemplateId && (
                         <p className="text-xs text-amber-700">Chưa tải được nội dung thi đấu thật từ backend. Kiểm tra API /rules/categories hoặc thử tải lại trang.</p>
                       )}
                     </div>
@@ -275,6 +286,7 @@ const RuleRefsSection = ({ kind, rules, inherited, onChange }: Props) => {
                 </div>
               </CollapsibleContent>
             </Collapsible>
+            </Fragment>
           );
         })}
       </div>

@@ -1,13 +1,23 @@
 import { useState } from "react";
 import { Check, Edit, Eye, Search, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { AdminUserRecord, AdminUserRole } from "@/types/adminUserMgmt";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { AdminRoleName, AdminUserRecord, AdminUserRole } from "@/types/adminUserMgmt";
 
 interface Props {
   records: AdminUserRecord[];
   isMobile: boolean;
   onUpdateStatus: (id: string, status: AdminUserRecord["status"]) => void;
+  onUpdateRoles: (id: string, roles: AdminRoleName[]) => Promise<void>;
 }
+
+const availableRoles: Array<{ value: AdminRoleName; label: string; description: string }> = [
+  { value: "player", label: "Vận động viên", description: "Tham gia đội và giải đấu" },
+  { value: "coach", label: "Huấn luyện viên", description: "Quản lý chuyên môn của đội" },
+  { value: "referee", label: "Trọng tài", description: "Điều hành và nhập kết quả trận đấu" },
+  { value: "org", label: "Tổ chức", description: "Tạo và quản lý giải đấu" },
+  { value: "admin", label: "Quản trị viên", description: "Toàn quyền quản trị hệ thống" },
+];
 
 const tabs: Array<"Tất cả" | AdminUserRole> = ["Tất cả", "Tổ chức", "Trọng tài", "Vận động viên"];
 
@@ -27,9 +37,40 @@ const UserAvatar = ({ user, size = "default" }: { user: AdminUserRecord; size?: 
   );
 };
 
-const UserMgmtList = ({ records, isMobile, onUpdateStatus }: Props) => {
+const UserMgmtList = ({ records, isMobile, onUpdateStatus, onUpdateRoles }: Props) => {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Tất cả");
+  const [editingUser, setEditingUser] = useState<AdminUserRecord | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<AdminRoleName[]>([]);
+  const [savingRoles, setSavingRoles] = useState(false);
+  const [roleError, setRoleError] = useState("");
   const filteredRecords = records.filter((record) => activeTab === "Tất cả" || record.role === activeTab);
+
+  const openRoleEditor = (user: AdminUserRecord) => {
+    setEditingUser(user);
+    setSelectedRoles(user.roles);
+    setRoleError("");
+  };
+
+  const toggleRole = (role: AdminRoleName) => {
+    setSelectedRoles((current) => current.includes(role) ? current.filter((item) => item !== role) : [...current, role]);
+  };
+
+  const saveRoles = async () => {
+    if (!editingUser || selectedRoles.length === 0) {
+      setRoleError("Hãy chọn ít nhất một vai trò.");
+      return;
+    }
+    setSavingRoles(true);
+    setRoleError("");
+    try {
+      await onUpdateRoles(editingUser.id, selectedRoles);
+      setEditingUser(null);
+    } catch (error) {
+      setRoleError(error instanceof Error ? error.message : "Không thể cập nhật vai trò.");
+    } finally {
+      setSavingRoles(false);
+    }
+  };
 
   const renderActions = (user: AdminUserRecord, compact = false) => (
     <div className="flex items-center justify-end gap-1">
@@ -45,7 +86,7 @@ const UserMgmtList = ({ records, isMobile, onUpdateStatus }: Props) => {
         )
       )}
       <button className="rounded p-1.5 text-muted-foreground hover:text-primary" title="Xem chi tiết"><Eye className="h-4 w-4" /></button>
-      <button className="rounded p-1.5 text-muted-foreground hover:text-amber-500" title="Chỉnh sửa"><Edit className="h-4 w-4" /></button>
+      <button className="rounded p-1.5 text-muted-foreground hover:text-amber-500" onClick={() => openRoleEditor(user)} title="Cấp vai trò"><Edit className="h-4 w-4" /></button>
       {user.status === "Hoạt động" && (
         <button className="rounded p-1.5 text-red-500 hover:bg-red-50" onClick={() => onUpdateStatus(user.id, "Đang khóa")} title="Khóa">
           <ShieldAlert className="h-4 w-4" />
@@ -56,6 +97,37 @@ const UserMgmtList = ({ records, isMobile, onUpdateStatus }: Props) => {
 
   return (
     <div className="flex flex-col gap-4">
+      <Dialog open={Boolean(editingUser)} onOpenChange={(open) => !open && !savingRoles && setEditingUser(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cấp vai trò người dùng</DialogTitle>
+            <DialogDescription>
+              Chọn các vai trò cho {editingUser?.name}. Thay đổi có hiệu lực ở lần kiểm tra quyền tiếp theo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            {availableRoles.map((role) => {
+              const checked = selectedRoles.includes(role.value);
+              return (
+                <label key={role.value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${checked ? "border-amber-400 bg-amber-50/70" : "border-border hover:bg-muted/40"}`}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleRole(role.value)} className="mt-1 h-4 w-4 accent-amber-500" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">{role.label}</span>
+                    <span className="block text-xs text-muted-foreground">{role.description}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {roleError && <p role="alert" className="text-sm font-medium text-red-600">{roleError}</p>}
+          <DialogFooter>
+            <Button variant="outline" disabled={savingRoles} onClick={() => setEditingUser(null)}>Hủy</Button>
+            <Button disabled={savingRoles || selectedRoles.length === 0} onClick={saveRoles}>
+              {savingRoles ? "Đang lưu..." : "Lưu vai trò"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="beautiful-scrollbar flex overflow-x-auto border-b border-border">
           {tabs.map((tab) => (
