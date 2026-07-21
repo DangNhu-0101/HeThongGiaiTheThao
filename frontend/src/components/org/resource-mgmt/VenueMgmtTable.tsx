@@ -41,7 +41,7 @@ const VenueMgmtTable = ({ records, isMobile, onEdit, onDelete }: Props) => {
                 <span className="text-xs font-semibold">{r.nextBooking}</span>
               </div>
               <div className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={() => onEdit?.(r)} className="h-7 w-7 p-0 text-muted-foreground"><Edit className="w-4 h-4" /></Button>
+                {onEdit && <Button size="sm" variant="ghost" onClick={() => onEdit(r)} className="h-7 w-7 p-0 text-muted-foreground"><Edit className="w-4 h-4" /></Button>}
               </div>
             </div>
           </div>
@@ -87,8 +87,8 @@ const VenueMgmtTable = ({ records, isMobile, onEdit, onDelete }: Props) => {
                 <td className="p-4 text-center">
                   <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                     <button className="p-1.5 text-muted-foreground hover:text-primary transition-colors" title="Xem"><Eye className="w-4 h-4" /></button>
-                    <button className="p-1.5 text-muted-foreground hover:text-accent transition-colors" title="Sửa" onClick={() => onEdit?.(r)}><Edit className="w-4 h-4" /></button>
-                    <button className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Xóa" onClick={() => onDelete?.(r)}><Trash2 className="w-4 h-4" /></button>
+                    {onEdit && <button className="p-1.5 text-muted-foreground hover:text-accent transition-colors" title="Sửa" onClick={() => onEdit(r)}><Edit className="w-4 h-4" /></button>}
+                    {onDelete && <button className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Xóa" onClick={() => onDelete(r)}><Trash2 className="w-4 h-4" /></button>}
                   </div>
                 </td>
               </tr>

@@ -19,7 +19,7 @@ const TeamsTab = ({ tournamentItemId }: { tournamentItemId: string }) => {
   useEffect(() => {
     queueMicrotask(() => {
       setLoading(true);
-      participantService.getByTournament(tournamentItemId)
+      participantService.getPublicByTournament(tournamentItemId)
         .then((items) => setTeams(items.filter((item) => item.type === "team")))
         .catch(() => setTeams([]))
         .finally(() => setLoading(false));
@@ -53,6 +53,14 @@ const TeamsTab = ({ tournamentItemId }: { tournamentItemId: string }) => {
     });
   };
 
+  const createTeam = () => {
+    if (!accessToken || !user) {
+      navigate("/login", { state: { from: `/teams/create?tournament=${tournamentItemId}` } });
+      return;
+    }
+    navigate(`/teams/create?tournament=${tournamentItemId}`);
+  };
+
   return (
     <section className="space-y-5 py-8">
       <div className="flex flex-col justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center">
@@ -65,7 +73,7 @@ const TeamsTab = ({ tournamentItemId }: { tournamentItemId: string }) => {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Tìm tên đội..." />
           </div>
-          <Button render={<Link to={`/teams/create?tournament=${tournamentItemId}`} />}>Tạo đội</Button>
+          <Button onClick={createTeam}>Tạo đội</Button>
         </div>
       </div>
 

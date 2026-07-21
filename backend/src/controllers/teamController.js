@@ -8,7 +8,8 @@ import Role from '../models/roles.js';
 import Invitation from '../models/invitations.js';
 import TeamJoinRequest from '../models/teamJoinRequests.js';
 import Notification from '../models/notifications.js';
-import KnockoutResult from '../models/knockoutResults.js';
+import TeamAchievement from '../models/teamAchievements.js';
+import { aggregatePlayerStats } from '../services/resultSyncService.js';
 import { checkPermission } from '../utils/tournamentHelper.js';
 import { ensurePlayerProfileForUser } from '../services/playerProfileService.js';
 
@@ -408,6 +409,26 @@ export const getParticipantsByTournament = async (req, res) => {
                 path: 'memberFees.playerId',
                 select: 'name avatar email phone userId',
                 populate: { path: 'userId', select: 'username email phoneNumber avatar' }
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+        return res.status(200).json({ success: true, data: participants });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getPublicParticipantsByTournament = async (req, res) => {
+    try {
+        const { tournamentItemId } = req.params;
+        const participants = await Participant.find({
+            tournamentItemId,
+            registrationStatus: { $nin: ['rejected', 'suspended'] },
+        })
+            .select('_id type tournamentItemId name slug logo registrationStatus source representative lineup createdAt updatedAt')
+            .populate({
+                path: 'lineup.Player',
+                select: 'name gender birthDate skill avatar username status sports jerseyNumber',
             })
             .sort({ createdAt: -1 })
             .lean();
@@ -1094,22 +1115,35 @@ export const getPublicParticipant = async (req, res) => {
         }
         const tournamentItem = participant.tournamentItemId || {};
         const maxMembers = getTeamSizeLimit(tournamentItem);
-        const achievements = await KnockoutResult.find({
-            tournamentItemId: tournamentItem._id,
-            $or: [
-                { championParticipantId: participant._id },
-                { runnerUpParticipantId: participant._id }
-            ]
-        })
-            .populate('tournamentItemId', 'name sportType timeLine')
-            .populate('finalMatchId', 'name status scheduledTime')
-            .sort({ determinedAt: -1 })
-            .lean();
+        const playerIds = (participant.lineup || [])
+            .map((item) => item.Player?._id || item.Player)
+            .filter(Boolean);
+        const [achievements, playerStats] = await Promise.all([
+            TeamAchievement.find({ participantId: participant._id })
+                .populate('tournamentItemId', 'name sportType timeLine')
+                .populate('finalMatchId', 'name status scheduledTime')
+                .sort({ achievedAt: -1, createdAt: -1 })
+                .lean(),
+            aggregatePlayerStats(playerIds),
+        ]);
+        const lineupWithStats = (participant.lineup || []).map((item) => {
+            const player = item.Player && typeof item.Player === 'object' ? { ...item.Player } : item.Player;
+            const playerId = player?._id || player;
+            if (!player || typeof player !== 'object') return item;
+            return {
+                ...item,
+                Player: {
+                    ...player,
+                    stats: playerStats.get(String(playerId)) || { matches: 0, wins: 0, losses: 0, draws: 0 },
+                },
+            };
+        });
 
         return res.status(200).json({
             success: true,
             data: {
                 ...participant,
+                lineup: lineupWithStats,
                 publicMeta: {
                     currentMembers: participant.lineup?.length || 0,
                     maxMembers,
@@ -1120,21 +1154,22 @@ export const getPublicParticipant = async (req, res) => {
                         && isRegistrationOpen(tournamentItem)
                         && (!maxMembers || (participant.lineup?.length || 0) < maxMembers),
                 },
-                achievements: achievements.map((item) => {
-                    const isChampion = String(item.championParticipantId) === String(participant._id);
-                    return {
-                        _id: item._id,
-                        title: isChampion ? 'Quán quân' : 'Á quân',
-                        type: isChampion ? 'champion' : 'runner-up',
-                        tournamentName: item.tournamentItemId?.name || tournamentItem.name || '',
-                        sportType: item.tournamentItemId?.sportType || tournamentItem.sportType || '',
-                        season: item.tournamentItemId?.timeLine?.tournamentStart
-                            ? new Date(item.tournamentItemId.timeLine.tournamentStart).getFullYear()
-                            : new Date(item.determinedAt || item.createdAt).getFullYear(),
-                        achievedAt: item.determinedAt || item.createdAt,
-                        badgeImage: '',
-                    };
-                })
+                achievements: achievements.map((item) => ({
+                    _id: item._id,
+                    title: item.title,
+                    type: item.achievementType,
+                    tournamentName: item.tournamentItemId?.name || tournamentItem.name || '',
+                    sportType: item.tournamentItemId?.sportType || tournamentItem.sportType || '',
+                    season: item.tournamentItemId?.timeLine?.tournamentStart
+                        ? new Date(item.tournamentItemId.timeLine.tournamentStart).getFullYear()
+                        : new Date(item.achievedAt || item.createdAt).getFullYear(),
+                    achievedAt: item.achievedAt || item.createdAt,
+                    branchKey: item.branchKey,
+                    branchName: item.branchName,
+                    finalMatchId: item.finalMatchId?._id || item.finalMatchId,
+                    finalMatchName: item.finalMatchId?.name || '',
+                    badgeImage: '',
+                }))
             }
         });
     } catch (error) {

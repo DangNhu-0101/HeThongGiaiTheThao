@@ -40,6 +40,10 @@ const router = express.Router();
 router.get('/', getAllTournaments);
 router.get('/public-stats', getPublicTournamentStats);
 router.get('/open-registration', getOpenRegistrationTournamentItems);
+router.get('/single', getAllSingleSportTournaments);
+router.get('/multi/:id', getTournamentById);
+router.get('/single/:id/export/pdf', protectedRoute('admin', 'org', 'organization', { profile: true }), exportSingleTournamentPdf);
+router.get('/single/:id', getSingleTournamentById);
 router.get('/:id/eligible-teams', protectedRoute('admin', 'org', 'organization', { profile: true }), getEligibleTeamsForTournament);
 router.get('/:id/format', protectedRoute('admin', 'org', 'organization', { profile: true }), getTournamentCompetitionFormatAlias);
 router.post('/:id/format/validate', protectedRoute('admin', 'org', 'organization', { profile: true }), validateTournamentCompetitionFormat);
@@ -51,10 +55,7 @@ router.post('/:id/team-placement/confirm', protectedRoute('admin', 'org', 'organ
 router.get('/:id/wildcard/candidates', protectedRoute('admin', 'org', 'organization', { profile: true }), getWildcardCandidates);
 router.post('/:id/wildcard/preview', protectedRoute('admin', 'org', 'organization', { profile: true }), previewWildcard);
 router.post('/:id/wildcard/confirm', protectedRoute('admin', 'org', 'organization', { profile: true }), confirmWildcard);
-router.get('/single', getAllSingleSportTournaments);
-router.get('/multi/:id', getTournamentById);
-router.get('/single/:id/export/pdf', protectedRoute('admin', 'org', 'organization', { profile: true }), exportSingleTournamentPdf);
-router.get('/single/:id', getSingleTournamentById);
+router.get('/:id', getTournamentById);
 
 // ========== GET BY ORGANIZATION ==========
 router.get('/my/single', protectedRoute(), getSingleSportTournamentsByOrganization);

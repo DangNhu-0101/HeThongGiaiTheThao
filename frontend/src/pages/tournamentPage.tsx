@@ -21,6 +21,10 @@ const emptyFilters: TournamentListFilters = {
 };
 
 const getTournamentPhase = (tournament: Tournament, now = Date.now()) => {
+  if (tournament.status === "completed") {
+    return { openRegistration: false, active: false, closedBeforeStart: false, playing: false, completed: true };
+  }
+
   const registrationStart = tournament.timeLine.registrationStart?.getTime?.() || 0;
   const registrationEnd = tournament.timeLine.registrationEnd?.getTime?.() || 0;
   const tournamentStart = tournament.timeLine.tournamentStart?.getTime?.() || 0;
@@ -29,10 +33,10 @@ const getTournamentPhase = (tournament: Tournament, now = Date.now()) => {
   const maxTeams = Number(tournament.maxTeams || 0);
   const hasSlots = maxTeams <= 0 || registeredTeams < maxTeams;
   const openRegistration = registrationStart <= now && now <= registrationEnd && now < tournamentStart && hasSlots;
-  const active = registrationStart <= now && (!tournamentEnd || now <= tournamentEnd) && tournament.status !== "completed";
+  const active = tournament.status === "ongoing" || (registrationStart <= now && (!tournamentEnd || now <= tournamentEnd));
   const closedBeforeStart = registrationEnd < now && now < tournamentStart;
   const playing = tournamentStart <= now && (!tournamentEnd || now <= tournamentEnd);
-  const completed = tournament.status === "completed" || (Boolean(tournamentEnd) && tournamentEnd < now);
+  const completed = Boolean(tournamentEnd) && tournamentEnd < now;
 
   return { openRegistration, active, closedBeforeStart, playing, completed };
 };

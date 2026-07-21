@@ -76,7 +76,6 @@ class TournamentService {
             // Lấy categoryRule
             const categoryRule = await CategoryRule.findById(categoryRuleId);
             if (!categoryRule) throw new Error('CategoryRule không tồn tại');
-            if (categoryRule.tournamentItemId) throw new Error('CategoryRule đã được sử dụng cho giải khác');
 
             // Tạo timeline
             const timelineResult = buildTimeline(data);
@@ -117,9 +116,6 @@ class TournamentService {
             });
             await item.save();
 
-            // Cập nhật categoryRule
-            categoryRule.tournamentItemId = item._id;
-            await categoryRule.save();
 
             return item;
         } catch (error) {
@@ -142,8 +138,6 @@ class TournamentService {
             // Kiểm tra categoryRules
             const categoryRules = await CategoryRule.find({ _id: { $in: categoryRuleIds } });
             if (categoryRules.length !== categoryRuleIds.length) throw new Error('Một số categoryRule không tồn tại');
-            const used = categoryRules.some(cr => cr.tournamentItemId);
-            if (used) throw new Error('Một số categoryRule đã được sử dụng');
 
             const ruleByCategoryRuleId = new Map(
                 sportRules
@@ -228,8 +222,6 @@ class TournamentService {
                 });
                 await item.save();
                 itemIds.push(item._id);
-                categoryRule.tournamentItemId = item._id;
-                await categoryRule.save();
             }
 
             tournament.tournamnetItem = itemIds;
@@ -384,8 +376,6 @@ class TournamentService {
                 const newCategoryRuleIds = updateData.addCategoryRuleIds;
                 const newRules = await CategoryRule.find({ _id: { $in: newCategoryRuleIds } }).session(session);
                 if (newRules.length !== newCategoryRuleIds.length) throw new Error('Một số categoryRule không tồn tại');
-                const used = newRules.some(cr => cr.tournamentItemId);
-                if (used) throw new Error('Một số categoryRule đã được sử dụng');
 
                 let timeline;
                 if (updateData.timeLine) {

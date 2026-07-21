@@ -14,6 +14,9 @@ interface AllTournamentsProps {
 }
 
 const statusInfo = (tournament: Tournament) => {
+  if (tournament.status === "completed") return { label: "Đã hoàn tất", className: "bg-slate-600 text-white" };
+  if (tournament.status === "ongoing") return { label: "Đang diễn ra", className: "bg-primary text-white" };
+
   const now = Date.now();
   const registrationStart = tournament.timeLine.registrationStart?.getTime?.() || 0;
   const registrationEnd = tournament.timeLine.registrationEnd?.getTime?.() || 0;
@@ -26,7 +29,7 @@ const statusInfo = (tournament: Tournament) => {
   if (registrationStart <= now && now <= registrationEnd && now < tournamentStart && hasSlots) {
     return { label: "Mở đăng ký", className: "bg-emerald-600 text-white" };
   }
-  if (registrationStart <= now && (!tournamentEnd || now <= tournamentEnd) && tournament.status !== "completed") {
+  if (registrationStart <= now && (!tournamentEnd || now <= tournamentEnd)) {
     return { label: "Đang diễn ra", className: "bg-primary text-white" };
   }
   if (tournament.status === "upcoming") return { label: "Sắp diễn ra", className: "bg-blue-600 text-white" };
@@ -145,7 +148,7 @@ const AllTournaments = ({ tournaments, loading = false, error, onRetry }: AllTou
                     </span>
                   </div>
                   <div className="mt-auto flex justify-end border-t border-border pt-4">
-                    <Link to={`/tournaments/${tournament._id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "text-xs")}>
+                    <Link to={`${tournament.sportType.length > 1 ? "/sports-festivals" : "/tournaments"}/${tournament._id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "text-xs")}>
                       Xem chi tiết
                     </Link>
                   </div>

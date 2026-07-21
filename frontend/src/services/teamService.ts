@@ -72,6 +72,7 @@ export const teamService = {
     const members = participant.lineup.map((item, index) => {
       const player = playerRecord(item.Player);
       const sport = Array.isArray(player.sports) ? asRecord(player.sports[0]) : asRecord(player.sports);
+      const playerStats = asRecord((player as { stats?: unknown }).stats);
       return {
         id: player._id,
         userId: getUserId(player.userId),
@@ -83,7 +84,11 @@ export const teamService = {
         skill: Number(player.skill || 0),
         position: String(sport.position || ""),
         jerseyNumber: String((player as { jerseyNumber?: string }).jerseyNumber || ""),
-        stats: { matches: 0, wins: 0, rating: player.skill ? `${player.skill}/5` : "Chưa có" },
+        stats: {
+          matches: Number(playerStats.matches || playerStats.played || 0),
+          wins: Number(playerStats.wins || 0),
+          rating: player.skill ? `${player.skill}/5` : "Chưa có",
+        },
         country: "Việt Nam",
       } satisfies TeamMember;
     });
@@ -93,6 +98,8 @@ export const teamService = {
       : tournamentItem.location?.detail || tournamentItem.location?.district || tournamentItem.location?.city || "";
     const achievements = (rawParticipant.achievements || []).map((value) => {
       const raw = asRecord(value);
+      const branchLabel = String(raw.branchName || raw.branchKey || "").trim();
+      const finalMatchName = String(raw.finalMatchName || "").trim();
       return {
         id: String(raw._id || raw.id || `${raw.title}-${raw.achievedAt}`),
         year: Number(raw.season || (raw.achievedAt ? new Date(String(raw.achievedAt)).getFullYear() : new Date().getFullYear())),
@@ -101,7 +108,11 @@ export const teamService = {
         sport: String(raw.sportType || tournamentItem.sportType || ""),
         achievedAt: raw.achievedAt ? String(raw.achievedAt) : undefined,
         badgeImage: normalizeImage(raw.badgeImage),
-        description: String(raw.title || "Danh hiệu đội đạt được từ kết quả đã xác nhận."),
+        branchKey: String(raw.branchKey || ""),
+        branchName: branchLabel,
+        finalMatchName,
+        description: [branchLabel, finalMatchName].filter(Boolean).join(" - ")
+          || String(raw.title || "Danh hiệu đội đạt được từ kết quả đã xác nhận."),
         type: (raw.type || "other") as Achievement["type"],
       };
     });

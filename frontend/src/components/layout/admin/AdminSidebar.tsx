@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Activity, FileBarChart, Inbox, LayoutDashboard, LogOut, Newspaper, Settings, Users, X } from "lucide-react";
+import { Activity, FileBarChart, Inbox, LayoutDashboard, LogOut, MapPin, Newspaper, Settings, Users, X } from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 const NAV_ITEMS = [
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
     group: "Quản lý nền tảng",
     items: [
       { name: "Người dùng", icon: Users, path: "/admin/users" },
+      { name: "Sân thi đấu", icon: MapPin, path: "/admin/courts" },
       { name: "Cấu hình môn thi", icon: Activity, path: "/admin/sports" },
       { name: "Tin tức", icon: Newspaper, path: "/admin/news" },
       { name: "Tin nhắn liên hệ", icon: Inbox, path: "/admin/contact-messages" },

@@ -14,16 +14,17 @@ const router = express.Router();
 
 // ========== GET ==========
 router.get('/tournament-item/:tournamentItemId', protectedRoute(), getCourtsByTournamentItem);
+router.get('/', protectedRoute(), getCourtsByTournamentItem);
 router.get('/:courtId', protectedRoute(), getCourtById);
 
 // ========== CREATE ==========
-router.post('/', protectedRoute('admin', 'org', 'organization', { profile: true }), addCourt);
+router.post('/', protectedRoute('admin'), addCourt);
 
 // ========== UPDATE ==========
-router.put('/:courtId', protectedRoute('admin', 'org', 'organization', { profile: true }), updateCourt);
-router.patch('/:courtId/status', protectedRoute('admin', 'org', 'organization', { profile: true }), updateCourtStatus);
+router.put('/:courtId', protectedRoute('admin'), updateCourt);
+router.patch('/:courtId/status', protectedRoute('admin'), updateCourtStatus);
 
 // ========== DELETE ==========
-router.delete('/:courtId', protectedRoute('admin', 'org', 'organization', { profile: true }), deleteCourt);
+router.delete('/:courtId', protectedRoute('admin'), deleteCourt);
 
 export default router;

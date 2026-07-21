@@ -69,6 +69,11 @@ export const authService = {
     return response.data;
   },
 
+  async changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ message: string }> {
+    const response = await api.put<{ message: string }>("/users/change-password", { currentPassword, newPassword, confirmPassword });
+    return response.data;
+  },
+
   async getCurrentUser(): Promise<ApiUser> {
     try {
       const response = await api.get<UserApiResponse>("/users/me");

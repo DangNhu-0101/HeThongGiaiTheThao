@@ -23,6 +23,7 @@ import NewsPage from "./pages/NewsPage";
 import NewsDetailPage from "./pages/NewsDetailPage";
 import TournamentPage from "./pages/tournamentPage";
 import TournamentDetailPage from "./pages/TournamentDetailPage";
+import SportsFestivalDetailPage from "./pages/SportsFestivalDetailPage";
 import TeamDetailPage from "./pages/TeamDetailPage";
 import MatchDetailPage from "./pages/MatchDetailPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -57,6 +58,7 @@ import AdminOrganizationsPage from "./pages/AdminOrganizationsPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import AdminNewsMgmtPage from "./pages/AdminNewsMgmtPage";
 import AdminContactMessagesPage from "./pages/AdminContactMessagesPage";
+import AdminCourtsPage from "./pages/AdminCourtsPage";
 
 function App() {
   const initialized = useAuthStore((state) => state.initialized);
@@ -95,6 +97,7 @@ function App() {
           <Route path="/news/:slug" element={<NewsDetailPage />} />
           <Route path="/tournaments" element={<TournamentPage />} />
           <Route path="/tournaments/:id" element={<TournamentDetailPage />} />
+          <Route path="/sports-festivals/:id" element={<SportsFestivalDetailPage />} />
           <Route path="/teams/:id" element={<TeamDetailPage />} />
           <Route path="/matches/:id" element={<MatchDetailPage />} />
 
@@ -131,6 +134,7 @@ function App() {
               <Route path="organizations" element={<AdminOrganizationsPage />} />
               <Route path="users" element={<AdminUserMgmtPage />} />
               <Route path="sports" element={<AdminSportsConfigPage />} />
+              <Route path="courts" element={<AdminCourtsPage />} />
               <Route path="news" element={<AdminNewsMgmtPage />} />
               <Route path="backend-features" element={<AdminBackendFeaturesPage />} />
               <Route path="reports" element={<AdminReportsPage />} />

@@ -105,7 +105,7 @@ const AdminContactMessagesPage = () => {
                   <Button size="sm" variant="outline" onClick={() => { setSelected(item); void toggleRead(item, true); }}><Eye className="h-4 w-4" /> Xem</Button>
                   <Button size="sm" variant="outline" render={<a href={`mailto:${item.email}?subject=${encodeURIComponent(`Phản hồi: ${item.subject}`)}`} />}><Mail className="h-4 w-4" /> Phản hồi</Button>
                   <Button size="sm" variant="outline" onClick={() => void toggleRead(item)}>{item.isRead ? "Đánh dấu chưa đọc" : "Đánh dấu đã đọc"}</Button>
-                  <Button size="sm" variant="destructive" onClick={() => void remove(item)}><Trash2 className="h-4 w-4" /> Xóa</Button>
+                  <Button size="sm" variant="destructive" onClick={() => void remove(item)}><Trash2 className="size-4 text-white/80" /><span className="text-white/80"> Xóa</span></Button>
                 </div>
               </article>
             ))}

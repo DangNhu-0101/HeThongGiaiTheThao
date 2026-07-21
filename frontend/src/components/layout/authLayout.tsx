@@ -1,8 +1,15 @@
 import { Calendar, LineChart, ShieldCheck, Trophy, Users } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 const AuthLayout = ({ children }: { children: React.ReactNode }) => {
   const isMobile = useIsMobile();
+    const { settings } = useSystemSettings();
+    const renderBrandMark = () => (
+    <div className="flex size-10 items-center justify-center overflow-hidden rounded-lg bg-primary-dark text-white shadow-sm">
+      {settings.logoUrl ? <img src={settings.logoUrl} alt={`Logo ${settings.siteName}`} className="h-full w-full object-contain p-1" /> : <Trophy className="size-5" />}
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -19,11 +26,13 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="relative z-10">
             <div className="mb-16 flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg border border-white/20 bg-white/12 text-white backdrop-blur-sm">
-                <Trophy className="size-5" />
+                 {renderBrandMark()}
               </div>
               <div>
-                <h1 className="font-heading text-xl font-bold leading-none text-white">TMS</h1>
-                <p className="font-highlight text-[10px] font-medium uppercase tracking-wide text-white/72">Tournament Management System</p>
+                 <span className="leading-tight">
+                  <span className="block max-w-[11rem] truncate font-heading text-base font-bold tracking-normal text-title text-white">{settings.siteName}</span>
+                  <span className="block font-highlight text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Tournament Management System</span>
+                </span>
               </div>
             </div>
 

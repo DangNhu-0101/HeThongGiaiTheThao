@@ -31,6 +31,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ accessToken: null, user: null, loading: false, initialized: true, error: null });
   },
 
+  setCurrentUser: (user) => {
+    const accessToken = get().accessToken;
+    const merged = mergeUser(get().user, user);
+    if (accessToken) persistSession(accessToken, merged);
+    set({ user: merged, error: null });
+  },
+
   restoreSession: async () => {
     const accessToken = readStoredAccessToken();
     const storedUser = readStoredUser();
@@ -42,7 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ accessToken, user: storedUser, loading: true, error: null });
     try {
       const apiUser = await authService.getCurrentUser();
-      const user = mergeUser(storedUser, requireUser(apiUser));
+      const user = requireUser(apiUser);
       persistSession(accessToken, user);
       set({ user, initialized: true });
     } catch (error) {

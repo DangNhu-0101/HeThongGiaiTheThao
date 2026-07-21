@@ -21,6 +21,7 @@ export interface AuthState {
   register: (payload: RegisterRequest) => Promise<User>;
   login: (payload: LoginRequest) => Promise<User>;
   refreshCurrentUser: () => Promise<User | null>;
+  setCurrentUser: (user: User) => void;
   registerRoleProfile: (role: ProfileRole, payload: RoleProfilePayload) => Promise<void>;
   logout: () => Promise<void>;
 }

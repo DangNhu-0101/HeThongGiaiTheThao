@@ -75,6 +75,11 @@ const readTournamentItem = (raw: Record<string, unknown>) => {
   return {};
 };
 
+const readTournamentItems = (raw: Record<string, unknown>) => {
+  const items = raw.tournamnetItem || raw.tournamentItem || raw.tournamentItems;
+  return Array.isArray(items) ? items.map(asRecord) : [];
+};
+
 const readCategoryRule = (raw: Record<string, unknown>, item: Record<string, unknown>) => {
   return asRecord(item.categoryRule || raw.categoryRule);
 };
@@ -103,6 +108,7 @@ const parsePrizeCards = (value: unknown): TournamentDetail["prizes"] => {
 export const normalizeTournament = (rawValue: unknown): Tournament => {
   const raw = asRecord(rawValue);
   const item = readTournamentItem(raw);
+  const itemList = readTournamentItems(raw);
   const timeline = asRecord(raw.timeLine || item.timeLine);
   const categoryRule = readCategoryRule(raw, item);
   const rawMediaConfig = asRecord(raw.mediaConfig);
@@ -138,6 +144,7 @@ export const normalizeTournament = (rawValue: unknown): Tournament => {
     status: normalizeStatus(raw.status || item.status),
     registeredTeams: Number(
       raw.registeredTeams
+      || itemList.reduce((sum, child) => sum + Number(child.registeredTeams || child.registeredTeamCount || child.participantCount || child.teamsCount || 0), 0)
       || item.registeredTeams
       || raw.registeredTeamCount
       || item.registeredTeamCount
@@ -147,7 +154,7 @@ export const normalizeTournament = (rawValue: unknown): Tournament => {
       || item.teamsCount
       || 0,
     ),
-    maxTeams: Number(raw.maxTeams || item.maxTeams || 0),
+    maxTeams: Number(raw.maxTeams || itemList.reduce((sum, child) => sum + Number(child.maxTeams || 0), 0) || item.maxTeams || 0),
     createdAt: dateOrNow(raw.createdAt),
     updatedAt: dateOrNow(raw.updatedAt),
   };
@@ -232,7 +239,7 @@ export const getBackendTournamentDetail = async (id: string): Promise<{
   let publicMatches: unknown[] = [];
   if (tournament._id) {
     try {
-      const participantsResponse = await api.get<ApiList>(`/participants/tournament/${tournament._id}`);
+      const participantsResponse = await api.get<ApiList>(`/participants/public/tournament/${tournament._id}`);
       const participants = asArray(participantsResponse.data);
       if (participants.length > 0) {
         teams = participants.map((value) => {

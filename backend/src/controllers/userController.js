@@ -224,14 +224,20 @@ export const requestChangePasswordOtp = async (req, res) => {
         );
 
         const code = createSixDigitCode();
-        await PasswordResetToken.create({
+        const token = await PasswordResetToken.create({
             userId: user._id,
             email: user.email,
             codeHash: sha256(code),
             expiresAt: new Date(Date.now() + PASSWORD_CHANGE_TTL_MINUTES * 60 * 1000),
         });
 
-        await sendPasswordResetCode({ to: user.email, code, ttlMinutes: PASSWORD_CHANGE_TTL_MINUTES });
+        try {
+            await sendPasswordResetCode({ to: user.email, code, ttlMinutes: PASSWORD_CHANGE_TTL_MINUTES });
+        } catch (mailError) {
+            await PasswordResetToken.deleteOne({ _id: token._id });
+            console.error('SMTP gửi OTP đổi mật khẩu thất bại:', { userId: String(user._id), email: user.email, error: mailError.message });
+            return res.status(503).json({ success: false, message: 'Không thể gửi email xác minh. Vui lòng kiểm tra địa chỉ email hoặc thử lại sau.' });
+        }
         return res.json({
             success: true,
             message: 'Mã xác minh đã được gửi đến email của bạn',
@@ -317,22 +323,24 @@ export const confirmChangePassword = async (req, res) => {
 
 export const changePassword = async (req, res) => {
     try {
-        const { currentPassword, newPassword } = req.body;
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({ message: "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới" });
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ message: "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu" });
         }
-        if (newPassword.length < 6) {
-            return res.status(400).json({ message: "Mật khẩu mới ít nhất 6 ký tự" });
+        if (newPassword.length < 8) {
+            return res.status(400).json({ message: "Mật khẩu mới phải có ít nhất 8 ký tự" });
         }
+        if (newPassword !== confirmPassword) return res.status(400).json({ message: "Mật khẩu xác nhận không khớp" });
 
         const user = await User.findById(req.user._id).select('+hashedPassword');
         const isMatch = await bcrypt.compare(currentPassword, user.hashedPassword);
         if (!isMatch) {
             return res.status(400).json({ message: "Mật khẩu hiện tại không đúng" });
         }
+        if (await bcrypt.compare(newPassword, user.hashedPassword)) return res.status(400).json({ message: "Mật khẩu mới phải khác mật khẩu hiện tại" });
 
         user.hashedPassword = await bcrypt.hash(newPassword, 10);
-        await user.save();
+        await Promise.all([user.save(), Session.deleteMany({ userId: user._id, refreshToken: { $ne: req.cookies?.refreshToken || '' } })]);
         return res.status(200).json({ success: true, message: "Đổi mật khẩu thành công" });
     } catch (error) {
         console.error("Lỗi changePassword:", error);

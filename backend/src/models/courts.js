@@ -7,11 +7,7 @@ const courtSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-    tournamentItemId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'TournamentItem',
-        required: true
-    },
+    sportTypes: [{ type: String, trim: true }],
     status: {
         type: String,
         enum: ['empty', 'busy', 'maintenance', 'inactived'],
@@ -25,7 +21,7 @@ const courtSchema = new mongoose.Schema({
     timestamps: true
 });
 
-courtSchema.index({ tournamentItemId: 1 });
+courtSchema.index({ name: 1, location: 1 }, { unique: true });
 courtSchema.index({ status: 1 });
 
 export default mongoose.model("Court", courtSchema);

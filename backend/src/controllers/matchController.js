@@ -20,6 +20,11 @@ import {
     validateMatchScores
 } from '../services/competitionRuleEngine.js';
 import { syncLiveMatches } from '../services/matchStatusScheduler.js';
+import {
+    revokeTeamAchievementsForMatch,
+    syncPlayerMatchStats,
+    syncTeamAchievementsFromKnockoutResult,
+} from '../services/resultSyncService.js';
 
 // ==================== HELPERS ====================
 
@@ -612,9 +617,15 @@ const populateMatchReadQuery = (query) => query
     });
 
 const syncKnockoutFinalResult = async (match, session) => {
-    if (match.status !== 'completed' || !match.winnerParticipantId) return null;
+    if (match.status !== 'completed' || !match.winnerParticipantId) {
+        await revokeTeamAchievementsForMatch(match._id, session);
+        return null;
+    }
     const bracket = await Bracket.findById(match.bracketId).select('type name').session(session);
-    if (!bracket || bracket.type !== 'knockout') return null;
+    if (!bracket || bracket.type !== 'knockout') {
+        await revokeTeamAchievementsForMatch(match._id, session);
+        return null;
+    }
 
     const branchKey = branchKeyForMatch(match);
     const knockoutMatches = await Match.find({ tournamentItemId: match.tournamentItemId })
@@ -629,7 +640,21 @@ const syncKnockoutFinalResult = async (match, session) => {
     if (branchMatches.length === 0) return null;
 
     const finalStageNumber = Math.max(...branchMatches.map((item) => Number(item.stageId?.number || 0)));
-    if (Number(currentStage?.number || 0) !== finalStageNumber) return null;
+    const matchId = normalizeId(match._id);
+    const matchCode = normalizeMatchCode(match.name);
+    const hasDependentMatch = Boolean(match.nextMatchId || match.nextLoserMatchId) || branchMatches.some((item) => {
+        if (normalizeId(item._id) === matchId) return false;
+        if (idsEqual(item.nextMatchId, matchId) || idsEqual(item.nextLoserMatchId, matchId)) return true;
+        if ((item.previousMatches || []).some((entry) => idsEqual(entry.matchId, matchId))) return true;
+        return (item.slotSources || []).some((slot) =>
+            idsEqual(slot.sourceMatchId, matchId)
+            || (matchCode && normalizeMatchCode(slot.sourceMatchCode || slot.sourceKey) === matchCode)
+        );
+    });
+    if (hasDependentMatch || Number(currentStage?.number || 0) !== finalStageNumber) {
+        await revokeTeamAchievementsForMatch(match._id, session);
+        return null;
+    }
 
     const participants = (match.participants || []).map((participant) => participant?._id || participant).filter(Boolean);
     const winnerId = String(match.winnerParticipantId);
@@ -659,6 +684,7 @@ const syncKnockoutFinalResult = async (match, session) => {
         },
         { upsert: true, returnDocument: 'after', session },
     );
+    await syncTeamAchievementsFromKnockoutResult(record, session);
     console.info('[knockout.final] result synced', {
         tournamentItemId: String(match.tournamentItemId),
         finalMatchId: String(match._id),
@@ -1715,7 +1741,7 @@ export const generateGroupStageMatches = async (req, res) => {
             group: [],
         }], { session }).then(items => items[0]);
 
-        const courts = await Court.find({ tournamentItemId, status: { $ne: 'inactived' } }).sort({ createdAt: 1 }).session(session);
+        const courts = await Court.find({ status: { $ne: 'inactived' } }).sort({ name: 1 }).session(session);
         const baseStart = startAt ? new Date(startAt) : null;
         const courtCount = Math.max(1, courts.length);
         let matchIndex = 0;
@@ -2362,6 +2388,7 @@ export const updateMatch = async (req, res) => {
             };
             await createMatchResult(match, participant._id, null, scores, session);
             await match.save({ session });
+            await syncPlayerMatchStats(match, session);
             knockoutAdvanceSync = await propagateWinnerToDependentMatches(match, participant._id, session);
             await rebuildStageStandings(match, context, session);
             await syncKnockoutParticipantsFromStandings(match.tournamentItemId, session);
@@ -2432,6 +2459,7 @@ export const autoResultMatch = async (req, res) => {
 
         // Tạo MatchResult
         await createMatchResult(match, winner, null, { winner: 0, loser: 0 }, session);
+        await syncPlayerMatchStats(match, session);
 
         // Cập nhật next match nếu có
         const knockoutAdvanceSync = await propagateWinnerToDependentMatches(match, winner, session);
@@ -2589,6 +2617,7 @@ export const completeMatch = async (req, res) => {
             statistics: participantScores?.statistics || {}
         };
         await createMatchResult(match, participant._id, null, scores, session);
+        await syncPlayerMatchStats(match, session);
         const knockoutAdvanceSync = await propagateWinnerToDependentMatches(match, participant._id, session);
         const standingsSync = await rebuildStageStandings(match, context, session);
         const knockoutSync = await syncKnockoutParticipantsFromStandings(match.tournamentItemId, session);
@@ -2643,7 +2672,7 @@ export const autoScheduleStage = async (req, res) => {
             return res.status(syncResult.status || 400).json({ success: false, message: syncResult.message });
         }
 
-        const courts = await Court.find({ tournamentItemId: stage.tournamentItemId, status: { $nin: ['inactived', 'maintenance'] } })
+        const courts = await Court.find({ status: { $nin: ['inactived', 'maintenance'] } })
             .sort({ createdAt: 1 });
         const initialRawMatches = await Match.find({ stageId })
             .sort({ scheduleOrder: 1, round: 1, createdAt: 1 });
@@ -3488,9 +3517,16 @@ export const updateMatches = async (req, res) => {
                     statistics: item.participantScores?.statistics || {}
                 };
                 await createMatchResult(match, participant._id, null, scores, session);
+                await syncPlayerMatchStats(match, session);
             }
 
             await match.save({ session });
+            if (match.status === 'completed' && match.winnerParticipantId) {
+                await syncKnockoutFinalResult(match, session);
+            } else {
+                await syncPlayerMatchStats(match, session);
+                await syncKnockoutFinalResult(match, session);
+            }
             updatedMatches.push(match);
 
             if (match.status === 'completed' && match.winnerParticipantId && match.nextMatchId) {

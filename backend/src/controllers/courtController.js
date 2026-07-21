@@ -1,229 +1,69 @@
-// controllers/courtController.js
 import mongoose from "mongoose";
 import Court from "../models/courts.js";
-import TournamentItem from "../models/tournamentItem.js";
-import Tournament from "../models/tournaments.js";
-import { checkTournamentItemPermission, checkPermission } from "../utils/tournamentHelper.js";
 
-// ========== HELPERS ==========
+const statuses = ['empty', 'busy', 'maintenance', 'inactived'];
+const cleanSports = (value) => Array.isArray(value)
+    ? [...new Set(value.map(String).map(item => item.trim()).filter(Boolean))]
+    : [];
 
-/**
- * Kiểm tra quyền quản lý court của tournamentItem
- * - User phải là admin hoặc owner của tournamentItem
- */
-const canManageCourt = async (userId, tournamentItemId) => {
-    const perm = await checkTournamentItemPermission(tournamentItemId, userId);
-    return perm.allowed;
-};
-
-// ========== GET ==========
 export const getCourtsByTournamentItem = async (req, res) => {
     try {
-        const { tournamentItemId } = req.params;
-        const { page = 1, limit = 20, status } = req.query;
-
-        if (!mongoose.Types.ObjectId.isValid(tournamentItemId)) {
-            return res.status(400).json({ success: false, message: "ID tournamentItem không hợp lệ" });
-        }
-
-        const filter = { tournamentItemId };
+        const { page = 1, limit = 100, status, sportType } = req.query;
+        const filter = {};
         if (status) filter.status = status;
-
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-        const limitNum = parseInt(limit);
-
+        if (sportType) filter.$or = [{ sportTypes: { $size: 0 } }, { sportTypes: sportType }];
+        const pageNumber = Math.max(1, Number(page) || 1);
+        const limitNumber = Math.min(200, Math.max(1, Number(limit) || 100));
         const [courts, total] = await Promise.all([
-            Court.find(filter).skip(skip).limit(limitNum).sort({ createdAt: -1 }).lean(),
-            Court.countDocuments(filter)
+            Court.find(filter).sort({ name: 1 }).skip((pageNumber - 1) * limitNumber).limit(limitNumber).lean(),
+            Court.countDocuments(filter),
         ]);
-
-        return res.status(200).json({
-            success: true,
-            data: courts,
-            pagination: {
-                page: parseInt(page),
-                limit: limitNum,
-                total,
-                totalPages: Math.ceil(total / limitNum)
-            }
-        });
+        return res.json({ success: true, data: courts, pagination: { page: pageNumber, limit: limitNumber, total, totalPages: Math.ceil(total / limitNumber) } });
     } catch (error) {
-        console.error("getCourtsByTournamentItem error:", error);
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// ========== CREATE ==========
-export const addCourt = async (req, res) => {
-    try {
-        const { name, tournamentItemId, location } = req.body;
-        const userId = req.user._id;
-
-        if (!name || !tournamentItemId) {
-            return res.status(400).json({ success: false, message: "Thiếu tên sân hoặc tournamentItemId" });
-        }
-        if (!mongoose.Types.ObjectId.isValid(tournamentItemId)) {
-            return res.status(400).json({ success: false, message: "tournamentItemId không hợp lệ" });
-        }
-
-        // Kiểm tra quyền
-        const hasPermission = await canManageCourt(userId, tournamentItemId);
-        if (!hasPermission) {
-            return res.status(403).json({
-                success: false,
-                message: "Bạn không có quyền thêm sân cho giải đấu này"
-            });
-        }
-
-        // Kiểm tra tên sân trùng
-        const existing = await Court.findOne({ name, tournamentItemId });
-        if (existing) {
-            return res.status(409).json({
-                success: false,
-                message: "Tên sân đã tồn tại trong giải đấu này"
-            });
-        }
-
-        const newCourt = await Court.create({
-            name: name.trim(),
-            tournamentItemId,
-            location: location || '',
-            status: 'empty'
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "Thêm sân thành công",
-            data: newCourt
-        });
-    } catch (error) {
-        console.error("addCourt error:", error);
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// ========== UPDATE ==========
-export const updateCourt = async (req, res) => {
-    try {
-        const { courtId } = req.params;
-        const { name, location } = req.body;
-        const userId = req.user._id;
-
-        if (!mongoose.Types.ObjectId.isValid(courtId)) {
-            return res.status(400).json({ success: false, message: "ID sân không hợp lệ" });
-        }
-
-        const court = await Court.findById(courtId);
-        if (!court) {
-            return res.status(404).json({ success: false, message: "Sân không tồn tại" });
-        }
-
-        const hasPermission = await canManageCourt(userId, court.tournamentItemId);
-        if (!hasPermission) {
-            return res.status(403).json({
-                success: false,
-                message: "Bạn không có quyền cập nhật sân này"
-            });
-        }
-
-        if (name) court.name = name.trim();
-        if (location !== undefined) court.location = location;
-
-        await court.save();
-        return res.status(200).json({
-            success: true,
-            message: "Cập nhật sân thành công",
-            data: court
-        });
-    } catch (error) {
-        console.error("updateCourt error:", error);
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// ========== UPDATE STATUS ==========
-export const updateCourtStatus = async (req, res) => {
-    try {
-        const { courtId } = req.params;
-        const { status } = req.body;
-        const userId = req.user._id;
-
-        const allowedStatus = ['empty', 'busy', 'maintenance', 'inactived'];
-        if (!status || !allowedStatus.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: `Trạng thái không hợp lệ. Cho phép: ${allowedStatus.join(', ')}`
-            });
-        }
-
-        const court = await Court.findById(courtId);
-        if (!court) {
-            return res.status(404).json({ success: false, message: "Sân không tồn tại" });
-        }
-
-        const hasPermission = await canManageCourt(userId, court.tournamentItemId);
-        if (!hasPermission) {
-            return res.status(403).json({
-                success: false,
-                message: "Bạn không có quyền cập nhật sân này"
-            });
-        }
-
-        court.status = status;
-        await court.save();
-        return res.status(200).json({
-            success: true,
-            message: "Cập nhật trạng thái sân thành công",
-        });
-    } catch (error) {
-        console.error("updateCourtStatus error:", error);
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// ========== DELETE ==========
-export const deleteCourt = async (req, res) => {
-    try {
-        const { courtId } = req.params;
-        const userId = req.user._id;
-
-        const court = await Court.findById(courtId);
-        if (!court) {
-            return res.status(404).json({ success: false, message: "Sân không tồn tại" });
-        }
-
-        const hasPermission = await canManageCourt(userId, court.tournamentItemId);
-        if (!hasPermission) {
-            return res.status(403).json({
-                success: false,
-                message: "Bạn không có quyền xóa sân này"
-            });
-        }
-
-        await Court.findByIdAndDelete(courtId);
-        return res.status(200).json({
-            success: true,
-            message: "Xóa sân thành công"
-        });
-    } catch (error) {
-        console.error("deleteCourt error:", error);
-        return res.status(500).json({ success: false, message: error.message });
+        console.error('getCourts error:', error);
+        return res.status(500).json({ success: false, message: 'Không thể tải danh sách sân' });
     }
 };
 
 export const getCourtById = async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.courtId)) return res.status(400).json({ success: false, message: 'ID sân không hợp lệ' });
+    const court = await Court.findById(req.params.courtId).lean();
+    return court ? res.json({ success: true, data: court }) : res.status(404).json({ success: false, message: 'Sân không tồn tại' });
+};
+
+export const addCourt = async (req, res) => {
     try {
-        const { courtId } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(courtId)) {
-            return res.status(400).json({ success: false, message: "ID sân không hợp lệ" });
-        }
-        const court = await Court.findById(courtId).lean();
-        if (!court) {
-            return res.status(404).json({ success: false, message: "Sân không tồn tại" });
-        }
-        return res.status(200).json({ success: true, data: court });
+        const name = String(req.body.name || '').trim();
+        const location = String(req.body.location || '').trim();
+        if (!name || !location) return res.status(400).json({ success: false, message: 'Vui lòng nhập tên sân và địa điểm' });
+        const court = await Court.create({ name, location, sportTypes: cleanSports(req.body.sportTypes), status: statuses.includes(req.body.status) ? req.body.status : 'empty' });
+        return res.status(201).json({ success: true, message: 'Thêm sân thành công', data: court });
     } catch (error) {
-        console.error("getCourtById error:", error);
+        if (error?.code === 11000) return res.status(409).json({ success: false, message: 'Sân này đã tồn tại tại địa điểm đã chọn' });
         return res.status(500).json({ success: false, message: error.message });
     }
+};
+
+export const updateCourt = async (req, res) => {
+    try {
+        const updates = {};
+        if (req.body.name !== undefined) updates.name = String(req.body.name).trim();
+        if (req.body.location !== undefined) updates.location = String(req.body.location).trim();
+        if (req.body.sportTypes !== undefined) updates.sportTypes = cleanSports(req.body.sportTypes);
+        const court = await Court.findByIdAndUpdate(req.params.courtId, { $set: updates }, { returnDocument: 'after', runValidators: true });
+        return court ? res.json({ success: true, message: 'Cập nhật sân thành công', data: court }) : res.status(404).json({ success: false, message: 'Sân không tồn tại' });
+    } catch (error) {
+        return res.status(error?.code === 11000 ? 409 : 500).json({ success: false, message: error?.code === 11000 ? 'Sân này đã tồn tại' : error.message });
+    }
+};
+
+export const updateCourtStatus = async (req, res) => {
+    if (!statuses.includes(req.body.status)) return res.status(400).json({ success: false, message: 'Trạng thái sân không hợp lệ' });
+    const court = await Court.findByIdAndUpdate(req.params.courtId, { status: req.body.status }, { returnDocument: 'after' });
+    return court ? res.json({ success: true, message: 'Cập nhật trạng thái sân thành công', data: court }) : res.status(404).json({ success: false, message: 'Sân không tồn tại' });
+};
+
+export const deleteCourt = async (req, res) => {
+    const court = await Court.findByIdAndDelete(req.params.courtId);
+    return court ? res.json({ success: true, message: 'Xóa sân thành công' }) : res.status(404).json({ success: false, message: 'Sân không tồn tại' });
 };

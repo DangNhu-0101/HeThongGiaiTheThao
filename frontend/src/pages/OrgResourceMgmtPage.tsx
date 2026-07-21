@@ -56,7 +56,6 @@ const OrgResourceMgmtPage = () => {
     fetchData,
     addVenue,
     updateVenue,
-    deleteVenue,
     addReferee,
     updateReferee,
     deleteReferee,
@@ -118,12 +117,6 @@ const OrgResourceMgmtPage = () => {
     setEditingReferee(null);
     setRefereeForm(emptyReferee);
     setDialogMode("referee");
-  };
-
-  const openEditVenue = (venue: OrgVenueRecord) => {
-    setEditingVenue(venue);
-    setVenueForm({ name: venue.name, location: venue.location, status: venue.status });
-    setDialogMode("venue");
   };
 
   const openEditReferee = (referee: OrgRefereeRecord) => {
@@ -189,9 +182,9 @@ const OrgResourceMgmtPage = () => {
           <p className="text-sm text-white/70">Quản lý cơ sở vật chất sân bãi và phân công trọng tài điều hành.</p>
         </div>
 
-        <Button onClick={openAddDialog} className="relative z-10 bg-accent text-accent-foreground hover:bg-accent/90">
-          <Plus className="mr-2 h-4 w-4" /> Thêm {activeTab === "venues" ? "Sân mới" : "Trọng tài"}
-        </Button>
+        {activeTab === "referees" && <Button onClick={openAddDialog} className="relative z-10 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Plus className="mr-2 h-4 w-4" /> Thêm Trọng tài
+        </Button>}
       </div>
 
       <ResourceStats stats={activeTab === "venues" ? venueStats : refereeStats} />
@@ -231,14 +224,10 @@ const OrgResourceMgmtPage = () => {
       </div>
 
       {activeTab === "venues" ? (
-        <VenueMgmtTable
+        <div className="space-y-3"><p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">Danh sách sân do Admin quản lý. Ban tổ chức chọn sân tại màn hình xếp lịch hoặc phân công trận đấu.</p><VenueMgmtTable
           records={filteredVenues}
           isMobile={isMobile}
-          onEdit={openEditVenue}
-          onDelete={(venue) => {
-            if (window.confirm(`Xóa sân "${venue.name}"?`)) void deleteVenue(venue.id);
-          }}
-        />
+        /></div>
       ) : (
         <RefereeMgmtTable
           records={filteredReferees}

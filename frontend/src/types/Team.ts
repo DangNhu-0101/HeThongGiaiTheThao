@@ -25,6 +25,9 @@ export interface Achievement {
   sport: string;
   achievedAt?: string;
   badgeImage?: string;
+  branchKey?: string;
+  branchName?: string;
+  finalMatchName?: string;
   description: string;
   type: "champion" | "runner-up" | "third-place" | "other";
 }

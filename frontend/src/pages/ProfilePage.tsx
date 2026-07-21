@@ -6,7 +6,7 @@ import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getApiErrorMessage, normalizeUploadUrl } from "@/libs/axios";
-import { getRoleLabel } from "@/libs/auth";
+import { getRoleLabel, normalizeUser } from "@/libs/auth";
 import { authService } from "@/services/authService";
 import { uploadService } from "@/services/uploadService";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -65,7 +65,7 @@ const emptyRoleForm: RoleForm = {
 };
 
 const ProfilePage = () => {
-  const { user, loading, refreshCurrentUser, registerRoleProfile } = useAuthStore();
+  const { user, loading, refreshCurrentUser, setCurrentUser, registerRoleProfile } = useAuthStore();
   const [activeTab, setActiveTab] = useState<"info" | "password" | "roles" | "security">("info");
   const [form, setForm] = useState<ProfileForm>(emptyForm);
   const [roleForm, setRoleForm] = useState<RoleForm>(emptyRoleForm);
@@ -74,13 +74,9 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [roleSaving, setRoleSaving] = useState(false);
 
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [expiresIn, setExpiresIn] = useState(0);
-  const [resendAfter, setResendAfter] = useState(0);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
@@ -112,15 +108,6 @@ const ProfilePage = () => {
     queueMicrotask(() => setAvatarPreview(url));
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
-
-  useEffect(() => {
-    if (!otpSent) return;
-    const interval = window.setInterval(() => {
-      setExpiresIn((value) => Math.max(0, value - 1));
-      setResendAfter((value) => Math.max(0, value - 1));
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [otpSent]);
 
   const displayName = form.fullName || form.username || "Tài khoản";
   const avatarSrc = avatarPreview || normalizeUploadUrl(form.avatar);
@@ -162,8 +149,9 @@ const ProfilePage = () => {
     try {
       let avatar = form.avatar;
       if (avatarFile) avatar = await uploadService.image(avatarFile);
-      await authService.updateProfile({ ...form, avatar });
-      await refreshCurrentUser();
+      const updated = await authService.updateProfile({ ...form, avatar });
+      const normalized = normalizeUser(updated);
+      if (normalized) setCurrentUser(normalized);
       setAvatarFile(null);
       setAvatarPreview("");
       toast.success("Đã cập nhật hồ sơ.");
@@ -174,42 +162,12 @@ const ProfilePage = () => {
     }
   };
 
-  const requestOtp = async () => {
-    setPasswordLoading(true);
-    try {
-      const response = await authService.requestChangePasswordOtp();
-      setOtpSent(true);
-      setOtpVerified(false);
-      setExpiresIn(response.expiresInSeconds || 600);
-      setResendAfter(response.resendAfterSeconds || 60);
-      toast.success(response.message || "Mã xác nhận đã được gửi đến email của bạn.");
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không thể gửi mã xác nhận."));
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const verifyOtp = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!otpCode.trim()) {
-      toast.error("Vui lòng nhập mã xác nhận.");
-      return;
-    }
-    setPasswordLoading(true);
-    try {
-      await authService.verifyChangePasswordOtp(otpCode.trim());
-      setOtpVerified(true);
-      toast.success("Mã xác nhận hợp lệ. Bạn có thể đặt mật khẩu mới.");
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Mã xác nhận không hợp lệ."));
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
   const changePassword = async (event: FormEvent) => {
     event.preventDefault();
+    if (!currentPassword) {
+      toast.error("Vui lòng nhập mật khẩu hiện tại.");
+      return;
+    }
     if (password.length < 8) {
       toast.error("Mật khẩu mới phải có ít nhất 8 ký tự.");
       return;
@@ -220,12 +178,10 @@ const ProfilePage = () => {
     }
     setPasswordLoading(true);
     try {
-      await authService.confirmChangePassword(otpCode.trim(), password);
-      setOtpSent(false);
-      setOtpVerified(false);
-      setOtpCode("");
+      await authService.changePassword(currentPassword, password, confirmPassword);
       setPassword("");
       setConfirmPassword("");
+      setCurrentPassword("");
       toast.success("Đã cập nhật mật khẩu.");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Không thể cập nhật mật khẩu."));
@@ -408,47 +364,28 @@ const ProfilePage = () => {
             <div className="mb-6 flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><KeyRound className="size-5" /></div>
               <div>
-                <h2 className="font-heading text-xl font-bold">Đổi mật khẩu bằng mã xác nhận email</h2>
-                <p className="text-sm text-muted-foreground">Mã OTP chỉ gửi đến email của tài khoản đang đăng nhập và không hiển thị trên giao diện.</p>
+                <h2 className="font-heading text-xl font-bold">Đổi mật khẩu</h2>
+                <p className="text-sm text-muted-foreground">Xác nhận mật khẩu hiện tại trước khi đặt mật khẩu mới.</p>
               </div>
             </div>
 
-            {!otpSent ? (
-              <Button type="button" onClick={requestOtp} disabled={passwordLoading || !form.email}>
-                {passwordLoading ? <Loader2 className="size-4 animate-spin" /> : null}
-                Gửi mã xác nhận
-              </Button>
-            ) : (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <form onSubmit={verifyOtp} className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Mã còn hiệu lực khoảng <strong>{Math.floor(expiresIn / 60)}:{String(expiresIn % 60).padStart(2, "0")}</strong>.
-                  </p>
-                  <Field label="Mã OTP">
-                    <Input value={otpCode} onChange={(event) => setOtpCode(event.target.value)} inputMode="numeric" maxLength={6} />
-                  </Field>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="submit" disabled={passwordLoading || otpVerified}>{otpVerified ? "Đã xác nhận" : "Xác nhận mã"}</Button>
-                    <Button type="button" variant="outline" onClick={requestOtp} disabled={passwordLoading || resendAfter > 0}>
-                      {resendAfter > 0 ? `Gửi lại sau ${resendAfter}s` : "Gửi lại mã"}
-                    </Button>
-                  </div>
-                </form>
-
+              <div className="max-w-xl">
                 <form onSubmit={changePassword} className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4">
+                  <Field label="Mật khẩu hiện tại">
+                    <Input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required />
+                  </Field>
                   <Field label="Mật khẩu mới">
-                    <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} disabled={!otpVerified} minLength={8} />
+                    <Input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required />
                   </Field>
                   <Field label="Xác nhận mật khẩu mới">
-                    <Input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} disabled={!otpVerified} minLength={8} />
+                    <Input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} required />
                   </Field>
-                  <Button type="submit" disabled={passwordLoading || !otpVerified}>
+                  <Button type="submit" disabled={passwordLoading}>
                     {passwordLoading ? <Loader2 className="size-4 animate-spin" /> : null}
                     Cập nhật mật khẩu
                   </Button>
                 </form>
               </div>
-            )}
           </section>
         )}
 

@@ -8,14 +8,16 @@ import TournamentService from '../services/tournamentService.js';
 import { buildTournamentOverviewPdf } from '../services/pdf/templates/tournamentReportTemplate.js';
 import { safePdfFileName } from '../services/pdf/pdfExportService.js';
 import { checkPermission, buildTimeline } from '../utils/tournamentHelper.js';
+import { decorateTournamentItems, decorateTournamentWithItems } from '../utils/tournamentState.js';
 
 // ========== GET ==========
 export const getPublicTournamentStats = async (req, res) => {
     try {
         const now = new Date();
         const publicItemFilter = { status: { $ne: 'cancelled' } };
-        const activeItemFilter = { ...publicItemFilter, status: { $nin: ['cancelled', 'completed'] } };
-        const itemIds = await TournamentItem.distinct('_id', publicItemFilter);
+        const publicItems = await decorateTournamentItems(await TournamentItem.find(publicItemFilter).select('_id status timeLine sportType').lean());
+        const itemIds = publicItems.map((item) => item._id);
+        const activeItemIds = publicItems.filter((item) => !['cancelled', 'completed'].includes(item.status)).map((item) => item._id);
 
         const validParticipantFilter = {
             tournamentItemId: { $in: itemIds },
@@ -28,9 +30,7 @@ export const getPublicTournamentStats = async (req, res) => {
         };
 
         const [
-            totalTournaments,
             openRegistrationTournaments,
-            ongoingTournaments,
             totalTeams,
             sports,
             athleteRows,
@@ -39,22 +39,10 @@ export const getPublicTournamentStats = async (req, res) => {
             completedMatches,
             feeRows,
         ] = await Promise.all([
-            TournamentItem.countDocuments(publicItemFilter),
             TournamentItem.countDocuments({
-                ...activeItemFilter,
+                _id: { $in: activeItemIds },
                 'timeLine.registrationStart': { $lte: now },
                 'timeLine.registrationEnd': { $gte: now },
-            }),
-            TournamentItem.countDocuments({
-                ...publicItemFilter,
-                $or: [
-                    { status: 'playing' },
-                    {
-                        status: 'actived',
-                        'timeLine.tournamentStart': { $lte: now },
-                        'timeLine.tournamentEnd': { $gte: now },
-                    },
-                ],
             }),
             Participant.countDocuments(validParticipantFilter),
             TournamentItem.distinct('sportType', publicItemFilter),
@@ -84,11 +72,12 @@ export const getPublicTournamentStats = async (req, res) => {
         ]);
 
         const totalSports = sports.filter((sport) => String(sport || '').trim()).length;
+        const ongoingTournaments = publicItems.filter((item) => item.status === 'playing').length;
 
         res.json({
             success: true,
             data: {
-                totalTournaments,
+                totalTournaments: publicItems.length,
                 openRegistrationTournaments,
                 ongoingTournaments,
                 totalTeams,
@@ -116,9 +105,11 @@ export const getAllTournaments = async (req, res) => {
             .populate('tournamnetItem')
             .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
             .skip((parseInt(page) - 1) * parseInt(limit))
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
         const total = await Tournament.countDocuments(filter);
-        res.json({ data: tournaments, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+        const decorated = await decorateTournamentWithItems(tournaments);
+        res.json({ data: decorated, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -144,12 +135,14 @@ export const getAllSingleSportTournaments = async (req, res) => {
             })
             .sort(sort)
             .skip(skip)
-            .limit(limitNum);
+            .limit(limitNum)
+            .lean();
 
         const total = await TournamentItem.countDocuments(filter);
+        const decorated = await decorateTournamentItems(tournaments);
 
         res.json({
-            data: tournaments,
+            data: decorated,
             pagination: {
                 page: parseInt(page),
                 limit: limitNum,
@@ -181,7 +174,8 @@ export const getOpenRegistrationTournamentItems = async (req, res) => {
             .sort({ 'timeLine.registrationEnd': 1, createdAt: -1 })
             .lean();
 
-        res.json({ data: items });
+        const decorated = await decorateTournamentItems(items);
+        res.json({ data: decorated.filter((item) => !['completed', 'cancelled'].includes(item.status)) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -211,9 +205,10 @@ export const getSingleSportTournamentsByOrganization = async (req, res) => {
                 path: 'categoryRule',
                 populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
             })
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
-        res.json({ data: tournaments });
+        res.json({ data: await decorateTournamentItems(tournaments) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -236,8 +231,9 @@ export const getTournamentByOrganization = async (req, res) => {
         const tournaments = await Tournament.find(filter)
             .populate('organization', 'name username fullName logo email')
             .populate('tournamnetItem')
-            .sort({ createdAt: -1 });
-        res.json({ data: tournaments });
+            .sort({ createdAt: -1 })
+            .lean();
+        res.json({ data: await decorateTournamentWithItems(tournaments) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -253,14 +249,15 @@ export const getTournamentById = async (req, res) => {
                     path: 'categoryRule',
                     populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
                 }
-            });
+            })
+            .lean();
         if (!tournament) return res.status(404).json({ message: "Không tìm thấy hội thao" });
         if (tournament.status === 'cancelled') {
             if (!req.user?._id) return res.status(403).json({ message: 'Tournament is cancelled' });
             const perm = await checkPermission(req.user._id, tournament.organization);
             if (!perm.allowed) return res.status(403).json({ message: perm.message });
         }
-        res.json(tournament);
+        res.json(await decorateTournamentWithItems(tournament));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -273,7 +270,8 @@ export const getSingleTournamentById = async (req, res) => {
             .populate({
                 path: 'categoryRule',
                 populate: ['gameRule', 'scoringRule', 'timeManagementRule', 'resourceManagementRule', 'faultsAndPenaltiesRule']
-            });
+            })
+            .lean();
         if (!item) return res.status(404).json({ message: "Không tìm thấy giải đấu" });
         if (item.status === 'cancelled') {
             if (!req.user?._id) return res.status(403).json({ message: 'Tournament is cancelled' });
@@ -281,11 +279,12 @@ export const getSingleTournamentById = async (req, res) => {
             if (!perm.allowed) return res.status(403).json({ message: perm.message });
         }
         // Trả về đầy đủ
+        const decorated = await decorateTournamentItems(item);
         const result = {
-            ...item.toObject(),
+            ...decorated,
             sportType: item.sportType || item.categoryRule?.sportType || '',
             description: item.description || '',
-            registeredTeams: item.registeredTeams || 0,
+            registeredTeams: decorated.registeredTeams || 0,
             maxTeams: item.maxTeams || 0,
             prizes: item.prizes || '',
             format: item.format || '',

@@ -134,7 +134,7 @@ const AdminNewsMgmtPage = () => {
                 </div>
                 <div className="flex gap-2 md:justify-end">
                   <Button size="sm" variant="outline" onClick={() => setEditing(item)}><Edit3 className="size-4" /> Sửa</Button>
-                  <Button size="sm" variant="destructive" onClick={() => void remove(item._id, item.title)}><Trash2 className="size-4" /> Xóa</Button>
+                  <Button size="sm" variant="destructive" onClick={() => void remove(item._id, item.title)}><Trash2 className="size-4 text-white/80" /><span className="text-white/80"> Xóa</span></Button>
                 </div>
               </article>
             ))}

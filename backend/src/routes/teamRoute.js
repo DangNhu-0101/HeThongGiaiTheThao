@@ -31,6 +31,7 @@ import {
     getParticipantJoinRequests,
     reviewJoinRequest,
     getParticipantFees,
+    getPublicParticipantsByTournament,
     submitParticipantFee,
     cancelParticipantFeeReceipt,
     reviewParticipantFee,
@@ -48,6 +49,7 @@ router.post('/organization/import', protectedRoute('admin', 'org', 'organization
 router.get('/organization/import-template', protectedRoute('admin', 'org', 'organization', { profile: true }), downloadOrganizationImportTemplate);
 
 // ========== GET ==========
+router.get('/public/tournament/:tournamentItemId', getPublicParticipantsByTournament);
 router.get('/public/:idOrSlug', getPublicParticipant);
 router.get('/tournament/:tournamentItemId', protectedRoute(), getParticipantsByTournament);
 router.get('/tournament/:tournamentItemId/default-accounts', protectedRoute('admin', 'org', 'organization', { profile: true }), exportDefaultAccounts);

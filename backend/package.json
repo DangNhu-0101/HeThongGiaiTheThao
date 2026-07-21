@@ -11,7 +11,8 @@
     "seed:sports": "node src/scripts/initialRuleSport.js",
     "seed:competition-config": "node src/scripts/initialRuleSport.js",
     "template": "node src/scripts/configFileExcel.js",
-    "initialAdmin": "node src/scripts/initialAdmin.js"
+    "initialAdmin": "node src/scripts/initialAdmin.js",
+    "test": "node --test src/tests/*.test.mjs"
   },
   "keywords": [],
   "author": "",

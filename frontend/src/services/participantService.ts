@@ -40,6 +40,13 @@ export const participantService = {
     return response.data.data;
   },
 
+  async getPublicByTournament(tournamentItemId: string): Promise<Participant[]> {
+    const response = await api.get<{ success: boolean; data: Participant[] }>(
+      `/participants/public/tournament/${tournamentItemId}`,
+    );
+    return response.data.data;
+  },
+
   async getMyParticipants(): Promise<Participant[]> {
     const response = await api.get<{ success: boolean; data: Participant[] }>("/participants/my");
     return response.data.data;
